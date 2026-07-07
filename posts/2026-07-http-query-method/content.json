@@ -1,0 +1,12 @@
+{
+  "format": "card",
+  "eyebrow": "TECH NEWS",
+  "headline": "Meet QUERY: A New HTTP Method",
+  "body": [
+    "HTTP just got its first new method since 2010. In June 2026, the IETF officially standardized QUERY under RFC 10008 - a safe, read-only method that behaves like GET but can carry a request body like POST. For years, developers have worked around this gap by stuffing complex search and filter parameters into long GET URLs, or misusing POST for operations that were never meant to change anything.",
+    "QUERY closes that gap cleanly. Search APIs, GraphQL-style queries, and complex filters can now use a method that is explicitly safe and cacheable, without hitting URL length limits or bending REST conventions. As browsers, frameworks, and API gateways add support, QUERY is set to become the standard way to ask an API for data based on rich criteria - not just an ID in a URL path."
+  ],
+  "handle": "@xahabcse",
+  "designation": "Assistant Software Engineer at OnnoRokom Projukti Limited",
+  "authorName": "Md Sahabuddin Hossain"
+}

@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest", "--headless", "--output-dir", ".playwright-mcp"]
+    },
+    "browser": {
+      "command": "npx",
+      "args": ["@railsblueprint/blueprint-mcp@latest"]
+    },
+    "canva": {
+      "type": "http",
+      "url": "https://mcp.canva.com/mcp"
+    }
+  }
+}
