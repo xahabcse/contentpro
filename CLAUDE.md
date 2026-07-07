@@ -2,7 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Conventions that apply to **all** work in this directory. This is a workspace for designing **LinkedIn posts** (copy + graphics).
+Conventions that apply to **all** work in this directory. This repo (GitHub: `xahabcse/contentpro`) has two things in it:
+
+1. **Today:** a Claude-driven, code-only pipeline for designing **LinkedIn posts** (copy + graphics) — `templates/`, `scripts/render.js`, `posts/<slug>/content.json`. See **Purpose & Workflow** below.
+2. **In progress:** evolving into **ContentPro**, a self-service multi-tenant web app where end users register and create/edit/export their own LinkedIn card/carousel designs — no Claude/CLI involved for end users. Full requirements spec: **`docs/contentpro-spec.md`**. The `app/` (React/Vite frontend) and `api/` (Hono/Cloudflare Workers backend) folders it describes don't exist yet — see **ContentPro Web App** below for the specialist agents/skills/CI already scaffolded ahead of that build.
 
 ## Purpose & Workflow
 
@@ -45,6 +48,32 @@ node scripts/render.js posts/2026-07-http-query-method
    Write only the real change description (Conventional Commits style: `feat()`, `fix()`, `docs()`, etc.). Attribution is also disabled at the tooling level via `attribution.commit`/`attribution.pr` in `.claude/settings.local.json`.
 
 4. **Playwright artifacts go in `.playwright-mcp/`.** The playwright MCP is configured with `--output-dir .playwright-mcp` (see `.mcp.json`), so **pass a BARE filename** to `browser_take_screenshot` (e.g. `post-preview.png`) — never add a `.playwright-mcp/` path prefix yourself (a bare name leaks to the repo root, a prefixed name double-nests).
+
+## ContentPro Web App
+
+Specialist subagents, slash-skills, and CI/CD for the web app described in `docs/contentpro-spec.md` are already scaffolded, ported and adapted from the "learning" (Porhi) project's tooling for this project's actual stack (MongoDB Atlas + Durable Object, not D1; email+password + PBKDF2, not Google OAuth; no dev branch). Content-authoring-specific agents/skills from that source project (course/MCQ/handbook writers) were **not** ported — irrelevant here.
+
+### Agents (`.claude/agents/`)
+
+| Agent | Use for |
+|---|---|
+| `cf-api-engineer` | Backend work under `api/` — Hono routes, the Mongo Connection Durable Object, PBKDF2/JWT/Turnstile/Resend, R2 access, `wrangler.toml`. |
+| `app-engineer` | Frontend work under `app/src/` — components, routes, the Card/Carousel live editor, the client-side PNG/PDF export pipeline, and design/UX audits against `brand/brand-kit.md` tokens. |
+| `release-engineer` | Ship/deploy mechanics — push to `main`, CI status, Durable Object migration ordering, R2/secrets setup. Does not write feature code. |
+| `ui-tester` | Live-browser QA via Playwright MCP against ContentPro's real screens (signup → editor → download). Read-only; reports bugs, doesn't fix them. |
+
+### Skills (`.claude/skills/`, all `user_invocable`)
+
+| Skill | Purpose |
+|---|---|
+| `/deploy` | Ship to production — push to `main` (no dev branch), CI deploys automatically. |
+| `/setup-secrets` | Set Cloudflare Worker secrets (`MONGODB_URI`, `JWT_SECRET`, `RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`) + GitHub Actions secrets. Run once per new account/rotation — **user supplies the real key/token values.** |
+| `/build-check` | Production build sanity check for `app/` before committing/deploying. |
+| `/ui-test` | Interactive Playwright QA run (the human-invokable counterpart to the `ui-tester` agent). |
+
+### CI/CD (`.github/workflows/`)
+
+`deploy-api.yml` and `deploy-app.yml` trigger on push to **`main`** (path-filtered on `api/**` / `app/**`) — typecheck/build first, deploy only if that passes. **No `dev` branch, no auto-merge-PR bot** (a deliberate simplification vs. the Porhi project's flow) — deploy directly from `main`.
 
 ## MCP Servers
 

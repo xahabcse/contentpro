@@ -1,0 +1,59 @@
+name: Deploy ContentPro API to Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Typecheck & Deploy to Workers
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Runs before deploy so a broken build never ships. No continue-on-error
+      # here — a failing typecheck stops the job, and the deploy step below
+      # never runs.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # There is no D1 in this project (MongoDB Atlas is the database, per
+      # docs/contentpro-spec.md §2/§3), so there are no migration-bootstrap
+      # steps here.
+      #
+      # IMPORTANT — first-time deploy only: the Mongo Connection Durable
+      # Object (docs/contentpro-spec.md §4.2) must already have its
+      # [[migrations]] block (e.g. new_classes = ["MongoConnectionDO"])
+      # committed in api/wrangler.toml *before* this workflow ever runs
+      # against it. Cloudflare registers a new Durable Object class only
+      # through that migrations block on deploy; if it's missing, this
+      # deploy step will fail outright. This is a one-time, manual
+      # prerequisite in the committed config — this workflow cannot add it
+      # for you.
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: api
+          command: deploy --minify
