@@ -38,10 +38,7 @@ function fileToDataUri(filePath) {
 function fontFaceCss() {
   const dir = pathToFileURL(FONT_DIR + path.sep).toString();
   return `
-    @font-face { font-family:'Poppins'; font-weight:400; src:url('${dir}poppins-400.woff2') format('woff2'); }
-    @font-face { font-family:'Poppins'; font-weight:600; src:url('${dir}poppins-600.woff2') format('woff2'); }
-    @font-face { font-family:'Poppins'; font-weight:700; src:url('${dir}poppins-700.woff2') format('woff2'); }
-    @font-face { font-family:'Poppins'; font-weight:800; src:url('${dir}poppins-800.woff2') format('woff2'); }
+    @font-face { font-family:'Plus Jakarta Sans'; font-weight:400 800; src:url('${dir}plus-jakarta-sans.woff2') format('woff2'); }
   `;
 }
 
@@ -114,7 +111,9 @@ function renderSlideHtml(slide, index, total) {
             <img class="photo" src="${slide.photoSrc}" alt="${escapeHtml(slide.authorName || '')}" />
             ${FOOTER_ICONS_HTML}
             <div class="handle">${escapeHtml(slide.handle || '@xahabcse')}</div>
-            <div class="sep">&middot;</div>
+          </div>
+          <div class="row row-2">
+            <img class="company-logo" src="${slide.companyLogoSrc}" alt="Company logo" />
             <div class="designation">${escapeHtml(slide.designation || 'Software Engineer')}</div>
           </div>
         </div>
@@ -151,7 +150,13 @@ async function renderCarousel(content, outputDir) {
   const slidesWithPhotos = slides.map(s => {
     if (s.type === 'cover') {
       const photoPath = s.photo ? path.resolve(REPO_ROOT, s.photo) : DEFAULT_PHOTO;
-      return { ...s, photoSrc: fileToDataUri(photoPath), authorName: s.authorName || content.authorName };
+      const companyLogoPath = s.companyLogo ? path.resolve(REPO_ROOT, s.companyLogo) : DEFAULT_COMPANY_LOGO;
+      return {
+        ...s,
+        photoSrc: fileToDataUri(photoPath),
+        companyLogoSrc: fileToDataUri(companyLogoPath),
+        authorName: s.authorName || content.authorName,
+      };
     }
     return s;
   });

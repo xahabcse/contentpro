@@ -101,7 +101,12 @@ html, body {
 .footer .row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
+}
+
+.footer .row-2 {
+  margin-top: 14px;
 }
 
 .footer .photo {
@@ -146,10 +151,16 @@ html, body {
   white-space: nowrap;
 }
 
-.footer .sep {
-  color: var(--text-muted);
-  margin: 0 10px;
-  font-size: 20px;
+.footer .company-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  object-fit: contain;
+  background: #FFFFFF;
+  border: 1px solid var(--line);
+  padding: 3px;
+  flex: 0 0 auto;
+  margin-right: 10px;
 }
 
 .footer .designation {
