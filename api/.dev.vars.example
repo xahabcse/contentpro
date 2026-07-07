@@ -1,0 +1,20 @@
+# Copy this file to `.dev.vars` for local `wrangler dev` runs. `.dev.vars` is
+# already gitignored at the repo root -- never commit real secret values.
+
+# MongoDB Atlas connection string. Use a SEPARATE dev-tier database/database
+# user, never the production URI -- `wrangler dev` talks to the real Atlas
+# cluster over the network, there is no local Mongo emulator.
+MONGODB_URI="mongodb+srv://<dev-user>:<dev-password>@<dev-cluster>.mongodb.net/?retryWrites=true&w=majority"
+
+# Long random string used to sign/verify session JWTs and the email-verification
+# / password-reset action JWTs (HMAC-SHA256). Generate one with:
+#   node -e "console.log(crypto.randomUUID()+crypto.randomUUID())"
+JWT_SECRET="<generate-a-long-random-secret>"
+
+# Resend API key (https://resend.com/api-keys) -- sends verification + password
+# reset emails.
+RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Cloudflare Turnstile secret key (https://dash.cloudflare.com/?to=/:account/turnstile)
+# -- server-side validation for the public signup form.
+TURNSTILE_SECRET_KEY="0x0000000000000000000000000000000000"

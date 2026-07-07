@@ -1,0 +1,58 @@
+name = "contentpro-api"
+main = "src/index.ts"
+compatibility_date = "2025-03-20"
+compatibility_flags = ["nodejs_compat_v2"]
+
+[vars]
+# These are the deployed (production) defaults used by `wrangler deploy`.
+# For local `wrangler dev`, override via `.dev.vars` or `--var` flags rather
+# than editing these -- see .dev.vars.example.
+ENV = "production"
+FRONTEND_URL = "https://content.xahabcse.me"
+RESEND_FROM_EMAIL = "ContentPro <noreply@xahabcse.me>"
+
+# -----------------------------------------------------------------------------
+# R2 bucket binding -- profile photos, company logos, and every exported PNG/PDF
+# (all private, see spec section 5.6). A binding to a bucket that doesn't exist
+# yet fails at deploy time, so this stays commented out until the bucket is
+# actually provisioned:
+#
+#   npx wrangler r2 bucket create contentpro-files
+#
+# Then uncomment below.
+# -----------------------------------------------------------------------------
+# [[r2_buckets]]
+# binding = "FILES"
+# bucket_name = "contentpro-files"
+
+# -----------------------------------------------------------------------------
+# KV namespace binding -- resend-verification / forgot-password rate-limit
+# tracking (spec sections 5.3/5.4). Create the namespace first, paste the
+# returned id below, then uncomment:
+#
+#   npx wrangler kv namespace create RATE_LIMIT_KV
+# -----------------------------------------------------------------------------
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT_KV"
+# id = "<TODO: fill in after wrangler kv namespace create>"
+
+# -----------------------------------------------------------------------------
+# Durable Object binding + migration -- wraps the single warm MongoClient
+# connection (spec section 4.2). Uncomment on the first deploy that ships
+# MongoConnectionDO. Durable Object class migrations are one-directional --
+# do not remove or rename an already-applied `new_classes` entry in production.
+# -----------------------------------------------------------------------------
+# [durable_objects]
+# bindings = [
+#   { name = "MONGO_DO", class_name = "MongoConnectionDO" }
+# ]
+#
+# [[migrations]]
+# tag = "v1"
+# new_classes = ["MongoConnectionDO"]
+
+# -----------------------------------------------------------------------------
+# Secrets -- NOT set in this file. Provision via `wrangler secret put <NAME>`
+# (see .dev.vars.example for local-dev equivalents):
+#   MONGODB_URI, JWT_SECRET, RESEND_API_KEY, TURNSTILE_SECRET_KEY
+# -----------------------------------------------------------------------------

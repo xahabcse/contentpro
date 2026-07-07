@@ -1,0 +1,141 @@
+/* App-chrome design tokens (Dashboard, forms, settings) -- sourced from
+   brand/brand-kit.md. These govern the product UI *around* the editor.
+   The Card/Carousel canvas itself uses its OWN fixed color set (see
+   src/lib/canvas-theme.ts) that never themes with the app -- an exported
+   design must always render exactly as brand-kit specifies regardless of
+   the viewer's app-chrome preference. Do not conflate the two token sets. */
+
+:root {
+  --bg: #E7EFEA;
+  --glow: #DBF0E2;
+  --surface: #FFFFFF;
+  --ink: #11221A;
+  --muted: #5E7369;
+  --brand: #12A15C;
+  --brand-strong: #0A703F;
+  --line: #D7EADD;
+  --danger: #A13B2B;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Reusable utility classes matching the live Porhi site's visual language
+   (pill badges, rounded cards, filled/outline buttons) -- observed directly
+   from https://learn.xahabcse.me, adapted to ContentPro's own tokens. */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pill-brand {
+  background: var(--glow);
+  color: var(--brand-strong);
+}
+
+.card-surface {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 15px;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+  width: 100%;
+}
+
+.btn:active {
+  filter: brightness(0.95);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--brand);
+  color: #FFFFFF;
+}
+
+.btn-outline {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.btn-fab {
+  width: 56px;
+  height: 56px;
+  border-radius: 9999px;
+  background: var(--brand);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(10, 112, 63, 0.35);
+}
+
+.input {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.input:focus {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.error-text {
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 4px;
+}

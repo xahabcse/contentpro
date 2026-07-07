@@ -1,0 +1,74 @@
+// PBKDF2-HMAC-SHA256 via native Web Crypto (crypto.subtle) -- spec section 5.1.
+// Deliberately NOT bcrypt/argon2/node:crypto scrypt: native .node addons never
+// load in the Workers V8 isolate (no dlopen), and node:crypto scrypt is a
+// documented *future* hardening path for Workers Paid, not a v1 shortcut.
+
+const SALT_BYTES = 16;
+// 50,000-80,000 iterations: deliberately below OWASP's ~600,000 recommendation,
+// tuned to stay under the Workers free plan's ~10ms CPU-time-per-request ceiling.
+// The exact count used is stored per-user (passwordIterations) so it can be
+// raised for new signups later without invalidating existing hashes.
+const DEFAULT_ITERATIONS = 60_000;
+const DERIVED_KEY_BITS = 256;
+
+function toBase64(bytes: ArrayBuffer | Uint8Array): string {
+  const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let binary = "";
+  for (const byte of arr) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function fromBase64(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function deriveBits(password: string, salt: Uint8Array, iterations: number): Promise<ArrayBuffer> {
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  return crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: salt as BufferSource, iterations, hash: "SHA-256" },
+    keyMaterial,
+    DERIVED_KEY_BITS,
+  );
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
+}
+
+export interface PasswordHashResult {
+  hash: string;
+  salt: string;
+  iterations: number;
+}
+
+export async function hashPassword(
+  password: string,
+  iterations: number = DEFAULT_ITERATIONS,
+): Promise<PasswordHashResult> {
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  const bits = await deriveBits(password, salt, iterations);
+  return { hash: toBase64(bits), salt: toBase64(salt), iterations };
+}
+
+export async function verifyPassword(
+  password: string,
+  hash: string,
+  salt: string,
+  iterations: number,
+): Promise<boolean> {
+  const saltBytes = fromBase64(salt);
+  const bits = await deriveBits(password, saltBytes, iterations);
+  return timingSafeEqual(toBase64(bits), hash);
+}
