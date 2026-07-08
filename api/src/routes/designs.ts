@@ -27,7 +27,11 @@ function mongoStub(env: Env) {
 
 const MAX_DESIGNS_PER_TYPE = 5; // spec section 7 -- 5 images / 5 PDFs per user
 const MAX_CAROUSEL_SLIDES = 15; // spec section 8 -- hard cap, decision 19
-const MAX_EXPORT_BYTES = 20 * 1024 * 1024; // safety ceiling for a client-rasterized PNG/PDF
+// Safety ceiling for a client-rasterized PNG/PDF -- 100MB. The original 20MB
+// guess was untested against real output: a 2-slide carousel PDF at 1080x1080
+// @2x already approached it, and the 15-slide max (spec §8) scales well past
+// that. Cloudinary's free tier comfortably allows files well beyond this.
+const MAX_EXPORT_BYTES = 100 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // validation schemas
