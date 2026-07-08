@@ -30,6 +30,7 @@ export default function SocialFooter({ data, style, palette }: SocialFooterProps
           <img
             src={data.photoUrl}
             alt=""
+            crossOrigin="anonymous"
             style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid #FFFFFF', boxShadow: '0 3px 10px rgba(17,34,26,0.18)' }}
           />
         ) : (
@@ -54,7 +55,7 @@ export default function SocialFooter({ data, style, palette }: SocialFooterProps
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 14 }}>
         {data.companyLogoUrl ? (
-          <img src={data.companyLogoUrl} alt="" style={{ width: 30, height: 30, borderRadius: 7, objectFit: 'contain', background: '#FFFFFF', border: `1px solid ${palette.line}`, padding: 3 }} />
+          <img src={data.companyLogoUrl} alt="" crossOrigin="anonymous" style={{ width: 30, height: 30, borderRadius: 7, objectFit: 'contain', background: '#FFFFFF', border: `1px solid ${palette.line}`, padding: 3 }} />
         ) : (
           <div style={{ width: 30, height: 30, borderRadius: 7, background: palette.line }} />
         )}

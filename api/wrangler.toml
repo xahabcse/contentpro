@@ -11,45 +11,48 @@ ENV = "production"
 FRONTEND_URL = "https://content.xahabcse.me"
 RESEND_FROM_EMAIL = "ContentPro <noreply@xahabcse.me>"
 
-# -----------------------------------------------------------------------------
-# R2 bucket binding -- profile photos, company logos, and every exported PNG/PDF
-# (all private, see spec section 5.6). A binding to a bucket that doesn't exist
-# yet fails at deploy time, so this stays commented out until the bucket is
-# actually provisioned:
-#
-#   npx wrangler r2 bucket create contentpro-files
-#
-# Then uncomment below.
-# -----------------------------------------------------------------------------
-# [[r2_buckets]]
-# binding = "FILES"
-# bucket_name = "contentpro-files"
+# Cloudinary storage (spec section 5.6, revised) -- profile photos, company
+# logos, and every exported PNG/PDF. Cloud name + API key are not secret
+# (same as protfolio's wrangler.toml); the API secret is set via:
+#   npx wrangler secret put CLOUDINARY_API_SECRET
+CLOUDINARY_CLOUD_NAME = "drwezeylt"
+CLOUDINARY_API_KEY = "115224732881292"
+
+# KV namespace binding -- resend-verification / forgot-password rate-limit
+# tracking (spec sections 5.3/5.4).
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "85a0e6dd9be04224a6bb088f6a16667c"
 
 # -----------------------------------------------------------------------------
-# KV namespace binding -- resend-verification / forgot-password rate-limit
-# tracking (spec sections 5.3/5.4). Create the namespace first, paste the
-# returned id below, then uncomment:
-#
-#   npx wrangler kv namespace create RATE_LIMIT_KV
+# Workers Route -- the frontend (app/) calls the API via relative /api/*
+# paths (e.g. fetch('/api/profile')), which only resolve correctly once this
+# Worker is bound to handle that path prefix on the same custom domain the
+# Pages project serves everything else from.
 # -----------------------------------------------------------------------------
-# [[kv_namespaces]]
-# binding = "RATE_LIMIT_KV"
-# id = "<TODO: fill in after wrangler kv namespace create>"
+[[routes]]
+pattern = "content.xahabcse.me/api/*"
+zone_name = "xahabcse.me"
 
 # -----------------------------------------------------------------------------
 # Durable Object binding + migration -- wraps the single warm MongoClient
-# connection (spec section 4.2). Uncomment on the first deploy that ships
-# MongoConnectionDO. Durable Object class migrations are one-directional --
-# do not remove or rename an already-applied `new_classes` entry in production.
+# connection (spec section 4.2). Durable Object class migrations are
+# one-directional -- do not remove or rename an already-applied `new_classes`
+# entry in production.
 # -----------------------------------------------------------------------------
-# [durable_objects]
-# bindings = [
-#   { name = "MONGO_DO", class_name = "MongoConnectionDO" }
-# ]
-#
-# [[migrations]]
-# tag = "v1"
-# new_classes = ["MongoConnectionDO"]
+[durable_objects]
+bindings = [
+  { name = "MONGO_DO", class_name = "MongoConnectionDO" }
+]
+
+[[migrations]]
+tag = "v1"
+# Free-plan Durable Objects require SQLite-backed storage as of the current
+# Workers platform requirements -- `new_classes` (KV-backed DO storage) is
+# gated to paid plans. MongoConnectionDO doesn't use `this.ctx.storage` for
+# anything (it only caches an in-memory MongoClient), so this is purely a
+# platform/deployment requirement, not a behavior change.
+new_sqlite_classes = ["MongoConnectionDO"]
 
 # -----------------------------------------------------------------------------
 # Secrets -- NOT set in this file. Provision via `wrangler secret put <NAME>`

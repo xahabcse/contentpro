@@ -113,23 +113,21 @@ auth.post("/login", zValidator("json", loginSchema), async (c) => {
     maxAge: SESSION_COOKIE_MAX_AGE,
   });
 
-  return c.json({
-    user: { id: user._id, email: user.email, emailVerified: user.emailVerified },
-  });
+  return c.json({ id: user._id, email: user.email, emailVerified: user.emailVerified });
 });
 
+// Flat shape -- matches app/src/lib/auth.tsx's AuthContext User type exactly
+// (setUser(await res.json())), not wrapped in a `user` key.
 auth.get("/me", authRequired, async (c) => {
   const stub = mongoStub(c.env);
   const user = await stub.findUserById(c.get("userId"));
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
 
   return c.json({
-    user: {
-      id: user._id,
-      email: user.email,
-      emailVerified: user.emailVerified,
-      profile: user.profile,
-    },
+    id: user._id,
+    email: user.email,
+    emailVerified: user.emailVerified,
+    profile: user.profile,
   });
 });
 

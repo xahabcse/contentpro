@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv, Env } from "../env";
 import { isUploadedFile } from "../lib/http";
-import { deleteObject, getObject, objectToResponse, putObject } from "../lib/r2";
+import { signCloudinaryUrlOrOriginal, uploadToCloudinary, withAttachmentFlag } from "../lib/cloudinary";
 import { authRequired } from "../middleware/auth-required";
 import { emailVerifiedRequired } from "../middleware/email-verified-required";
 import {
@@ -161,6 +161,7 @@ designs.post("/", zValidator("json", createDesignSchema), async (c) => {
 // Dashboard/gallery listing -- includes the 5+5 usage counters (spec 4.1/7).
 // Thumbnails are intentionally NOT returned here; they're a client-side
 // mini-render of content/style, not a stored image (spec section 6).
+// `counts` shape matches app/src/lib/api.ts's DesignCounts exactly.
 designs.get("/", async (c) => {
   const userId = c.get("userId");
   const stub = mongoStub(c.env);
@@ -175,24 +176,32 @@ designs.get("/", async (c) => {
       format: d.format,
       title: d.title,
       fileType: d.fileType,
-      hasExport: Boolean(d.export?.r2Key),
+      hasExport: Boolean(d.export?.url),
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
     })),
-    limits: {
-      image: { used: imageCount, max: MAX_DESIGNS_PER_TYPE },
-      pdf: { used: pdfCount, max: MAX_DESIGNS_PER_TYPE },
-    },
+    counts: { images: imageCount, pdfs: pdfCount },
   });
 });
 
+// Flat shape -- matches CardEditorPage.tsx/CarouselEditorPage.tsx's
+// `.then((d) => { setContent(d.content); setStyle(d.style); })`, not a
+// `{ design }` wrapper.
 designs.get("/:id", async (c) => {
   const stub = mongoStub(c.env);
   const design = await stub.findDesign(c.req.param("id"));
   if (!design || design.userId !== c.get("userId")) {
     return c.json({ error: "NOT_FOUND" }, 404);
   }
-  return c.json({ design });
+  if (design.export?.url) {
+    const signedUrl = await signCloudinaryUrlOrOriginal(
+      design.export.url,
+      c.env.CLOUDINARY_API_SECRET,
+      c.env.CLOUDINARY_CLOUD_NAME,
+    );
+    return c.json({ ...design, export: { ...design.export, url: signedUrl } });
+  }
+  return c.json(design);
 });
 
 // Autosaved by the editor (debounced ~2s + on-blur/pre-download, spec 4.1) --
@@ -226,8 +235,11 @@ designs.put("/:id", zValidator("json", updateDesignSchema), async (c) => {
   return c.json({ message: "Saved." });
 });
 
-// Deletes the design document AND its R2 export object together (decision 10),
-// freeing one slot against the 5/5 cap.
+// Deletes the design document, freeing one slot against the 5/5 cap
+// (decision 10). Does NOT also destroy the underlying Cloudinary asset --
+// matches protfolio's own files.ts, which never calls Cloudinary's destroy
+// API on delete either (soft-delete of the DB record only). An orphaned
+// Cloudinary asset is an acceptable v1 tradeoff for this parity.
 designs.delete("/:id", async (c) => {
   const stub = mongoStub(c.env);
   const design = await stub.findDesign(c.req.param("id"));
@@ -235,9 +247,6 @@ designs.delete("/:id", async (c) => {
     return c.json({ error: "NOT_FOUND" }, 404);
   }
 
-  if (design.export?.r2Key) {
-    await deleteObject(c.env.FILES, design.export.r2Key);
-  }
   await stub.deleteDesign(design._id);
   return c.json({ message: "Deleted." });
 });
@@ -268,7 +277,10 @@ designs.post("/:id/duplicate", async (c) => {
 // Accepts the client-rendered PNG/PDF binary (multipart form, field "file"),
 // checks the 5/5 cap (unless this design already has an export -- re-exports
 // overwrite in place and never count against the cap, spec section 7),
-// stores it to R2, and writes export.* metadata.
+// uploads it to Cloudinary, and writes export.* metadata. Each re-export
+// creates a fresh Cloudinary asset (a new public_id/URL each time, same as
+// protfolio's /upload) rather than overwriting one in place -- the prior
+// asset is simply orphaned, matching the delete route's same tradeoff.
 designs.post("/:id/export", async (c) => {
   const stub = mongoStub(c.env);
   const design = await stub.findDesign(c.req.param("id"));
@@ -276,7 +288,7 @@ designs.post("/:id/export", async (c) => {
     return c.json({ error: "NOT_FOUND" }, 404);
   }
 
-  const isReExport = Boolean(design.export?.r2Key);
+  const isReExport = Boolean(design.export?.url);
   if (!isReExport) {
     const count = await stub.countDesignsByType(design.userId, design.fileType);
     if (count >= MAX_DESIGNS_PER_TYPE) {
@@ -308,13 +320,12 @@ designs.post("/:id/export", async (c) => {
       : undefined;
 
   const bytes = await file.arrayBuffer();
-  const r2Key = `designs/${design.userId}/${design._id}/export`;
-  await putObject(c.env.FILES, r2Key, bytes, expectedMime);
   const checksum = await sha256Hex(bytes);
+  const url = await uploadToCloudinary(c.env, file, `contentpro/designs/${design.userId}`);
 
   await stub.updateDesign(design._id, {
     export: {
-      r2Key,
+      url,
       mimeType: expectedMime,
       sizeBytes: bytes.byteLength,
       pageCount,
@@ -324,27 +335,35 @@ designs.post("/:id/export", async (c) => {
     updatedAt: new Date(),
   });
 
-  return c.json({ message: "Exported.", r2Key, sizeBytes: bytes.byteLength });
+  return c.json({ message: "Exported.", sizeBytes: bytes.byteLength });
 });
 
-// The only path any exported file is ever retrieved through (decision 12) --
-// ownership-checked, then streamed directly from R2.
+// Not currently linked from any UI affordance (the editor downloads its
+// client-rendered blob directly, see app/src/lib/export.ts) -- kept as the
+// ownership-checked API surface for a future "re-download" action (decision
+// 12: exported files are only ever retrieved through an authenticated,
+// ownership-checked path). Redirects to a signed Cloudinary URL with
+// fl_attachment forcing a real "Save As" download, rather than streaming
+// bytes through the Worker.
 designs.get("/:id/download", async (c) => {
   const stub = mongoStub(c.env);
   const design = await stub.findDesign(c.req.param("id"));
   if (!design || design.userId !== c.get("userId")) {
     return c.json({ error: "NOT_FOUND" }, 404);
   }
-  if (!design.export?.r2Key) {
+  if (!design.export?.url) {
     return c.json({ error: "NOT_EXPORTED" }, 404);
   }
 
-  const obj = await getObject(c.env.FILES, design.export.r2Key);
-  if (!obj) return c.json({ error: "NOT_FOUND" }, 404);
-
   const extension = design.fileType === "image" ? "png" : "pdf";
   const filename = `${design.title ?? "design"}.${extension}`;
-  return objectToResponse(obj, { download: true, filename });
+  const attachmentUrl = withAttachmentFlag(design.export.url, filename);
+  const signed = await signCloudinaryUrlOrOriginal(
+    attachmentUrl,
+    c.env.CLOUDINARY_API_SECRET,
+    c.env.CLOUDINARY_CLOUD_NAME,
+  );
+  return c.redirect(signed, 302);
 });
 
 export default designs;

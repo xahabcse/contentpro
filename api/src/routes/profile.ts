@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv, Env } from "../env";
 import { isUploadedFile } from "../lib/http";
-import { getObject, objectToResponse, putObject } from "../lib/r2";
+import { signCloudinaryUrlOrOriginal, uploadToCloudinary } from "../lib/cloudinary";
 import { authRequired } from "../middleware/auth-required";
 import { emailVerifiedRequired } from "../middleware/email-verified-required";
 import type { UserProfile } from "../schema";
@@ -20,11 +20,29 @@ function mongoStub(env: Env) {
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5MB
 
+// Every URL handed back to the client is signed here (matches protfolio's
+// files.ts, which signs on every route that returns a stored URL, not just a
+// dedicated redirect endpoint). Storage keeps the plain secure_url; signing
+// happens only at response time.
+async function signedProfile(env: Env, profile: UserProfile) {
+  const [photoUrl, companyLogoUrl] = await Promise.all([
+    profile.photoUrl
+      ? signCloudinaryUrlOrOriginal(profile.photoUrl, env.CLOUDINARY_API_SECRET, env.CLOUDINARY_CLOUD_NAME)
+      : null,
+    profile.companyLogoUrl
+      ? signCloudinaryUrlOrOriginal(profile.companyLogoUrl, env.CLOUDINARY_API_SECRET, env.CLOUDINARY_CLOUD_NAME)
+      : null,
+  ]);
+  return { ...profile, photoUrl, companyLogoUrl };
+}
+
+// Flat shape -- matches app/src/pages/ProfileSettingsPage.tsx's
+// `.then(setProfile)` (no `{ profile }` wrapper).
 profile.get("/", async (c) => {
   const stub = mongoStub(c.env);
   const user = await stub.findUserById(c.get("userId"));
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
-  return c.json({ profile: user.profile });
+  return c.json(await signedProfile(c.env, user.profile));
 });
 
 const updateProfileSchema = z.object({
@@ -44,15 +62,15 @@ profile.put("/", zValidator("json", updateProfileSchema), async (c) => {
 
   const nextProfile: UserProfile = { ...user.profile, ...updates };
   await stub.updateUser(userId, { profile: nextProfile, updatedAt: new Date() });
-  return c.json({ profile: nextProfile });
+  return c.json(await signedProfile(c.env, nextProfile));
 });
 
-type ProfileImageField = "photoR2Key" | "companyLogoR2Key";
+type ProfileImageField = "photoUrl" | "companyLogoUrl";
 
 async function handleImageUpload(
   c: Context<AppEnv>,
   field: ProfileImageField,
-  r2KeyPrefix: string,
+  cloudinaryFolder: string,
 ): Promise<Response> {
   const form = await c.req.formData();
   const file = form.get("file");
@@ -71,31 +89,34 @@ async function handleImageUpload(
   const user = await stub.findUserById(userId);
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
 
-  const key = `${r2KeyPrefix}/${userId}`;
-  const bytes = await file.arrayBuffer();
-  await putObject(c.env.FILES, key, bytes, file.type);
+  const url = await uploadToCloudinary(c.env, file, `${cloudinaryFolder}/${userId}`);
 
-  const nextProfile: UserProfile = { ...user.profile, [field]: key };
+  const nextProfile: UserProfile = { ...user.profile, [field]: url };
   await stub.updateUser(userId, { profile: nextProfile, updatedAt: new Date() });
 
-  return c.json({ profile: nextProfile });
+  // Top-level `url` -- matches ProfileSettingsPage.tsx's `const { url } = await res.json()`.
+  const signed = await signCloudinaryUrlOrOriginal(url, c.env.CLOUDINARY_API_SECRET, c.env.CLOUDINARY_CLOUD_NAME);
+  return c.json({ url: signed, profile: await signedProfile(c.env, nextProfile) });
 }
 
-profile.post("/photo", (c) => handleImageUpload(c, "photoR2Key", "profiles/photo"));
-profile.post("/logo", (c) => handleImageUpload(c, "companyLogoR2Key", "profiles/logo"));
+profile.post("/photo", (c) => handleImageUpload(c, "photoUrl", "contentpro/profiles/photo"));
+profile.post("/logo", (c) => handleImageUpload(c, "companyLogoUrl", "contentpro/profiles/logo"));
 
-async function handleImageDownload(c: Context<AppEnv>, field: ProfileImageField): Promise<Response> {
+// Inline display only (used as the editor footer's <img> source) -- redirects
+// to a signed Cloudinary delivery URL after an ownership check, rather than
+// streaming bytes through the Worker (see lib/cloudinary.ts for the access
+// model this relies on).
+async function handleImageRedirect(c: Context<AppEnv>, field: ProfileImageField): Promise<Response> {
   const stub = mongoStub(c.env);
   const user = await stub.findUserById(c.get("userId"));
-  const key = user?.profile[field];
-  if (!user || !key) return c.json({ error: "NOT_FOUND" }, 404);
+  const url = user?.profile[field];
+  if (!user || !url) return c.json({ error: "NOT_FOUND" }, 404);
 
-  const obj = await getObject(c.env.FILES, key);
-  if (!obj) return c.json({ error: "NOT_FOUND" }, 404);
-  return objectToResponse(obj);
+  const signed = await signCloudinaryUrlOrOriginal(url, c.env.CLOUDINARY_API_SECRET, c.env.CLOUDINARY_CLOUD_NAME);
+  return c.redirect(signed, 302);
 }
 
-profile.get("/photo", (c) => handleImageDownload(c, "photoR2Key"));
-profile.get("/logo", (c) => handleImageDownload(c, "companyLogoR2Key"));
+profile.get("/photo", (c) => handleImageRedirect(c, "photoUrl"));
+profile.get("/logo", (c) => handleImageRedirect(c, "companyLogoUrl"));
 
 export default profile;

@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { MongoClient, ObjectId, type Collection, type Db } from "mongodb";
+import type { Collection, Db, MongoClient } from "mongodb";
 import type { Env } from "../env";
 import type {
   DesignDocument,
@@ -51,15 +51,32 @@ export class MongoConnectionDO extends DurableObject<Env> {
     super(ctx, env);
   }
 
+  // `mongodb`'s bson dependency runs a top-level random-value initializer
+  // (ObjectId's per-process unique bytes) the moment the module is evaluated
+  // -- Workers disallows generating random values at global scope, so a
+  // static top-level `import ... from "mongodb"` throws "Disallowed
+  // operation called within global scope" the instant the Worker boots.
+  // Dynamic import() defers module evaluation to first call, which always
+  // happens inside a request (or DO method invocation), never at module load.
+  private async loadMongo() {
+    return import("mongodb");
+  }
+
   // Named connectToMongo (not `connect`) -- DurableObject's base class already
   // declares a `connect(socket: Socket)` method for TCP-socket-backed DOs, and
   // overriding it with an incompatible signature is a compile error.
   private async connectToMongo(): Promise<Db> {
+    const { MongoClient } = await this.loadMongo();
     const client = new MongoClient(this.env.MONGODB_URI);
     await client.connect();
     this.client = client;
     this.db = client.db(DATABASE_NAME);
     return this.db;
+  }
+
+  private async oid(id: string) {
+    const { ObjectId } = await this.loadMongo();
+    return new ObjectId(id);
   }
 
   private async teardown(): Promise<void> {
@@ -123,8 +140,9 @@ export class MongoConnectionDO extends DurableObject<Env> {
   }
 
   async findUserById(id: string): Promise<UserRecord | null> {
+    const _id = await this.oid(id);
     return this.withDb(async (db) => {
-      const doc = await this.users(db).findOne({ _id: new ObjectId(id) });
+      const doc = await this.users(db).findOne({ _id });
       return doc ? toUserRecord(doc) : null;
     });
   }
@@ -137,8 +155,9 @@ export class MongoConnectionDO extends DurableObject<Env> {
   }
 
   async updateUser(id: string, update: UserUpdateInput): Promise<void> {
+    const _id = await this.oid(id);
     await this.withDb(async (db) => {
-      await this.users(db).updateOne({ _id: new ObjectId(id) }, { $set: update });
+      await this.users(db).updateOne({ _id }, { $set: update });
     });
   }
 
@@ -147,16 +166,18 @@ export class MongoConnectionDO extends DurableObject<Env> {
   // ---------------------------------------------------------------------
 
   async findDesign(id: string): Promise<DesignRecord | null> {
+    const _id = await this.oid(id);
     return this.withDb(async (db) => {
-      const doc = await this.designsCol(db).findOne({ _id: new ObjectId(id) });
+      const doc = await this.designsCol(db).findOne({ _id });
       return doc ? toDesignRecord(doc) : null;
     });
   }
 
   async listDesignsForUser(userId: string): Promise<DesignRecord[]> {
+    const uid = await this.oid(userId);
     return this.withDb(async (db) => {
       const docs = await this.designsCol(db)
-        .find({ userId: new ObjectId(userId) })
+        .find({ userId: uid })
         .sort({ updatedAt: -1 })
         .toArray();
       return docs.map(toDesignRecord);
@@ -164,31 +185,35 @@ export class MongoConnectionDO extends DurableObject<Env> {
   }
 
   async insertDesign(design: NewDesignInput): Promise<string> {
+    const { userId, ...rest } = design;
+    const uid = await this.oid(userId);
     return this.withDb(async (db) => {
-      const { userId, ...rest } = design;
       const result = await this.designsCol(db).insertOne({
         ...rest,
-        userId: new ObjectId(userId),
+        userId: uid,
       });
       return result.insertedId.toHexString();
     });
   }
 
   async updateDesign(id: string, update: DesignUpdateInput): Promise<void> {
+    const _id = await this.oid(id);
     await this.withDb(async (db) => {
-      await this.designsCol(db).updateOne({ _id: new ObjectId(id) }, { $set: update });
+      await this.designsCol(db).updateOne({ _id }, { $set: update });
     });
   }
 
   async deleteDesign(id: string): Promise<void> {
+    const _id = await this.oid(id);
     await this.withDb(async (db) => {
-      await this.designsCol(db).deleteOne({ _id: new ObjectId(id) });
+      await this.designsCol(db).deleteOne({ _id });
     });
   }
 
   async countDesignsByType(userId: string, fileType: DesignFileType): Promise<number> {
+    const uid = await this.oid(userId);
     return this.withDb(async (db) => {
-      return this.designsCol(db).countDocuments({ userId: new ObjectId(userId), fileType });
+      return this.designsCol(db).countDocuments({ userId: uid, fileType });
     });
   }
 }

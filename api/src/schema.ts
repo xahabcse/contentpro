@@ -104,7 +104,8 @@ export function mimeTypeForFormat(format: DesignFormat): string {
 // ---------------------------------------------------------------------------
 
 export interface DesignExport {
-  r2Key?: string;
+  /** Cloudinary secure_url of the exported PNG/PDF. */
+  url?: string;
   mimeType?: string;
   sizeBytes?: number;
   /** carousel PDFs only -- number of slides; n/a for card PNGs */
@@ -148,9 +149,11 @@ export type DesignUpdateInput = Partial<Omit<DesignDocument, "_id" | "userId">>;
 export interface UserProfile {
   name?: string;
   designation?: string;
-  photoR2Key?: string;
+  /** Cloudinary secure_url. */
+  photoUrl?: string;
   companyName?: string;
-  companyLogoR2Key?: string;
+  /** Cloudinary secure_url. */
+  companyLogoUrl?: string;
   /** the one shared handle text used under all 4 social icons, e.g. "at-xahabcse" */
   handle?: string;
 }

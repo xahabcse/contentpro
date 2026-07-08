@@ -18,3 +18,9 @@ RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 # Cloudflare Turnstile secret key (https://dash.cloudflare.com/?to=/:account/turnstile)
 # -- server-side validation for the public signup form.
 TURNSTILE_SECRET_KEY="0x0000000000000000000000000000000000"
+
+# Cloudinary API secret (https://cloudinary.com/console) -- signs uploads and
+# delivery URLs (lib/cloudinary.ts). CLOUDINARY_CLOUD_NAME/CLOUDINARY_API_KEY
+# are NOT secret -- they're plain [vars] in wrangler.toml and already apply to
+# `wrangler dev` too, so they don't need to be repeated here.
+CLOUDINARY_API_SECRET="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
