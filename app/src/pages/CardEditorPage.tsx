@@ -118,6 +118,17 @@ export default function CardEditorPage() {
 
       <div className="card-surface" style={{ padding: 16, marginBottom: 16 }}>
         <div style={{ marginBottom: 14 }}>
+          <label className="label" htmlFor="eyebrow">Eyebrow tag (optional)</label>
+          <input
+            id="eyebrow"
+            className="input"
+            placeholder="e.g. CAREER TIP"
+            value={content.eyebrow ?? ''}
+            onChange={(e) => updateContent({ ...content, eyebrow: e.target.value })}
+          />
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
           <label className="label" htmlFor="headline">Headline ({headlineWordCount} words)</label>
           <input
             id="headline"
@@ -163,6 +174,7 @@ export default function CardEditorPage() {
         <PalettePicker value={style.paletteId} onChange={(paletteId) => updateStyle({ ...style, paletteId })} />
 
         <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Text style</h2>
+        <StyleControls label="Eyebrow" value={style.regions.eyebrow} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, eyebrow: v } })} showSize={false} />
         <StyleControls label="Headline" value={style.regions.headline} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, headline: v } })} />
         <StyleControls label="Body" value={style.regions.body} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, body: v } })} />
         <StyleControls label="Footer" value={style.regions.footer} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, footer: v } })} showSize={false} />
