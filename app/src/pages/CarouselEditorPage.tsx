@@ -100,13 +100,14 @@ export default function CarouselEditorPage() {
 
   return (
     <AppShell title="Carousel editor">
-      {/* Off-screen render of every slide, used both for the export pipeline
-          and (via the visible one) as the live preview -- decision 1/18. */}
+      {/* Scaled on-screen preview of the active slide only -- decision 1/18. This node is
+          never used for export capture (see below): html2canvas renders incorrectly
+          (duplicated/overlapping content) when the captured node sits under an
+          ancestor with a CSS transform, which this scaled wrapper always has. */}
       <div style={{ position: 'relative' }}>
         <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: 16, marginBottom: 12, border: '1px solid var(--line)' }}>
           <div style={{ transform: 'scale(var(--canvas-scale, 0.34))', transformOrigin: 'top left', width: 1080, height: 1080 }}>
             <SlideCanvas
-              ref={(el) => { slideRefs.current[activeIndex] = el; }}
               slide={active}
               index={activeIndex}
               total={slides.length}
@@ -116,11 +117,11 @@ export default function CarouselEditorPage() {
           </div>
         </div>
 
-        {/* Off-screen renders of the other slides, kept mounted (not display:none, so
-            html-to-image can still rasterize them) but visually hidden, purely so
-            export can capture all N slides without the user paging through each. */}
+        {/* Off-screen, untransformed renders of every slide (including the active one),
+            kept mounted (not display:none, so html2canvas can still rasterize them) but
+            visually hidden -- the only nodes ever used for export capture. */}
         <div style={{ position: 'absolute', top: 0, left: -99999, pointerEvents: 'none' }}>
-          {slides.map((s, i) => i !== activeIndex && (
+          {slides.map((s, i) => (
             <div key={i} style={{ width: 1080, height: 1080 }}>
               <SlideCanvas
                 ref={(el) => { slideRefs.current[i] = el; }}

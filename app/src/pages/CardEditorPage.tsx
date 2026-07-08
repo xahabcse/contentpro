@@ -101,11 +101,19 @@ export default function CardEditorPage() {
   return (
     <AppShell title="Single Card editor">
       {/* Live WYSIWYG canvas -- what's shown here IS the export (decision 1/18). Scaled to fit
-          the viewport via CSS transform; the underlying node stays a true 1080x1080 for export. */}
+          the viewport via CSS transform for on-screen preview only. */}
       <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: 16, marginBottom: 20, border: '1px solid var(--line)' }}>
         <div style={{ transform: 'scale(var(--canvas-scale, 0.34))', transformOrigin: 'top left', width: 1080, height: 1080 }}>
-          <CardCanvas ref={canvasRef} content={content} style={style} footerData={footerData} />
+          <CardCanvas content={content} style={style} footerData={footerData} />
         </div>
+      </div>
+
+      {/* Off-screen, untransformed copy used only for export capture -- html2canvas
+          renders incorrectly (duplicated/overlapping content) when the target node
+          sits under an ancestor with a CSS transform, so the exported ref must never
+          be the scaled preview node above. */}
+      <div style={{ position: 'absolute', top: 0, left: -99999, pointerEvents: 'none' }}>
+        <CardCanvas ref={canvasRef} content={content} style={style} footerData={footerData} />
       </div>
 
       <div className="card-surface" style={{ padding: 16, marginBottom: 16 }}>
