@@ -1,9 +1,80 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import AuthShell from '@/components/layout/AuthShell';
 import { useAuth } from '@/lib/auth';
 
+type VerifyState = 'verifying' | 'verified' | 'failed';
+
+// Handles the emailed verification link itself (?token=...) -- POSTs it to
+// the API on mount, matching ResetPasswordPage.tsx's pattern. Without a
+// token (the normal post-signup landing), falls through to the static
+// "check your email" notice below.
+function VerifyTokenScreen({ token }: { token: string }) {
+  const [state, setState] = useState<VerifyState>('verifying');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/verify-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+        if (cancelled) return;
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setError(body.error || 'This verification link is invalid or expired.');
+          setState('failed');
+          return;
+        }
+        setState('verified');
+      } catch {
+        if (!cancelled) {
+          setError('Something went wrong. Try again in a moment.');
+          setState('failed');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  if (state === 'verifying') {
+    return (
+      <AuthShell title="Verifying…" subtitle="One moment while we confirm your email.">
+        <p style={{ fontSize: 15, color: 'var(--muted)' }}>Verifying your email address…</p>
+      </AuthShell>
+    );
+  }
+
+  if (state === 'failed') {
+    return (
+      <AuthShell title="Verification failed" subtitle={error ?? 'This link is invalid or expired.'}>
+        <Link to="/login" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+          Back to login
+        </Link>
+      </AuthShell>
+    );
+  }
+
+  return (
+    <AuthShell title="Email verified" subtitle="Please log in again to continue.">
+      <p style={{ fontSize: 15, lineHeight: 1.6, marginBottom: 20 }}>
+        Your email is verified. Log in again to get a fresh session and start designing.
+      </p>
+      <Link to="/login" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+        Log in
+      </Link>
+    </AuthShell>
+  );
+}
+
 export default function VerifyEmailNoticePage() {
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sent, setSent] = useState(false);
@@ -35,6 +106,10 @@ export default function VerifyEmailNoticePage() {
   async function handleLogout() {
     await logout();
     navigate('/login');
+  }
+
+  if (token) {
+    return <VerifyTokenScreen token={token} />;
   }
 
   return (
