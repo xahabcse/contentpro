@@ -28,11 +28,20 @@ id = "85a0e6dd9be04224a6bb088f6a16667c"
 # Workers Route -- the frontend (app/) calls the API via relative /api/*
 # paths (e.g. fetch('/api/profile')), which only resolve correctly once this
 # Worker is bound to handle that path prefix on the same custom domain the
-# Pages project serves everything else from.
+# Pages project serves everything else from. Declaring this via [[routes]]
+# makes every `wrangler deploy` (including CI) call the zone-scoped Workers
+# Routes API to sync it -- which fails outright if the deploying token only
+# has Account-level permissions (no Zone access), breaking deploys entirely.
+# Left as a one-time MANUAL step instead (same tradeoff as the R2 bucket
+# below): create it once via the dashboard --
+#   Workers & Pages -> contentpro-api -> Settings -> Domains & Routes -> Add route
+#   Route: content.xahabcse.me/api/*   Zone: xahabcse.me
+# -- and it persists independently of this file; wrangler won't touch a route
+# it was never told to manage.
 # -----------------------------------------------------------------------------
-[[routes]]
-pattern = "content.xahabcse.me/api/*"
-zone_name = "xahabcse.me"
+# [[routes]]
+# pattern = "content.xahabcse.me/api/*"
+# zone_name = "xahabcse.me"
 
 # -----------------------------------------------------------------------------
 # Durable Object binding + migration -- wraps the single warm MongoClient
