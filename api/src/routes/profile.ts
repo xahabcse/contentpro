@@ -3,6 +3,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv, Env } from "../env";
+import { buildDemoDesigns } from "../lib/demo-designs";
 import { isUploadedFile } from "../lib/http";
 import { signCloudinaryUrlOrOriginal, uploadToCloudinary } from "../lib/cloudinary";
 import { authRequired } from "../middleware/auth-required";
@@ -52,6 +53,10 @@ const updateProfileSchema = z.object({
   handle: z.string().trim().min(1).max(60).optional(),
 });
 
+function isProfileComplete(p: UserProfile): boolean {
+  return Boolean(p.name && p.designation && p.handle);
+}
+
 profile.put("/", jsonValidator(updateProfileSchema), async (c) => {
   const updates = c.req.valid("json");
   const userId = c.get("userId");
@@ -60,8 +65,23 @@ profile.put("/", jsonValidator(updateProfileSchema), async (c) => {
   const user = await stub.findUserById(userId);
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
 
+  const wasComplete = isProfileComplete(user.profile);
   const nextProfile: UserProfile = { ...user.profile, ...updates };
   await stub.updateUser(userId, { profile: nextProfile, updatedAt: new Date() });
+
+  // First time the profile becomes complete -- seed two ready example
+  // designs so the dashboard isn't empty. Footer content (photo/handle/
+  // designation) isn't stored in the design; the editor reads it live from
+  // the profile, so these examples already show this user's own info.
+  if (!wasComplete && isProfileComplete(nextProfile)) {
+    const existing = await stub.listDesignsForUser(userId);
+    if (existing.length === 0) {
+      for (const demo of buildDemoDesigns(userId)) {
+        await stub.insertDesign(demo);
+      }
+    }
+  }
+
   return c.json(await signedProfile(c.env, nextProfile));
 });
 
