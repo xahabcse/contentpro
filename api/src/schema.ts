@@ -21,7 +21,8 @@ export type RegionSize = "S" | "M" | "L";
 export interface RegionStyle {
   font: string;
   size: RegionSize;
-  colorToken: string;
+  /** Not currently sent by the frontend, which only distinguishes palette-default vs customHex. */
+  colorToken?: string;
   customHex?: string;
 }
 

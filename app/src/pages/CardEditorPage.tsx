@@ -18,9 +18,12 @@ export default function CardEditorPage() {
   const [content, setContent] = useState<CardContent>({ eyebrow: 'TECH NEWS', headline: '', body: [''] });
   const [style, setStyle] = useState<CardStyle>({
     paletteId: 'brand-green',
-    headline: DEFAULT_REGION_STYLE,
-    body: DEFAULT_REGION_STYLE,
-    footer: DEFAULT_REGION_STYLE,
+    regions: {
+      eyebrow: DEFAULT_REGION_STYLE,
+      headline: DEFAULT_REGION_STYLE,
+      body: DEFAULT_REGION_STYLE,
+      footer: DEFAULT_REGION_STYLE,
+    },
   });
   const [footerData, setFooterData] = useState<FooterData>({ photoUrl: null, companyLogoUrl: null, handle: '', designation: '' });
   const [exporting, setExporting] = useState(false);
@@ -152,9 +155,9 @@ export default function CardEditorPage() {
         <PalettePicker value={style.paletteId} onChange={(paletteId) => updateStyle({ ...style, paletteId })} />
 
         <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Text style</h2>
-        <StyleControls label="Headline" value={style.headline} onChange={(v) => updateStyle({ ...style, headline: v })} />
-        <StyleControls label="Body" value={style.body} onChange={(v) => updateStyle({ ...style, body: v })} />
-        <StyleControls label="Footer" value={style.footer} onChange={(v) => updateStyle({ ...style, footer: v })} showSize={false} />
+        <StyleControls label="Headline" value={style.regions.headline} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, headline: v } })} />
+        <StyleControls label="Body" value={style.regions.body} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, body: v } })} />
+        <StyleControls label="Footer" value={style.regions.footer} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, footer: v } })} showSize={false} />
       </div>
 
       {exportError && <p className="error-text" style={{ marginBottom: 12 }}>{exportError}</p>}

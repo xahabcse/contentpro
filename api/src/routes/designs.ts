@@ -36,7 +36,9 @@ const MAX_EXPORT_BYTES = 20 * 1024 * 1024; // safety ceiling for a client-raster
 const regionStyleSchema = z.object({
   font: z.string().min(1),
   size: z.enum(["S", "M", "L"]),
-  colorToken: z.string().min(1),
+  // Not currently sent by the frontend, which only distinguishes
+  // palette-default vs customHex -- kept optional for forward compatibility.
+  colorToken: z.string().min(1).optional(),
   customHex: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)

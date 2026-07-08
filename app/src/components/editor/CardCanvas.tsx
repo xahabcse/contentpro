@@ -10,9 +10,12 @@ export interface CardContent {
 
 export interface CardStyle {
   paletteId: string;
-  headline: RegionStyle;
-  body: RegionStyle;
-  footer: RegionStyle;
+  regions: {
+    eyebrow: RegionStyle;
+    headline: RegionStyle;
+    body: RegionStyle;
+    footer: RegionStyle;
+  };
 }
 
 interface CardCanvasProps {
@@ -27,8 +30,9 @@ interface CardCanvasProps {
 // curated font/size/color are editable (spec §6.1, decision 13).
 const CardCanvas = forwardRef<HTMLDivElement, CardCanvasProps>(({ content, style, footerData }, ref) => {
   const palette = getPalette(style.paletteId);
-  const headlineColor = style.headline.customHex ?? palette.text;
-  const bodyColor = style.body.customHex ?? palette.text;
+  const { eyebrow, headline, body, footer } = style.regions;
+  const headlineColor = headline.customHex ?? palette.text;
+  const bodyColor = body.customHex ?? palette.text;
 
   return (
     <div
@@ -57,20 +61,20 @@ const CardCanvas = forwardRef<HTMLDivElement, CardCanvasProps>(({ content, style
       <div style={{ position: 'absolute', top: 80, right: 90, width: 88, height: 3, background: palette.text }} />
 
       <div style={{ position: 'relative', zIndex: 1, flex: '1 1 auto', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 90px' }}>
-        <div style={{ fontFamily: style.headline.font, fontSize: 20, fontWeight: 700, letterSpacing: 2, color: palette.accentStrong, textTransform: 'uppercase', marginBottom: 22 }}>
+        <div style={{ fontFamily: eyebrow.font, fontSize: 20, fontWeight: 700, letterSpacing: 2, color: palette.accentStrong, textTransform: 'uppercase', marginBottom: 22 }}>
           {content.eyebrow}
         </div>
-        <h1 style={{ fontFamily: style.headline.font, fontSize: SIZE_SCALE.headline[style.headline.size], fontWeight: 800, lineHeight: 1.2, color: headlineColor, maxWidth: 880, margin: '0 0 30px 0' }}>
+        <h1 style={{ fontFamily: headline.font, fontSize: SIZE_SCALE.headline[headline.size], fontWeight: 800, lineHeight: 1.2, color: headlineColor, maxWidth: 880, margin: '0 0 30px 0' }}>
           {content.headline}
         </h1>
         {content.body.filter(Boolean).map((p, i) => (
-          <p key={i} style={{ fontFamily: style.body.font, fontSize: SIZE_SCALE.body[style.body.size], fontWeight: 400, lineHeight: 1.5, color: bodyColor, maxWidth: 860, margin: '0 0 20px 0' }}>
+          <p key={i} style={{ fontFamily: body.font, fontSize: SIZE_SCALE.body[body.size], fontWeight: 400, lineHeight: 1.5, color: bodyColor, maxWidth: 860, margin: '0 0 20px 0' }}>
             {p}
           </p>
         ))}
       </div>
 
-      <SocialFooter data={footerData} style={style.footer} palette={palette} />
+      <SocialFooter data={footerData} style={footer} palette={palette} />
     </div>
   );
 });

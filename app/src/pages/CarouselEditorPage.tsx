@@ -223,19 +223,19 @@ export default function CarouselEditorPage() {
 
         <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Text style ({active.type} slide)</h2>
         {active.type === 'cover' && (
-          <StyleControls label="Headline" value={style.coverHeadline} onChange={(v) => updateStyle({ ...style, coverHeadline: v })} />
+          <StyleControls label="Headline" value={style.regions.coverHeadline} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, coverHeadline: v } })} />
         )}
         {active.type === 'content' && (
           <>
-            <StyleControls label="Heading" value={style.contentHeading} onChange={(v) => updateStyle({ ...style, contentHeading: v })} />
-            <StyleControls label="Body" value={style.contentBody} onChange={(v) => updateStyle({ ...style, contentBody: v })} />
+            <StyleControls label="Heading" value={style.regions.contentHeading} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, contentHeading: v } })} />
+            <StyleControls label="Body" value={style.regions.contentBody} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, contentBody: v } })} />
           </>
         )}
         {active.type === 'cta' && (
           <>
-            <StyleControls label="Heading" value={style.ctaHeading} onChange={(v) => updateStyle({ ...style, ctaHeading: v })} />
-            <StyleControls label="Body" value={style.ctaBody} onChange={(v) => updateStyle({ ...style, ctaBody: v })} />
-            <StyleControls label="CTA line" value={style.ctaLine} onChange={(v) => updateStyle({ ...style, ctaLine: v })} showSize={false} />
+            <StyleControls label="Heading" value={style.regions.ctaHeading} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, ctaHeading: v } })} />
+            <StyleControls label="Body" value={style.regions.ctaBody} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, ctaBody: v } })} />
+            <StyleControls label="CTA line" value={style.regions.ctaLine} onChange={(v) => updateStyle({ ...style, regions: { ...style.regions, ctaLine: v } })} showSize={false} />
           </>
         )}
       </div>

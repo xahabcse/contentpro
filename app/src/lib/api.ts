@@ -34,6 +34,9 @@ export async function createDesign(format: 'card' | 'carousel'): Promise<{ id: s
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (body.error === 'PROFILE_INCOMPLETE') {
+      throw new Error('Complete your name, designation, and handle in Profile settings before creating a design.');
+    }
     throw new Error(body.error || 'Could not start a new design — complete your profile first.');
   }
   return res.json();
