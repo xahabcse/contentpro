@@ -28,6 +28,22 @@ export function getPalette(id: string) {
   return CURATED_PALETTES.find((p) => p.id === id) ?? CURATED_PALETTES[0];
 }
 
+/**
+ * Fully-transparent end-stop for a radial-gradient glow, matching the given
+ * hex color's own hue rather than the CSS `transparent` keyword. html2canvas
+ * (confirmed live) doesn't interpolate `transparent` (rgba(0,0,0,0)) the way
+ * browsers do -- it blends toward black, rendering the glow as a muddy grey
+ * blob in exported images even though it looks correct on-screen. An
+ * explicit rgba(sameHue, 0) sidesteps the bug: even if html2canvas still
+ * blends "wrong", it blends toward the same hue instead of black.
+ */
+export function transparentStop(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, 0)`;
+}
+
 export const SIZE_SCALE = {
   headline: { S: 40, M: 50, L: 60 },
   body: { S: 22, M: 26, L: 30 },

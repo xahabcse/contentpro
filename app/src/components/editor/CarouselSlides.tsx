@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { getPalette, SIZE_SCALE, type RegionStyle } from '@/lib/canvas-theme';
+import { getPalette, SIZE_SCALE, transparentStop, type RegionStyle } from '@/lib/canvas-theme';
 import SocialFooter, { type FooterData } from './SocialFooter';
 
 export type SlideType = 'cover' | 'content' | 'cta';
@@ -44,7 +44,7 @@ const SlideCanvas = forwardRef<HTMLDivElement, SlideCanvasProps>(({ slide, index
   if (slide.type === 'cover') {
     return (
       <div ref={ref} style={{ ...base, background: palette.bg }}>
-        <div style={{ position: 'absolute', right: -220, bottom: -220, width: 900, height: 900, borderRadius: '50%', background: `radial-gradient(circle at center, ${palette.glow} 0%, transparent 70%)` }} />
+        <div style={{ position: 'absolute', right: -220, bottom: -220, width: 900, height: 900, borderRadius: '50%', background: `radial-gradient(circle at center, ${palette.glow} 0%, ${transparentStop(palette.glow)} 70%)` }} />
         <div style={{ position: 'absolute', top: 92, right: 96, width: 88, height: 3, background: palette.text }} />
         <div style={{ position: 'absolute', top: 420, left: 90, right: 0, fontFamily: coverHeadline.font, fontSize: SIZE_SCALE.headline[coverHeadline.size], fontWeight: 800, textTransform: 'uppercase', lineHeight: 1.25, letterSpacing: 0.5, color: coverHeadline.customHex ?? palette.text, maxWidth: 900 }}>
           {slide.headline}
@@ -57,7 +57,7 @@ const SlideCanvas = forwardRef<HTMLDivElement, SlideCanvasProps>(({ slide, index
   if (slide.type === 'cta') {
     return (
       <div ref={ref} style={{ ...base, background: palette.bg, padding: '130px 110px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <div style={{ position: 'absolute', left: -220, top: -220, width: 900, height: 900, borderRadius: '50%', background: `radial-gradient(circle at center, ${palette.glow} 0%, transparent 70%)` }} />
+        <div style={{ position: 'absolute', left: -220, top: -220, width: 900, height: 900, borderRadius: '50%', background: `radial-gradient(circle at center, ${palette.glow} 0%, ${transparentStop(palette.glow)} 70%)` }} />
         <h2 style={{ position: 'relative', zIndex: 1, fontFamily: ctaHeading.font, fontSize: SIZE_SCALE.heading[ctaHeading.size], fontWeight: 800, color: ctaHeading.customHex ?? palette.text, lineHeight: 1.3, margin: '0 0 36px 0' }}>
           {slide.heading}
         </h2>

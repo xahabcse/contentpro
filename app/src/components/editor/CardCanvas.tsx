@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { getPalette, SIZE_SCALE, type RegionStyle } from '@/lib/canvas-theme';
+import { getPalette, SIZE_SCALE, transparentStop, type RegionStyle } from '@/lib/canvas-theme';
 import SocialFooter, { type FooterData } from './SocialFooter';
 
 export interface CardContent {
@@ -55,7 +55,7 @@ const CardCanvas = forwardRef<HTMLDivElement, CardCanvasProps>(({ content, style
           width: 900,
           height: 900,
           borderRadius: '50%',
-          background: `radial-gradient(circle at center, ${palette.glow} 0%, transparent 70%)`,
+          background: `radial-gradient(circle at center, ${palette.glow} 0%, ${transparentStop(palette.glow)} 70%)`,
         }}
       />
       <div style={{ position: 'absolute', top: 80, right: 90, width: 88, height: 3, background: palette.text }} />
