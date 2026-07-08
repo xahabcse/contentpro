@@ -15,7 +15,10 @@ import type {
 
 const DATABASE_NAME = "contentpro";
 // One retry after tearing down a dead connection -- covers Atlas-side connection
-// recycling / transient network blips (spec 4.2) without looping forever.
+// recycling / transient network blips (spec 4.2) without looping forever. Only
+// the first cold connection (or a reconnect after a genuine failure) pays this
+// cost -- getDb() returns the cached db immediately on every subsequent call
+// on a warm DO instance, so this doesn't double up on the hot path.
 const MAX_ATTEMPTS = 2;
 
 function toUserRecord(doc: UserDocument): UserRecord {
@@ -67,7 +70,18 @@ export class MongoConnectionDO extends DurableObject<Env> {
   // overriding it with an incompatible signature is a compile error.
   private async connectToMongo(): Promise<Db> {
     const { MongoClient } = await this.loadMongo();
-    const client = new MongoClient(this.env.MONGODB_URI);
+    // Minimize handshake chattiness against the Workers subrequest-per-
+    // invocation budget: no background topology/heartbeat monitoring, no
+    // connection pooling beyond one socket, short server-selection timeout
+    // instead of the driver's default (which retries selection internally,
+    // each retry costing more subrequests).
+    const client = new MongoClient(this.env.MONGODB_URI, {
+      maxPoolSize: 1,
+      minPoolSize: 0,
+      monitorCommands: false,
+      serverSelectionTimeoutMS: 8000,
+      heartbeatFrequencyMS: 300000,
+    } as import("mongodb").MongoClientOptions);
     await client.connect();
     this.client = client;
     this.db = client.db(DATABASE_NAME);
