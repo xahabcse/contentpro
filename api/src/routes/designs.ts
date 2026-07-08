@@ -1,4 +1,4 @@
-import { zValidator } from "@hono/zod-validator";
+import { jsonValidator } from "../lib/validation";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv, Env } from "../env";
@@ -130,7 +130,7 @@ async function sha256Hex(data: ArrayBuffer): Promise<string> {
 // Profile-completeness gate (spec section 4.1) -- the only enforcement point
 // for requiring profile.name / profile.designation / profile.handle before a
 // design can be created.
-designs.post("/", zValidator("json", createDesignSchema), async (c) => {
+designs.post("/", jsonValidator(createDesignSchema), async (c) => {
   const { format, title } = c.req.valid("json");
   const userId = c.get("userId");
   const stub = mongoStub(c.env);
@@ -206,7 +206,7 @@ designs.get("/:id", async (c) => {
 
 // Autosaved by the editor (debounced ~2s + on-blur/pre-download, spec 4.1) --
 // overwrites content/style in place, no draft/export split (decision 10).
-designs.put("/:id", zValidator("json", updateDesignSchema), async (c) => {
+designs.put("/:id", jsonValidator(updateDesignSchema), async (c) => {
   const { title, content, style } = c.req.valid("json");
   const stub = mongoStub(c.env);
   const design = await stub.findDesign(c.req.param("id"));

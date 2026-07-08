@@ -1,4 +1,4 @@
-import { zValidator } from "@hono/zod-validator";
+import { jsonValidator } from "../lib/validation";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -52,7 +52,7 @@ const updateProfileSchema = z.object({
   handle: z.string().trim().min(1).max(60).optional(),
 });
 
-profile.put("/", zValidator("json", updateProfileSchema), async (c) => {
+profile.put("/", jsonValidator(updateProfileSchema), async (c) => {
   const updates = c.req.valid("json");
   const userId = c.get("userId");
   const stub = mongoStub(c.env);

@@ -1,4 +1,4 @@
-import { zValidator } from "@hono/zod-validator";
+import { jsonValidator } from "../lib/validation";
 import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
@@ -38,7 +38,7 @@ const signupSchema = z.object({
 });
 
 // Signup open to anyone (spec 5.5) -- Turnstile is the only bot defense here.
-auth.post("/signup", zValidator("json", signupSchema), async (c) => {
+auth.post("/signup", jsonValidator(signupSchema), async (c) => {
   const { email, password, turnstileToken } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
 
@@ -87,7 +87,7 @@ const loginSchema = z.object({
 // the frontend uses the claim to route to Dashboard vs. the Verify-Email
 // Notice screen, but server-side enforcement is emailVerifiedRequired on
 // Profile/Designs routes, not this decision.
-auth.post("/login", zValidator("json", loginSchema), async (c) => {
+auth.post("/login", jsonValidator(loginSchema), async (c) => {
   const { email, password } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
 
@@ -138,7 +138,7 @@ auth.post("/logout", async (c) => {
 
 const verifyEmailSchema = z.object({ token: z.string().min(1) });
 
-auth.post("/verify-email", zValidator("json", verifyEmailSchema), async (c) => {
+auth.post("/verify-email", jsonValidator(verifyEmailSchema), async (c) => {
   const { token } = c.req.valid("json");
   const payload = await verifyActionToken(token, "email_verification", c.env.JWT_SECRET);
   if (!payload) {
@@ -158,7 +158,7 @@ auth.post("/verify-email", zValidator("json", verifyEmailSchema), async (c) => {
 
 const emailOnlySchema = z.object({ email: z.string().email() });
 
-auth.post("/resend-verification", zValidator("json", emailOnlySchema), async (c) => {
+auth.post("/resend-verification", jsonValidator(emailOnlySchema), async (c) => {
   const { email } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
 
@@ -181,7 +181,7 @@ auth.post("/resend-verification", zValidator("json", emailOnlySchema), async (c)
   return c.json({ message: "If an account with that email exists, we've sent a new verification link." });
 });
 
-auth.post("/forgot-password", zValidator("json", emailOnlySchema), async (c) => {
+auth.post("/forgot-password", jsonValidator(emailOnlySchema), async (c) => {
   const { email } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
 
@@ -208,7 +208,7 @@ const resetPasswordSchema = z.object({
   password: z.string().min(8).max(200),
 });
 
-auth.post("/reset-password", zValidator("json", resetPasswordSchema), async (c) => {
+auth.post("/reset-password", jsonValidator(resetPasswordSchema), async (c) => {
   const { token, password } = c.req.valid("json");
   const payload = await verifyActionToken(token, "password_reset", c.env.JWT_SECRET);
   if (!payload) {
