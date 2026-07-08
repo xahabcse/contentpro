@@ -1,14 +1,17 @@
-import { toPng } from 'html-to-image';
+import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 // Client-side export pipeline (docs/contentpro-spec.md §4.3) -- no server
 // rendering anywhere. Canvas nodes are rasterized directly in the browser.
 //
-// html-to-image internally awaits document.fonts.ready before rasterizing,
-// which is known to hang indefinitely in some browser/automation contexts
-// rather than reject -- without a bound, a hang here leaves the user stuck
-// on "Exporting..." forever with no error. EXPORT_TIMEOUT_MS turns that into
-// a clear, recoverable error instead.
+// Uses html2canvas (the spec's named fallback, §4.3) rather than
+// html-to-image: the latter serializes the DOM to an SVG data URI and awaits
+// HTMLImageElement.decode() on it before drawing to canvas, which hangs
+// indefinitely on affected Chromium versions (a real, reproduced browser
+// bug, not a config issue) -- decode() never settles for SVG-sourced images
+// in that scenario, and nothing here ever gets to fire onload/onerror.
+// html2canvas walks the DOM and paints directly via Canvas 2D APIs instead,
+// with no SVG/decode() step to hang on.
 const EXPORT_TIMEOUT_MS = 20_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -18,27 +21,32 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
-export async function exportCardAsPng(node: HTMLElement): Promise<Blob> {
-  const dataUrl = await withTimeout(
-    toPng(node, { width: 1080, height: 1080, pixelRatio: 2 }),
+function renderNodeToCanvas(node: HTMLElement): Promise<HTMLCanvasElement> {
+  return withTimeout(
+    html2canvas(node, { width: 1080, height: 1080, scale: 2, useCORS: true, backgroundColor: null }),
     EXPORT_TIMEOUT_MS,
-    'Rendering the card',
+    'Rendering',
   );
-  const res = await fetch(dataUrl);
-  return res.blob();
+}
+
+function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Could not generate the image.'))), 'image/png');
+  });
+}
+
+export async function exportCardAsPng(node: HTMLElement): Promise<Blob> {
+  const canvas = await renderNodeToCanvas(node);
+  return canvasToPngBlob(canvas);
 }
 
 export async function exportCarouselAsPdf(slideNodes: HTMLElement[]): Promise<Blob> {
   const pdf = new jsPDF({ unit: 'px', format: [1080, 1080], orientation: 'portrait' });
 
   for (let i = 0; i < slideNodes.length; i++) {
-    const dataUrl = await withTimeout(
-      toPng(slideNodes[i], { width: 1080, height: 1080, pixelRatio: 2 }),
-      EXPORT_TIMEOUT_MS,
-      `Rendering slide ${i + 1}`,
-    );
+    const canvas = await renderNodeToCanvas(slideNodes[i]);
     if (i > 0) pdf.addPage([1080, 1080], 'portrait');
-    pdf.addImage(dataUrl, 'PNG', 0, 0, 1080, 1080);
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 1080, 1080);
   }
 
   return pdf.output('blob');
