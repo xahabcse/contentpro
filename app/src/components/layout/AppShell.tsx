@@ -64,7 +64,7 @@ export default function AppShell({ title, children }: AppShellProps) {
               height: 34,
               borderRadius: 9999,
               background: 'var(--brand)',
-              color: '#FFFFFF',
+              color: 'var(--brand-ink)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

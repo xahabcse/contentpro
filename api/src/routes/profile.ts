@@ -70,13 +70,17 @@ profile.put("/", jsonValidator(updateProfileSchema), async (c) => {
   await stub.updateUser(userId, { profile: nextProfile, updatedAt: new Date() });
 
   // First time the profile becomes complete -- seed two ready example
-  // designs so the dashboard isn't empty. Footer content (photo/handle/
-  // designation) isn't stored in the design; the editor reads it live from
-  // the profile, so these examples already show this user's own info.
+  // designs so the dashboard isn't empty. The author is snapshotted from the
+  // just-completed profile (name/handle/photo), matching the design model.
   if (!wasComplete && isProfileComplete(nextProfile)) {
     const existing = await stub.listDesignsForUser(userId);
     if (existing.length === 0) {
-      for (const demo of buildDemoDesigns(userId)) {
+      const author = {
+        name: nextProfile.name || "Your Name",
+        handle: nextProfile.handle || "yourhandle",
+        avatar: nextProfile.photoUrl || null,
+      };
+      for (const demo of buildDemoDesigns(userId, author)) {
         await stub.insertDesign(demo);
       }
     }

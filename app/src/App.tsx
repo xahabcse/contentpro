@@ -6,8 +6,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfileSettingsPage from './pages/ProfileSettingsPage';
-import CardEditorPage from './pages/CardEditorPage';
-import CarouselEditorPage from './pages/CarouselEditorPage';
+import EditorPage from './pages/EditorPage';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 
 export default function App() {
@@ -23,8 +22,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/settings/profile" element={<ProfileSettingsPage />} />
-        <Route path="/designs/card/:id" element={<CardEditorPage />} />
-        <Route path="/designs/carousel/:id" element={<CarouselEditorPage />} />
+        <Route path="/designs/:id" element={<EditorPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

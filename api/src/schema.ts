@@ -1,115 +1,52 @@
 import type { ObjectId } from "mongodb";
 
 // ---------------------------------------------------------------------------
-// style.regions -- spec section 3.2
+// designs -- new template-driven model (ContentPro.dc.html redesign).
+// A design is a type (card | carousel) + a shared palette + author + an
+// ordered list of slides. Each slide picks one of the curated templates and
+// fills that template's fields. Card = exactly one slide; carousel = many.
 // ---------------------------------------------------------------------------
 
-export type RegionKey =
-  | "eyebrow"
-  | "headline"
-  | "body"
-  | "footer"
-  | "coverHeadline"
-  | "contentHeading"
-  | "contentBody"
-  | "ctaHeading"
-  | "ctaBody"
-  | "ctaLine";
-
-export type RegionSize = "S" | "M" | "L";
-
-export interface RegionStyle {
-  font: string;
-  size: RegionSize;
-  /** Not currently sent by the frontend, which only distinguishes palette-default vs customHex. */
-  colorToken?: string;
-  customHex?: string;
-}
-
-export type StyleRegions = Partial<Record<RegionKey, RegionStyle>>;
-
-export interface DesignStyle {
-  paletteId: string;
-  regions: StyleRegions;
-}
-
-// ---------------------------------------------------------------------------
-// content -- format-specific shapes, spec section 3.2
-// ---------------------------------------------------------------------------
-
-export type DesignFormat = "card" | "carousel";
+export type DesignType = "card" | "carousel";
 export type DesignFileType = "image" | "pdf";
 
-export interface CardContent {
-  eyebrow?: string;
-  headline: string;
-  body: string[];
-}
-
-export type CarouselSlideType = "cover" | "content" | "cta";
-
-export interface CarouselSlide {
-  type: CarouselSlideType;
-  /** cover slide only */
-  headline?: string;
-  /** content / cta slides */
-  heading?: string;
-  /** content slides, "bullets with checkmarks" mode */
-  bullets?: string[];
-  /** content slides ("plain paragraph" mode) / cta slide */
-  body?: string;
-  /** cta slide only */
-  cta?: string;
-}
-
-export interface CarouselContent {
-  slides: CarouselSlide[];
-}
-
-export type DesignContent = CardContent | CarouselContent;
-
-export function isCarouselContent(content: DesignContent): content is CarouselContent {
-  return "slides" in content;
-}
+/** Template ids -- see app/src/lib/templates.tsx for the renderers. */
+export type TemplateId =
+  | "quote"
+  | "stat"
+  | "tips"
+  | "cover"
+  | "announce"
+  | "question"
+  | "contrast"
+  | "framework"
+  | "cta"
+  | "statement";
 
 /**
- * Structural constraint from spec section 3.2: slide 0 is always "cover", the
- * last slide is always "cta", everything strictly between is "content". This
- * is enforced server-side on every write, not just by editor UI affordances.
+ * A single slide. `fields` is intentionally loose -- every template has its
+ * own field set (string or string[] values), validated by shape not by exact
+ * keys, so new templates never require a schema migration.
  */
-export function isValidCarouselSlides(slides: CarouselSlide[]): boolean {
-  if (slides.length < 2) return false;
-  const first = slides[0];
-  const last = slides[slides.length - 1];
-  if (!first || first.type !== "cover") return false;
-  if (!last || last.type !== "cta") return false;
-  return slides.slice(1, -1).every((slide) => slide.type === "content");
+export interface DesignSlide {
+  template: TemplateId;
+  fields: Record<string, string | string[]>;
+  /** Cloudinary secure_url of an optional full-bleed background image. */
+  bgImage?: string | null;
 }
 
-/**
- * format deterministically fixes fileType (spec section 3.2) -- card always
- * exports PNG/"image", carousel always exports PDF/"pdf". Set once at
- * creation and immutable thereafter; never derive this independently anywhere
- * else in the codebase.
- */
-export function fileTypeForFormat(format: DesignFormat): DesignFileType {
-  return format === "card" ? "image" : "pdf";
+export interface DesignAuthor {
+  name: string;
+  handle: string;
+  /** Cloudinary secure_url of the author avatar; null falls back to an initial. */
+  avatar?: string | null;
 }
-
-export function mimeTypeForFormat(format: DesignFormat): string {
-  return format === "card" ? "image/png" : "application/pdf";
-}
-
-// ---------------------------------------------------------------------------
-// designs collection -- spec section 3.2
-// ---------------------------------------------------------------------------
 
 export interface DesignExport {
   /** Cloudinary secure_url of the exported PNG/PDF. */
   url?: string;
   mimeType?: string;
   sizeBytes?: number;
-  /** carousel PDFs only -- number of slides; n/a for card PNGs */
   pageCount?: number;
   checksum?: string;
   exportedAt?: Date;
@@ -119,10 +56,15 @@ export interface DesignExport {
 export interface DesignDocument {
   _id?: ObjectId;
   userId: ObjectId;
-  format: DesignFormat;
+  type: DesignType;
   title?: string;
-  content: DesignContent;
-  style: DesignStyle;
+  paletteId: string;
+  /** Per-design custom color overrides (null = use the palette default). */
+  customBg?: string | null;
+  customText?: string | null;
+  customAccent?: string | null;
+  author: DesignAuthor;
+  slides: DesignSlide[];
   fileType: DesignFileType;
   export?: DesignExport;
   createdAt: Date;
@@ -131,9 +73,8 @@ export interface DesignDocument {
 
 /**
  * JSON/RPC-safe shape returned across the Durable Object boundary (Workers
- * RPC's structured-clone-based wire format does not reliably round-trip
- * driver-specific classes like ObjectId, so the DO converts _id/userId to
- * hex strings before returning -- see durable-objects/mongo-connection.ts).
+ * RPC's structured-clone wire format doesn't reliably round-trip ObjectId, so
+ * the DO converts _id/userId to hex strings first).
  */
 export type DesignRecord = Omit<DesignDocument, "_id" | "userId"> & {
   _id: string;
@@ -143,8 +84,20 @@ export type DesignRecord = Omit<DesignDocument, "_id" | "userId"> & {
 export type NewDesignInput = Omit<DesignDocument, "_id" | "userId"> & { userId: string };
 export type DesignUpdateInput = Partial<Omit<DesignDocument, "_id" | "userId">>;
 
+/**
+ * type deterministically fixes fileType -- card always exports a PNG/"image",
+ * carousel always a PDF/"pdf". Set once at creation, immutable thereafter.
+ */
+export function fileTypeForType(type: DesignType): DesignFileType {
+  return type === "card" ? "image" : "pdf";
+}
+
+export function mimeTypeForType(type: DesignType): string {
+  return type === "card" ? "image/png" : "application/pdf";
+}
+
 // ---------------------------------------------------------------------------
-// users collection -- spec section 3.1
+// users collection -- unchanged from the auth build.
 // ---------------------------------------------------------------------------
 
 export interface UserProfile {
@@ -155,7 +108,7 @@ export interface UserProfile {
   companyName?: string;
   /** Cloudinary secure_url. */
   companyLogoUrl?: string;
-  /** the one shared handle text used under all 4 social icons, e.g. "at-xahabcse" */
+  /** shared handle text, e.g. "at-xahabcse" */
   handle?: string;
 }
 

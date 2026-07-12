@@ -1,20 +1,28 @@
-/* App-chrome design tokens (Dashboard, forms, settings) -- sourced from
-   brand/brand-kit.md. These govern the product UI *around* the editor.
-   The Card/Carousel canvas itself uses its OWN fixed color set (see
-   src/lib/canvas-theme.ts) that never themes with the app -- an exported
-   design must always render exactly as brand-kit specifies regardless of
-   the viewer's app-chrome preference. Do not conflate the two token sets. */
+/* ContentPro theme -- ported from the ContentPro.dc.html design.
+   Warm cream/bone surfaces + amber accent, Archivo / Newsreader / Space
+   Grotesk type. Two token layers:
+     :root        -> app chrome (auth, dashboard, profile), always light.
+     .cp[data-ui] -> the editor shell, self-theming light/dark exactly as the
+                     design specifies. The exported card uses its own palette
+                     tokens (see src/lib/palettes.ts), independent of both. */
 
 :root {
-  --bg: #E7EFEA;
-  --glow: #DBF0E2;
-  --surface: #FFFFFF;
-  --ink: #11221A;
-  --muted: #5E7369;
-  --brand: #12A15C;
-  --brand-strong: #0A703F;
-  --line: #D7EADD;
-  --danger: #A13B2B;
+  --bg: #efe8d8;
+  --bar: #fbf7ec;
+  --surface: #f7f2e5;
+  --surface-2: #fbf7ec;
+  --ink: #1b160e;
+  --muted: #8c8468;
+  --muted-2: #5e5844;
+  --brand: #f2b705;
+  --brand-ink: #1b160e;
+  --line: rgba(27, 22, 14, 0.12);
+  --line-2: rgba(27, 22, 14, 0.18);
+  --input: #ffffff;
+  --danger: #e1402b;
+
+  --font-ui: 'Space Grotesk', 'Segoe UI', Arial, sans-serif;
+  --font-display: 'Archivo', 'Segoe UI', Arial, sans-serif;
 }
 
 * {
@@ -31,13 +39,18 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif;
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
 }
 
-/* Reusable utility classes matching the live Porhi site's visual language
-   (pill badges, rounded cards, filled/outline buttons) -- observed directly
-   from https://learn.xahabcse.me, adapted to ContentPro's own tokens. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+/* ---- utility classes (app chrome) ---- */
 
 .pill {
   display: inline-flex;
@@ -50,12 +63,12 @@ body {
 }
 
 .pill-brand {
-  background: var(--glow);
-  color: var(--brand-strong);
+  background: rgba(242, 183, 5, 0.18);
+  color: var(--brand-ink);
 }
 
 .card-surface {
-  background: var(--surface);
+  background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 16px;
 }
@@ -68,6 +81,7 @@ body {
   height: 48px;
   padding: 0 20px;
   border-radius: 12px;
+  font-family: var(--font-ui);
   font-weight: 700;
   font-size: 15px;
   border: none;
@@ -87,27 +101,13 @@ body {
 
 .btn-primary {
   background: var(--brand);
-  color: #FFFFFF;
+  color: var(--brand-ink);
 }
 
 .btn-outline {
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--ink);
-  border: 1px solid var(--line);
-}
-
-.btn-fab {
-  width: 56px;
-  height: 56px;
-  border-radius: 9999px;
-  background: var(--brand);
-  color: #FFFFFF;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgba(10, 112, 63, 0.35);
+  border: 1px solid var(--line-2);
 }
 
 .input {
@@ -115,9 +115,10 @@ body {
   height: 48px;
   padding: 0 14px;
   border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  border: 1px solid var(--line-2);
+  background: var(--input);
   color: var(--ink);
+  font-family: var(--font-ui);
   font-size: 15px;
 }
 
@@ -130,7 +131,7 @@ body {
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--muted-2);
   margin-bottom: 6px;
 }
 
@@ -138,4 +139,127 @@ body {
   color: var(--danger);
   font-size: 13px;
   margin-top: 4px;
+}
+
+/* ---- editor shell theme (.cp), ported from ContentPro.dc.html ---- */
+
+.cp {
+  --c-app: #efe8d8;
+  --c-bar: #fbf7ec;
+  --c-panel: #f7f2e5;
+  --c-stage: #e4dcc9;
+  --c-text: #1b160e;
+  --c-dim: #8c8468;
+  --c-dim2: #5e5844;
+  --c-line: rgba(27, 22, 14, 0.1);
+  --c-line2: rgba(27, 22, 14, 0.16);
+  --c-input: #ffffff;
+  --c-chip: #ebe3cf;
+  --c-filmstrip: #f1ebdb;
+  --c-accent: #f2b705;
+  --c-accent-ink: #1b160e;
+  --c-sb: rgba(27, 22, 14, 0.2);
+}
+
+.cp[data-ui='dark'] {
+  --c-app: #141109;
+  --c-bar: #1c180f;
+  --c-panel: #1a160e;
+  --c-stage: #100d07;
+  --c-text: #f3eee1;
+  --c-dim: #8a8571;
+  --c-dim2: #b7b19c;
+  --c-line: rgba(243, 238, 225, 0.1);
+  --c-line2: rgba(243, 238, 225, 0.13);
+  --c-input: #100d07;
+  --c-chip: #26210f;
+  --c-filmstrip: #161209;
+  --c-accent: #ffda36;
+  --c-accent-ink: #141109;
+  --c-sb: rgba(243, 238, 225, 0.16);
+}
+
+.cp ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.cp ::-webkit-scrollbar-thumb {
+  background: var(--c-sb);
+  border-radius: 8px;
+}
+.cp ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cp input,
+.cp textarea,
+.cp button {
+  font-family: var(--font-ui);
+}
+
+.cp input[type='color'] {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+.cp input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.cp input[type='color']::-webkit-color-swatch {
+  border: none;
+  border-radius: 8px;
+}
+
+/* editor 3-panel layout + responsive collapse */
+.cp-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.cp-left {
+  width: 232px;
+  flex: 0 0 232px;
+}
+.cp-right {
+  width: 322px;
+  flex: 0 0 322px;
+}
+@media (max-width: 900px) {
+  .cp-body {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .cp-left,
+  .cp-right {
+    width: 100%;
+    flex: 0 0 auto;
+    border-right: none !important;
+    border-left: none !important;
+    border-bottom: 1px solid var(--c-line);
+  }
+  .cp-left {
+    max-height: 168px;
+  }
+  .cp-stage {
+    min-height: 60vh;
+  }
+}
+
+@keyframes cp-fade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes cp-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

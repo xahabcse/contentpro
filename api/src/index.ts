@@ -4,6 +4,7 @@ import type { AppEnv } from "./env";
 import authRoutes from "./routes/auth";
 import designsRoutes from "./routes/designs";
 import profileRoutes from "./routes/profile";
+import uploadsRoutes from "./routes/uploads";
 
 const app = new Hono<AppEnv>();
 
@@ -31,6 +32,7 @@ app.use(
 app.route("/api/auth", authRoutes);
 app.route("/api/profile", profileRoutes);
 app.route("/api/designs", designsRoutes);
+app.route("/api/uploads", uploadsRoutes);
 
 app.get("/", (c) => c.json({ ok: true, service: "contentpro-api" }));
 

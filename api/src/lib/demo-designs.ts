@@ -1,58 +1,49 @@
-import type { CardContent, DesignStyle, NewDesignInput, RegionKey } from "../schema";
+import type { DesignAuthor, NewDesignInput } from "../schema";
 
-// Auto-created once, the first time a user completes their profile (name +
-// designation + handle) -- gives every new account two ready, on-brand
-// examples instead of an empty dashboard. Footer content (photo, handle,
-// designation) is never baked into a design's stored content -- the editor
-// reads it live from the user's own profile at render/export time -- so
-// these examples automatically show the real signed-in user's own info.
+// Auto-created once, the first time a user completes their profile -- gives
+// every new account two ready, on-brand example cards instead of an empty
+// dashboard. Uses the new template model (ContentPro.dc.html redesign).
 
-const CARD_REGION_KEYS: RegionKey[] = ["eyebrow", "headline", "body", "footer"];
-const DEFAULT_FONT = "Plus Jakarta Sans";
-
-function cardStyle(paletteId: string): DesignStyle {
-  const regions: DesignStyle["regions"] = {};
-  for (const key of CARD_REGION_KEYS) {
-    regions[key] = { font: DEFAULT_FONT, size: "M" };
-  }
-  return { paletteId, regions };
+interface DemoSpec {
+  title: string;
+  paletteId: string;
+  template: string;
+  fields: Record<string, string | string[]>;
 }
 
-const DEMO_CARDS: Array<{ title: string; content: CardContent; paletteId: string }> = [
+const DEMO_CARDS: DemoSpec[] = [
   {
     title: "Demo: Consistency Beats Intensity",
-    content: {
-      eyebrow: "CAREER TIP",
-      headline: "Consistency Beats Intensity",
-      body: [
-        "Small, steady progress compounds faster than occasional bursts of effort.",
-        "Show up daily, even in small ways — that's how real momentum builds.",
-      ],
+    paletteId: "ink",
+    template: "quote",
+    fields: {
+      quote: "Consistency beats intensity. Small, steady effort compounds faster than occasional bursts.",
     },
-    paletteId: "brand-green",
   },
   {
-    title: "Demo: One Year of Continuous Learning",
-    content: {
-      eyebrow: "MILESTONE",
-      headline: "One Year of Continuous Learning",
-      body: [
-        "Growth isn't about knowing everything — it's about staying curious.",
-        "Here's what changed after choosing to learn something new every single week.",
-      ],
+    title: "Demo: By the Numbers",
+    paletteId: "cobalt",
+    template: "stat",
+    fields: {
+      label: "One year of learning",
+      number: "52",
+      caption: "weeks of showing up and sharing something new — here's what changed.",
     },
-    paletteId: "ocean",
   },
 ];
 
-export function buildDemoDesigns(userId: string): NewDesignInput[] {
+export function buildDemoDesigns(userId: string, author: DesignAuthor): NewDesignInput[] {
   const now = new Date();
-  return DEMO_CARDS.map(({ title, content, paletteId }) => ({
+  return DEMO_CARDS.map(({ title, paletteId, template, fields }) => ({
     userId,
-    format: "card",
+    type: "card",
     title,
-    content,
-    style: cardStyle(paletteId),
+    paletteId,
+    customBg: null,
+    customText: null,
+    customAccent: null,
+    author,
+    slides: [{ template: template as NewDesignInput["slides"][number]["template"], fields, bgImage: null }],
     fileType: "image",
     createdAt: now,
     updatedAt: now,

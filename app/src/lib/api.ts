@@ -1,8 +1,12 @@
+import type { DesignType } from './design-types';
+
 export interface DesignSummary {
   id: string;
-  format: 'card' | 'carousel';
-  title: string;
+  type: DesignType;
+  title: string | null;
   fileType: 'image' | 'pdf';
+  paletteId: string;
+  slideCount: number;
   hasExport: boolean;
   updatedAt: string;
 }
@@ -25,19 +29,16 @@ export async function listDesigns(): Promise<DesignsListResponse> {
   return res.json();
 }
 
-export async function createDesign(format: 'card' | 'carousel'): Promise<{ id: string }> {
+export async function createDesign(type: DesignType): Promise<{ id: string }> {
   const res = await fetch('/api/designs', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ format }),
+    body: JSON.stringify({ type }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    if (body.error === 'PROFILE_INCOMPLETE') {
-      throw new Error('Complete your name, designation, and handle in Profile settings before creating a design.');
-    }
-    throw new Error(body.error || 'Could not start a new design — complete your profile first.');
+    throw new Error(body.error || 'Could not start a new design.');
   }
   return res.json();
 }

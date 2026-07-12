@@ -21,24 +21,24 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  async function handleCreate(format: 'card' | 'carousel') {
+  async function handleCreate(type: 'card' | 'carousel') {
     setError(null);
-    const atLimit = format === 'card'
+    const atLimit = type === 'card'
       ? (data?.counts.images ?? 0) >= DESIGN_LIMIT
       : (data?.counts.pdfs ?? 0) >= DESIGN_LIMIT;
 
     if (atLimit) {
       setError(
-        `You've reached your limit of ${DESIGN_LIMIT} saved ${format === 'card' ? 'images' : 'PDFs'}. ` +
+        `You've reached your limit of ${DESIGN_LIMIT} saved ${type === 'card' ? 'images' : 'PDFs'}. ` +
         `Delete an existing one below to free up a slot before creating a new one.`,
       );
       return;
     }
 
-    setCreating(format);
+    setCreating(type);
     try {
-      const { id } = await createDesign(format);
-      navigate(`/designs/${format}/${id}`);
+      const { id } = await createDesign(type);
+      navigate(`/designs/${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create a new design.');
     } finally {
@@ -89,16 +89,16 @@ export default function DashboardPage() {
         {data?.designs.map((d) => (
           <div key={d.id} className="card-surface" style={{ padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{d.title}</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{d.title || 'Untitled'}</div>
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                {d.format === 'card' ? 'Single Card' : 'Carousel'} · {d.hasExport ? 'Exported' : 'Draft'} · {new Date(d.updatedAt).toLocaleDateString()}
+                {d.type === 'card' ? 'Single Card' : `Carousel · ${d.slideCount} slides`} · {d.hasExport ? 'Exported' : 'Draft'} · {new Date(d.updatedAt).toLocaleDateString()}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
               <button
                 className="btn btn-outline"
                 style={{ width: 'auto', height: 36, padding: '0 12px', fontSize: 13 }}
-                onClick={() => navigate(`/designs/${d.format}/${d.id}`)}
+                onClick={() => navigate(`/designs/${d.id}`)}
               >
                 Open
               </button>

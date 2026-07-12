@@ -1,20 +1,19 @@
-import { jsonValidator } from "../lib/validation";
 import { Hono } from "hono";
 import { z } from "zod";
+import { jsonValidator } from "../lib/validation";
 import type { AppEnv, Env } from "../env";
 import { isUploadedFile } from "../lib/http";
 import { signCloudinaryUrlOrOriginal, uploadToCloudinary, withAttachmentFlag } from "../lib/cloudinary";
+import { starterSlides } from "../lib/starter";
 import { authRequired } from "../middleware/auth-required";
 import { emailVerifiedRequired } from "../middleware/email-verified-required";
 import {
-  fileTypeForFormat,
-  isValidCarouselSlides,
-  mimeTypeForFormat,
-  type DesignContent,
-  type DesignFormat,
-  type DesignStyle,
+  fileTypeForType,
+  mimeTypeForType,
+  type DesignAuthor,
+  type DesignSlide,
+  type DesignType,
   type NewDesignInput,
-  type RegionKey,
 } from "../schema";
 
 const designs = new Hono<AppEnv>();
@@ -25,138 +24,81 @@ function mongoStub(env: Env) {
   return env.MONGO_DO.get(id);
 }
 
-const MAX_DESIGNS_PER_TYPE = 5; // spec section 7 -- 5 images / 5 PDFs per user
-const MAX_CAROUSEL_SLIDES = 15; // spec section 8 -- hard cap, decision 19
-// Safety ceiling for a client-rasterized PNG/PDF -- 100MB. The original 20MB
-// guess was untested against real output: a 2-slide carousel PDF at 1080x1080
-// @2x already approached it, and the 15-slide max (spec §8) scales well past
-// that. Cloudinary's free tier comfortably allows files well beyond this.
+const MAX_DESIGNS_PER_TYPE = 5; // 5 images / 5 PDFs per user
+const MAX_SLIDES = 15; // carousel hard cap
 const MAX_EXPORT_BYTES = 100 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
-// validation schemas
+// validation -- fields are intentionally loose (each template owns its keys).
 // ---------------------------------------------------------------------------
 
-const regionStyleSchema = z.object({
-  font: z.string().min(1),
-  size: z.enum(["S", "M", "L"]),
-  // Not currently sent by the frontend, which only distinguishes
-  // palette-default vs customHex -- kept optional for forward compatibility.
-  colorToken: z.string().min(1).optional(),
-  customHex: z
-    .string()
-    .regex(/^#[0-9a-fA-F]{6}$/)
-    .optional(),
+const fieldValueSchema = z.union([z.string().max(4000), z.array(z.string().max(2000)).max(30)]);
+
+const slideSchema = z.object({
+  template: z.string().min(1).max(40),
+  fields: z.record(z.string(), fieldValueSchema),
+  bgImage: z.string().url().nullable().optional(),
 });
 
-const styleSchema = z.object({
-  paletteId: z.string().min(1),
-  regions: z.record(z.string(), regionStyleSchema),
+const authorSchema = z.object({
+  name: z.string().trim().max(120),
+  handle: z.string().trim().max(60),
+  avatar: z.string().url().nullable().optional(),
 });
+
+const hexOrNull = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/)
+  .nullable()
+  .optional();
 
 const createDesignSchema = z.object({
-  format: z.enum(["card", "carousel"]),
+  type: z.enum(["card", "carousel"]),
   title: z.string().trim().max(160).optional(),
-});
-
-const cardContentSchema = z.object({
-  eyebrow: z.string().max(60).optional(),
-  headline: z.string().max(300),
-  body: z.array(z.string().max(2000)).max(2),
-});
-
-const carouselSlideSchema = z.object({
-  type: z.enum(["cover", "content", "cta"]),
-  headline: z.string().max(300).optional(),
-  heading: z.string().max(300).optional(),
-  bullets: z.array(z.string().max(500)).optional(),
-  body: z.string().max(2000).optional(),
-  cta: z.string().max(300).optional(),
-});
-
-const carouselContentSchema = z.object({
-  slides: z.array(carouselSlideSchema).min(2).max(MAX_CAROUSEL_SLIDES),
 });
 
 const updateDesignSchema = z.object({
   title: z.string().trim().max(160).optional(),
-  content: z.union([cardContentSchema, carouselContentSchema]),
-  style: styleSchema,
+  paletteId: z.string().min(1).max(40),
+  customBg: hexOrNull,
+  customText: hexOrNull,
+  customAccent: hexOrNull,
+  author: authorSchema,
+  slides: z.array(slideSchema).min(1).max(MAX_SLIDES),
 });
-
-// ---------------------------------------------------------------------------
-// starter content/style for a brand-new design (spec section 4.1: "initial
-// empty/starter content, default style")
-// ---------------------------------------------------------------------------
-
-const DEFAULT_FONT = "Plus Jakarta Sans"; // spec section 6.1 -- pre-selected default everywhere
-
-function starterContent(format: DesignFormat): DesignContent {
-  if (format === "card") {
-    return { eyebrow: "", headline: "", body: [""] };
-  }
-  return {
-    slides: [
-      { type: "cover", headline: "" },
-      { type: "cta", heading: "", body: "", cta: "" },
-    ],
-  };
-}
-
-const CARD_REGION_KEYS: RegionKey[] = ["eyebrow", "headline", "body", "footer"];
-const CAROUSEL_REGION_KEYS: RegionKey[] = [
-  "coverHeadline",
-  "contentHeading",
-  "contentBody",
-  "ctaHeading",
-  "ctaBody",
-  "ctaLine",
-];
-
-function starterStyle(format: DesignFormat): DesignStyle {
-  const regionKeys = format === "card" ? CARD_REGION_KEYS : CAROUSEL_REGION_KEYS;
-  const regions: DesignStyle["regions"] = {};
-  for (const key of regionKeys) {
-    regions[key] = { font: DEFAULT_FONT, size: "M", colorToken: "text-primary" };
-  }
-  return { paletteId: "brand-default", regions };
-}
-
-async function sha256Hex(data: ArrayBuffer): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
 
 // ---------------------------------------------------------------------------
 // routes
 // ---------------------------------------------------------------------------
 
-// Profile-completeness gate (spec section 4.1) -- the only enforcement point
-// for requiring profile.name / profile.designation / profile.handle before a
-// design can be created.
 designs.post("/", jsonValidator(createDesignSchema), async (c) => {
-  const { format, title } = c.req.valid("json");
+  const { type, title } = c.req.valid("json");
   const userId = c.get("userId");
   const stub = mongoStub(c.env);
 
   const user = await stub.findUserById(userId);
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
 
-  const { name, designation, handle } = user.profile;
-  if (!name || !designation || !handle) {
-    return c.json({ error: "PROFILE_INCOMPLETE" }, 400);
-  }
+  // Prefill the author from the profile if available; inline-editable later.
+  const profile = user.profile;
+  const author: DesignAuthor = {
+    name: profile.name || "Your Name",
+    handle: profile.handle || "yourhandle",
+    avatar: profile.photoUrl || null,
+  };
 
   const now = new Date();
   const newDesign: NewDesignInput = {
     userId,
-    format,
+    type: type as DesignType,
     title,
-    content: starterContent(format),
-    style: starterStyle(format),
-    fileType: fileTypeForFormat(format),
+    paletteId: type === "card" ? "bone" : "ink",
+    customBg: null,
+    customText: null,
+    customAccent: null,
+    author,
+    slides: starterSlides(type as DesignType),
+    fileType: fileTypeForType(type as DesignType),
     createdAt: now,
     updatedAt: now,
   };
@@ -164,10 +106,8 @@ designs.post("/", jsonValidator(createDesignSchema), async (c) => {
   return c.json({ id }, 201);
 });
 
-// Dashboard/gallery listing -- includes the 5+5 usage counters (spec 4.1/7).
-// Thumbnails are intentionally NOT returned here; they're a client-side
-// mini-render of content/style, not a stored image (spec section 6).
-// `counts` shape matches app/src/lib/api.ts's DesignCounts exactly.
+// Dashboard listing + 5/5 usage counters. Thumbnails are a client-side
+// mini-render of the design, not stored images.
 designs.get("/", async (c) => {
   const userId = c.get("userId");
   const stub = mongoStub(c.env);
@@ -179,9 +119,11 @@ designs.get("/", async (c) => {
   return c.json({
     designs: items.map((d) => ({
       id: d._id,
-      format: d.format,
+      type: d.type,
       title: d.title,
       fileType: d.fileType,
+      paletteId: d.paletteId,
+      slideCount: d.slides.length,
       hasExport: Boolean(d.export?.url),
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
@@ -190,9 +132,7 @@ designs.get("/", async (c) => {
   });
 });
 
-// Flat shape -- matches CardEditorPage.tsx/CarouselEditorPage.tsx's
-// `.then((d) => { setContent(d.content); setStyle(d.style); })`, not a
-// `{ design }` wrapper.
+// Flat shape -- the editor reads d.type/d.slides/d.author/d.paletteId directly.
 designs.get("/:id", async (c) => {
   const stub = mongoStub(c.env);
   const design = await stub.findDesign(c.req.param("id"));
@@ -210,54 +150,46 @@ designs.get("/:id", async (c) => {
   return c.json(design);
 });
 
-// Autosaved by the editor (debounced ~2s + on-blur/pre-download, spec 4.1) --
-// overwrites content/style in place, no draft/export split (decision 10).
+// Autosaved by the editor (debounced) -- overwrites in place.
 designs.put("/:id", jsonValidator(updateDesignSchema), async (c) => {
-  const { title, content, style } = c.req.valid("json");
+  const { title, paletteId, customBg, customText, customAccent, author, slides } = c.req.valid("json");
   const stub = mongoStub(c.env);
   const design = await stub.findDesign(c.req.param("id"));
   if (!design || design.userId !== c.get("userId")) {
     return c.json({ error: "NOT_FOUND" }, 404);
   }
 
-  const isCarouselShaped = "slides" in content;
-  if (design.format === "carousel" && !isCarouselShaped) {
-    return c.json({ error: "CONTENT_FORMAT_MISMATCH" }, 400);
-  }
-  if (design.format === "card" && isCarouselShaped) {
-    return c.json({ error: "CONTENT_FORMAT_MISMATCH" }, 400);
-  }
-  if (isCarouselShaped && !isValidCarouselSlides(content.slides)) {
-    return c.json({ error: "INVALID_SLIDE_STRUCTURE" }, 400);
+  // A card is always exactly one slide.
+  if (design.type === "card" && slides.length !== 1) {
+    return c.json({ error: "CARD_MUST_HAVE_ONE_SLIDE" }, 400);
   }
 
   await stub.updateDesign(design._id, {
     ...(title !== undefined ? { title } : {}),
-    content,
-    style,
+    paletteId,
+    customBg: customBg ?? null,
+    customText: customText ?? null,
+    customAccent: customAccent ?? null,
+    author,
+    // template is validated as a loose string; the editor only ever sends
+    // known TemplateId values, so this narrowing cast is safe.
+    slides: slides as DesignSlide[],
     updatedAt: new Date(),
   });
 
   return c.json({ message: "Saved." });
 });
 
-// Deletes the design document, freeing one slot against the 5/5 cap
-// (decision 10). Does NOT also destroy the underlying Cloudinary asset --
-// matches protfolio's own files.ts, which never calls Cloudinary's destroy
-// API on delete either (soft-delete of the DB record only). An orphaned
-// Cloudinary asset is an acceptable v1 tradeoff for this parity.
 designs.delete("/:id", async (c) => {
   const stub = mongoStub(c.env);
   const design = await stub.findDesign(c.req.param("id"));
   if (!design || design.userId !== c.get("userId")) {
     return c.json({ error: "NOT_FOUND" }, 404);
   }
-
   await stub.deleteDesign(design._id);
   return c.json({ message: "Deleted." });
 });
 
-// Explicit "save as new" (spec 4.1/7) -- creates a new document, no export yet.
 designs.post("/:id/duplicate", async (c) => {
   const stub = mongoStub(c.env);
   const source = await stub.findDesign(c.req.param("id"));
@@ -268,10 +200,14 @@ designs.post("/:id/duplicate", async (c) => {
   const now = new Date();
   const newDesign: NewDesignInput = {
     userId: source.userId,
-    format: source.format,
+    type: source.type,
     title: source.title ? `${source.title} (copy)` : undefined,
-    content: source.content,
-    style: source.style,
+    paletteId: source.paletteId,
+    customBg: source.customBg ?? null,
+    customText: source.customText ?? null,
+    customAccent: source.customAccent ?? null,
+    author: source.author,
+    slides: source.slides,
     fileType: source.fileType,
     createdAt: now,
     updatedAt: now,
@@ -280,13 +216,15 @@ designs.post("/:id/duplicate", async (c) => {
   return c.json({ id }, 201);
 });
 
-// Accepts the client-rendered PNG/PDF binary (multipart form, field "file"),
-// checks the 5/5 cap (unless this design already has an export -- re-exports
-// overwrite in place and never count against the cap, spec section 7),
-// uploads it to Cloudinary, and writes export.* metadata. Each re-export
-// creates a fresh Cloudinary asset (a new public_id/URL each time, same as
-// protfolio's /upload) rather than overwriting one in place -- the prior
-// asset is simply orphaned, matching the delete route's same tradeoff.
+async function sha256Hex(data: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// Accepts the client-rendered PNG/PDF, checks the 5/5 cap (unless re-export),
+// uploads to Cloudinary, writes export.* metadata.
 designs.post("/:id/export", async (c) => {
   const stub = mongoStub(c.env);
   const design = await stub.findDesign(c.req.param("id"));
@@ -314,14 +252,14 @@ designs.post("/:id/export", async (c) => {
     return c.json({ error: "FILE_TOO_LARGE" }, 400);
   }
 
-  const expectedMime = mimeTypeForFormat(design.format);
+  const expectedMime = mimeTypeForType(design.type);
   if (file.type && file.type !== expectedMime) {
     return c.json({ error: "UNSUPPORTED_FILE_TYPE", expected: expectedMime }, 400);
   }
 
   const pageCountRaw = form.get("pageCount");
   const pageCount =
-    design.format === "carousel" && typeof pageCountRaw === "string"
+    design.type === "carousel" && typeof pageCountRaw === "string"
       ? Number.parseInt(pageCountRaw, 10)
       : undefined;
 
@@ -344,13 +282,6 @@ designs.post("/:id/export", async (c) => {
   return c.json({ message: "Exported.", sizeBytes: bytes.byteLength });
 });
 
-// Not currently linked from any UI affordance (the editor downloads its
-// client-rendered blob directly, see app/src/lib/export.ts) -- kept as the
-// ownership-checked API surface for a future "re-download" action (decision
-// 12: exported files are only ever retrieved through an authenticated,
-// ownership-checked path). Redirects to a signed Cloudinary URL with
-// fl_attachment forcing a real "Save As" download, rather than streaming
-// bytes through the Worker.
 designs.get("/:id/download", async (c) => {
   const stub = mongoStub(c.env);
   const design = await stub.findDesign(c.req.param("id"));

@@ -140,7 +140,7 @@ export default function SignupPage() {
       </form>
 
       <p style={{ marginTop: 20, fontSize: 14, color: 'var(--muted)', textAlign: 'center' }}>
-        Already have an account? <Link to="/login" style={{ color: 'var(--brand-strong)', fontWeight: 600 }}>Log in</Link>
+        Already have an account? <Link to="/login" style={{ color: 'var(--ink)', fontWeight: 600 }}>Log in</Link>
       </p>
     </AuthShell>
   );

@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
         </button>
       </form>
       <p style={{ marginTop: 20, fontSize: 14, color: 'var(--muted)', textAlign: 'center' }}>
-        <Link to="/login" style={{ color: 'var(--brand-strong)', fontWeight: 600 }}>Back to login</Link>
+        <Link to="/login" style={{ color: 'var(--ink)', fontWeight: 600 }}>Back to login</Link>
       </p>
     </AuthShell>
   );

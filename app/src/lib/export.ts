@@ -1,18 +1,12 @@
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
-// Client-side export pipeline (docs/contentpro-spec.md §4.3) -- no server
-// rendering anywhere. Canvas nodes are rasterized directly in the browser.
-//
-// Uses html2canvas (the spec's named fallback, §4.3) rather than
-// html-to-image: the latter serializes the DOM to an SVG data URI and awaits
-// HTMLImageElement.decode() on it before drawing to canvas, which hangs
-// indefinitely on affected Chromium versions (a real, reproduced browser
-// bug, not a config issue) -- decode() never settles for SVG-sourced images
-// in that scenario, and nothing here ever gets to fire onload/onerror.
-// html2canvas walks the DOM and paints directly via Canvas 2D APIs instead,
-// with no SVG/decode() step to hang on.
-const EXPORT_TIMEOUT_MS = 20_000;
+// Client-side export pipeline. Uses html2canvas (not html-to-image, which
+// hangs on this browser awaiting img.decode() of an SVG data URI). Nodes are
+// captured at their natural size × 2 for crisp output. Carousel pages use
+// JPEG to stay under Cloudinary's 10MB free-tier upload cap.
+const EXPORT_TIMEOUT_MS = 25_000;
+const CAROUSEL_PAGE_JPEG_QUALITY = 0.92;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
@@ -21,9 +15,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
-function renderNodeToCanvas(node: HTMLElement): Promise<HTMLCanvasElement> {
+function renderNodeToCanvas(node: HTMLElement, w: number, h: number): Promise<HTMLCanvasElement> {
   return withTimeout(
-    html2canvas(node, { width: 1080, height: 1080, scale: 2, useCORS: true, backgroundColor: null }),
+    html2canvas(node, { width: w, height: h, scale: 2, useCORS: true, backgroundColor: null }),
     EXPORT_TIMEOUT_MS,
     'Rendering',
   );
@@ -35,29 +29,18 @@ function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-export async function exportCardAsPng(node: HTMLElement): Promise<Blob> {
-  const canvas = await renderNodeToCanvas(node);
+export async function exportCardAsPng(node: HTMLElement, w: number, h: number): Promise<Blob> {
+  const canvas = await renderNodeToCanvas(node, w, h);
   return canvasToPngBlob(canvas);
 }
 
-// JPEG, not PNG, for carousel pages -- Cloudinary's free-tier plan caps
-// uploads at 10MB (a real, reproduced account-tier limit, confirmed live: a
-// 2-slide PDF with PNG-embedded 1080x1080@2x pages already hit ~32MB, and
-// jsPDF embeds PNGs close to raw size with no re-compression of its own).
-// JPEG's DCT compression shrinks flat-design/text content dramatically with
-// no visible quality loss at this quality level, keeping even a full
-// 15-slide carousel (spec §8's hard cap) well under the limit.
-const CAROUSEL_PAGE_JPEG_QUALITY = 0.92;
-
-export async function exportCarouselAsPdf(slideNodes: HTMLElement[]): Promise<Blob> {
-  const pdf = new jsPDF({ unit: 'px', format: [1080, 1080], orientation: 'portrait' });
-
+export async function exportCarouselAsPdf(slideNodes: HTMLElement[], w: number, h: number): Promise<Blob> {
+  const pdf = new jsPDF({ unit: 'px', format: [w, h], orientation: 'portrait', compress: true });
   for (let i = 0; i < slideNodes.length; i++) {
-    const canvas = await renderNodeToCanvas(slideNodes[i]);
-    if (i > 0) pdf.addPage([1080, 1080], 'portrait');
-    pdf.addImage(canvas.toDataURL('image/jpeg', CAROUSEL_PAGE_JPEG_QUALITY), 'JPEG', 0, 0, 1080, 1080);
+    const canvas = await renderNodeToCanvas(slideNodes[i], w, h);
+    if (i > 0) pdf.addPage([w, h], 'portrait');
+    pdf.addImage(canvas.toDataURL('image/jpeg', CAROUSEL_PAGE_JPEG_QUALITY), 'JPEG', 0, 0, w, h);
   }
-
   return pdf.output('blob');
 }
 
