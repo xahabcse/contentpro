@@ -27,6 +27,7 @@ export default function EditorPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [scale, setScale] = useState(0.35);
+  const [incompatible, setIncompatible] = useState(false);
 
   const stageAreaRef = useRef<HTMLDivElement>(null);
   const exportRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -43,6 +44,14 @@ export default function EditorPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled || !d) return;
+        // Designs created before the studio redesign have no slides/type and
+        // can't be opened in the new template editor -- show a friendly notice
+        // instead of crashing on the missing shape.
+        if (!d.type || !Array.isArray(d.slides) || d.slides.length === 0) {
+          setIncompatible(true);
+          setLoaded(true);
+          return;
+        }
         setType(d.type);
         setTitle(d.title);
         setPaletteId(d.paletteId);
@@ -184,6 +193,16 @@ export default function EditorPage() {
     return (
       <div className="cp" data-ui={ui} style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--c-app)', color: 'var(--c-dim)', font: "600 14px/1 'Space Grotesk'" }}>
         Loading editor…
+      </div>
+    );
+  }
+
+  if (incompatible) {
+    return (
+      <div className="cp" data-ui={ui} style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', justifyContent: 'center', background: 'var(--c-app)', color: 'var(--c-text)', padding: 24, textAlign: 'center' }}>
+        <div style={{ font: "800 20px/1.3 Archivo", maxWidth: 420 }}>This design is from an earlier version</div>
+        <div style={{ font: "500 14px/1.5 'Space Grotesk'", color: 'var(--c-dim2)', maxWidth: 420 }}>The editor was redesigned and older designs can't be opened in the new template studio. Create a fresh card or carousel from the dashboard.</div>
+        <button onClick={() => navigate('/dashboard')} style={{ border: 'none', cursor: 'pointer', font: "700 13px/1 'Space Grotesk'", padding: '12px 20px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)' }}>Back to dashboard</button>
       </div>
     );
   }
