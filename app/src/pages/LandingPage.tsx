@@ -59,7 +59,7 @@ export default function LandingPage() {
   const cta = user ? { to: '/dashboard', label: 'Open your dashboard' } : { to: '/signup', label: 'Start for free' };
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)', color: 'var(--ink)', overflowX: 'hidden' }}>
+    <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)', color: 'var(--ink)', overflowX: 'clip' }}>
       <div className="lp-grain" />
 
       {/* ---- nav ---- */}
