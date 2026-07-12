@@ -229,14 +229,14 @@ h3 {
   }
   .lp-hero-art {
     order: -1;
-    height: 320px !important;
-    transform: scale(0.82);
+    height: 300px !important;
+    margin-bottom: 30px;
   }
 }
 @media (max-width: 440px) {
   .lp-hero-art {
-    height: 280px !important;
-    transform: scale(0.66);
+    height: 250px !important;
+    margin-bottom: 26px;
   }
 }
 
