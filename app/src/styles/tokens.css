@@ -141,6 +141,24 @@ h3 {
   margin-top: 4px;
 }
 
+/* horizontal slider track (landing template showcase) */
+.slider-track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+.slider-track::-webkit-scrollbar {
+  display: none;
+}
+.slider-track > * {
+  scroll-snap-align: start;
+}
+
 /* ---- editor shell theme (.cp), ported from ContentPro.dc.html ---- */
 
 .cp {

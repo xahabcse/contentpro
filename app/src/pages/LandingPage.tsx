@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import SlideCanvas from '@/components/editor/SlideCanvas';
@@ -6,6 +7,20 @@ import { templateDefaults } from '@/lib/templates';
 import type { Author, Slide, TemplateId } from '@/lib/design-types';
 
 const DEMO_AUTHOR: Author = { name: 'Ayesha Rahman', handle: 'ayesharahman', avatar: null };
+
+const sliderArrow: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: '50%',
+  border: '1px solid var(--line-2)',
+  background: 'var(--surface-2)',
+  color: 'var(--ink)',
+  cursor: 'pointer',
+  font: '22px/1 Archivo',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
 
 // A scaled, non-interactive 1080-square card preview built from a real
 // template + palette -- the same renderer the editor and export use, so the
@@ -33,6 +48,13 @@ const FEATURES: { title: string; body: string }[] = [
 
 export default function LandingPage() {
   const { user } = useAuth();
+  const sliderRef = useRef<HTMLDivElement>(null);
+
+  function scrollSlider(dir: 1 | -1) {
+    const el = sliderRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * Math.max(320, el.clientWidth * 0.8), behavior: 'smooth' });
+  }
 
   const primaryCta = user
     ? { to: '/dashboard', label: 'Go to your dashboard' }
@@ -100,14 +122,20 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* template showcase */}
+      {/* template showcase slider */}
       <section style={{ background: 'var(--surface)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
         <div style={{ maxWidth: 1140, margin: '0 auto', padding: '48px 20px' }}>
-          <h2 style={{ font: '800 clamp(24px,4vw,34px)/1.1 Archivo', letterSpacing: '-0.02em', margin: '0 0 24px' }}>Start from a template, make it yours</h2>
-          <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 8 }}>
-            {([['cover', 'ink'], ['tips', 'crimson'], ['framework', 'grape'], ['question', 'bone'], ['statement', 'forest'], ['announce', 'cobalt']] as [TemplateId, string][]).map(([t, p]) => (
-              <div key={t} style={{ flex: 'none' }}>
-                <CardPreview template={t} paletteId={p} target={200} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
+            <h2 style={{ font: '800 clamp(24px,4vw,34px)/1.1 Archivo', letterSpacing: '-0.02em', margin: 0 }}>Start from a template, make it yours</h2>
+            <div style={{ display: 'flex', gap: 10, flex: 'none' }}>
+              <button aria-label="Previous" onClick={() => scrollSlider(-1)} style={sliderArrow}>‹</button>
+              <button aria-label="Next" onClick={() => scrollSlider(1)} style={sliderArrow}>›</button>
+            </div>
+          </div>
+          <div ref={sliderRef} className="slider-track">
+            {([['cover', 'ink'], ['tips', 'crimson'], ['framework', 'grape'], ['question', 'bone'], ['statement', 'forest'], ['announce', 'cobalt'], ['quote', 'ink'], ['stat', 'cobalt'], ['contrast', 'crimson'], ['cta', 'forest']] as [TemplateId, string][]).map(([t, p], i) => (
+              <div key={t + i} style={{ flex: 'none' }}>
+                <CardPreview template={t} paletteId={p} target={220} />
               </div>
             ))}
           </div>
