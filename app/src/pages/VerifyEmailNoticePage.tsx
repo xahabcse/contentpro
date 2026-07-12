@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import AuthShell from '@/components/layout/AuthShell';
 import { useAuth } from '@/lib/auth';
 
@@ -76,10 +76,16 @@ export default function VerifyEmailNoticePage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const { user, logout } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(false);
+
+  // After signup the user has no session yet, so useAuth().user is null --
+  // fall back to the email handed over via router state from SignupPage.
+  const stateEmail = (location.state as { email?: string } | null)?.email;
+  const email = user?.email ?? stateEmail ?? '';
 
   async function resend() {
     setError(null);
@@ -89,7 +95,7 @@ export default function VerifyEmailNoticePage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user?.email }),
+        body: JSON.stringify({ email }),
       });
       // Always show the same generic success message -- the API itself
       // never reveals whether the account exists (spec §5.3).
@@ -115,14 +121,14 @@ export default function VerifyEmailNoticePage() {
   return (
     <AuthShell title="Check your email" subtitle="One more step before you can start designing.">
       <p style={{ fontSize: 15, lineHeight: 1.6, marginBottom: 20 }}>
-        We sent a verification link to <strong>{user?.email}</strong>. Click it, then log in again to
-        continue — you'll be redirected to your dashboard once verified.
+        We sent a verification link{email ? <> to <strong>{email}</strong></> : ''}. Click it, then log in
+        again to continue — you'll be redirected to your dashboard once verified.
       </p>
 
       {sent && (
-        <p className="pill pill-brand" style={{ marginBottom: 16 }}>Verification email sent.</p>
+        <p className="pill pill-brand" role="status" style={{ marginBottom: 16 }}>Verification email sent.</p>
       )}
-      {error && <p className="error-text" style={{ marginBottom: 16 }}>{error}</p>}
+      {error && <p className="error-text" role="alert" style={{ marginBottom: 16 }}>{error}</p>}
 
       <button className="btn btn-primary" onClick={resend} disabled={cooldown} style={{ marginBottom: 12 }}>
         {cooldown ? 'Sent — wait a bit before resending' : 'Resend verification email'}

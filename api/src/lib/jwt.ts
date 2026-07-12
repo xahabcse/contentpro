@@ -1,18 +1,18 @@
 // Hand-rolled HS256 JWT sign/verify via native Web Crypto (crypto.subtle).
 //
-// This deliberately does NOT use the `jose` package's verify path or
-// `hono/jwt` here: both are fine on Workers in principle, but a small,
-// dependency-free HMAC-SHA256 implementation is easier to audit end-to-end
-// and avoids any risk of a library internally reaching for something that
-// doesn't behave identically under workerd. `jose` remains listed in
-// package.json for any future need (e.g. asymmetric keys), it's just not on
-// the hot path for this project's session/action tokens.
+// This deliberately does NOT use `jose` or `hono/jwt` here: both are fine on
+// Workers in principle, but a small, dependency-free HMAC-SHA256
+// implementation is easier to audit end-to-end and avoids any risk of a
+// library internally reaching for something that doesn't behave identically
+// under workerd.
 
 export type ActionTokenType = "email_verification" | "password_reset";
 
 export interface SessionTokenPayload {
   sub: string; // userId
+  type: "session"; // domain separation from action tokens (both signed with JWT_SECRET)
   emailVerified: boolean;
+  v: number; // tokenVersion at issuance -- checked against the DB in authRequired for revocation
   iat: number;
   exp: number;
 }
@@ -78,6 +78,17 @@ async function verifyJwt<T extends { exp: number }>(token: string, secret: strin
   const [encodedHeader, encodedPayload, encodedSignature] = parts;
   if (!encodedHeader || !encodedPayload || !encodedSignature) return null;
 
+  // Pin the algorithm: only HS256 is ever issued here. Rejecting anything else
+  // up front closes the classic JWT alg-confusion / "alg":"none" class of
+  // attacks (not exploitable given the HMAC-only verify below, but cheap and
+  // regression-proof to enforce explicitly).
+  try {
+    const header = JSON.parse(base64UrlToString(encodedHeader)) as { alg?: string };
+    if (header.alg !== "HS256") return null;
+  } catch {
+    return null;
+  }
+
   const key = await importHmacKey(secret);
   const signatureBytes = base64UrlToBytes(encodedSignature);
   const signingInput = `${encodedHeader}.${encodedPayload}`;
@@ -105,12 +116,15 @@ async function verifyJwt<T extends { exp: number }>(token: string, secret: strin
 export async function signSessionToken(
   userId: string,
   emailVerified: boolean,
+  tokenVersion: number,
   secret: string,
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const payload: SessionTokenPayload = {
     sub: userId,
+    type: "session",
     emailVerified,
+    v: tokenVersion,
     iat: now,
     exp: now + SESSION_TTL_SECONDS,
   };
@@ -121,7 +135,11 @@ export async function verifySessionToken(
   token: string,
   secret: string,
 ): Promise<SessionTokenPayload | null> {
-  return verifyJwt<SessionTokenPayload>(token, secret);
+  const payload = await verifyJwt<SessionTokenPayload>(token, secret);
+  // Reject action tokens (email_verification / password_reset) being replayed
+  // as a session cookie -- they omit `type: "session"`.
+  if (!payload || payload.type !== "session") return null;
+  return payload;
 }
 
 export async function signActionToken(

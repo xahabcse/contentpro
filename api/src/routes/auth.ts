@@ -3,13 +3,30 @@ import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
 import type { AppEnv, Env } from "../env";
-import { hashPassword, verifyPassword } from "../lib/password";
+import { hashPassword, needsRehash, verifyPassword, verifyPasswordDummy } from "../lib/password";
 import { signActionToken, signSessionToken, verifyActionToken } from "../lib/jwt";
+import { signProfileImageUrls } from "../lib/cloudinary";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../lib/resend";
 import { verifyTurnstileToken } from "../lib/turnstile";
 import { authRequired, SESSION_COOKIE_NAME } from "../middleware/auth-required";
-import { checkAndRecordRateLimit } from "../middleware/rate-limit";
+import { checkAndRecordRateLimit, resetRateLimit } from "../middleware/rate-limit";
 import type { NewUserInput } from "../schema";
+
+// Duplicate-key sentinel thrown by MongoConnectionDO.insertUser -- RPC across
+// the DO boundary preserves Error.message but not custom props, so match on the
+// message string.
+const DUPLICATE_EMAIL_ERROR = "DUPLICATE_EMAIL";
+
+// Auth-abuse throttles (best-effort, KV-backed -- see rate-limit.ts caveat).
+// Login: ~8 failed attempts per 15 min, per email and per IP, reset on success.
+const LOGIN_LIMIT = { cooldownSeconds: 0, maxAttempts: 8, windowSeconds: 15 * 60 };
+// Signup / reset-password: per-IP cap so one host can't mass-create accounts or
+// hammer the reset endpoint (the emailed token is high-entropy, but cap anyway).
+const IP_AUTH_LIMIT = { cooldownSeconds: 0, maxAttempts: 15, windowSeconds: 60 * 60 };
+
+function clientIp(c: { req: { header: (name: string) => string | undefined } }): string {
+  return c.req.header("cf-connecting-ip") ?? "unknown-ip";
+}
 
 const auth = new Hono<AppEnv>();
 
@@ -42,6 +59,11 @@ auth.post("/signup", jsonValidator(signupSchema), async (c) => {
   const { email, password, turnstileToken } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
 
+  const ipRate = await checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "signup-ip", clientIp(c), IP_AUTH_LIMIT);
+  if (!ipRate.allowed) {
+    return c.json({ error: "RATE_LIMITED", retryAfterSeconds: ipRate.retryAfterSeconds }, 429);
+  }
+
   const turnstileOk = await verifyTurnstileToken(
     turnstileToken,
     c.env.TURNSTILE_SECRET_KEY,
@@ -70,7 +92,18 @@ auth.post("/signup", jsonValidator(signupSchema), async (c) => {
     updatedAt: now,
     profile: {},
   };
-  const userId = await stub.insertUser(newUser);
+
+  let userId: string;
+  try {
+    userId = await stub.insertUser(newUser);
+  } catch (err) {
+    // Closes the TOCTOU race between the findUserByEmail check above and the
+    // unique-index insert -- surface it as the same 409 rather than a 500.
+    if (err instanceof Error && err.message === DUPLICATE_EMAIL_ERROR) {
+      return c.json({ error: "EMAIL_IN_USE" }, 409);
+    }
+    throw err;
+  }
 
   const token = await signActionToken(userId, normalizedEmail, "email_verification", 0, c.env.JWT_SECRET);
   await sendVerificationEmail(normalizedEmail, token, resendConfig(c.env));
@@ -85,15 +118,30 @@ const loginSchema = z.object({
 
 // Issues a session JWT regardless of emailVerified status (spec 4.1/5.3) --
 // the frontend uses the claim to route to Dashboard vs. the Verify-Email
-// Notice screen, but server-side enforcement is emailVerifiedRequired on
-// Profile/Designs routes, not this decision.
+// Notice screen, but server-side enforcement is emailVerifiedRequired on the
+// Profile routes, not this decision.
 auth.post("/login", jsonValidator(loginSchema), async (c) => {
   const { email, password } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
+  const ip = clientIp(c);
+
+  // Brute-force throttle: fail closed if EITHER the per-email OR per-IP counter
+  // is exhausted. Both are recorded on every attempt and cleared on success.
+  const [emailRate, ipRate] = await Promise.all([
+    checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "login-email", normalizedEmail, LOGIN_LIMIT),
+    checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "login-ip", ip, LOGIN_LIMIT),
+  ]);
+  if (!emailRate.allowed || !ipRate.allowed) {
+    const retryAfterSeconds = Math.max(emailRate.retryAfterSeconds ?? 0, ipRate.retryAfterSeconds ?? 0);
+    return c.json({ error: "RATE_LIMITED", retryAfterSeconds }, 429);
+  }
 
   const stub = mongoStub(c.env);
   const user = await stub.findUserByEmail(normalizedEmail);
   if (!user) {
+    // Burn equivalent CPU so response timing doesn't reveal that the account is
+    // missing (account enumeration). Always fails.
+    await verifyPasswordDummy(password);
     return c.json({ error: "INVALID_CREDENTIALS" }, 401);
   }
 
@@ -102,9 +150,24 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
     return c.json({ error: "INVALID_CREDENTIALS" }, 401);
   }
 
-  await stub.updateUser(user._id, { lastLoginAt: new Date() });
+  const userUpdate: Parameters<typeof stub.updateUser>[1] = { lastLoginAt: new Date() };
+  // Rehash-on-login: transparently upgrade legacy low-iteration hashes to the
+  // current target now that we hold the plaintext, without forcing a reset.
+  if (needsRehash(user.passwordIterations)) {
+    const rehashed = await hashPassword(password);
+    userUpdate.passwordHash = rehashed.hash;
+    userUpdate.passwordSalt = rehashed.salt;
+    userUpdate.passwordIterations = rehashed.iterations;
+  }
+  await stub.updateUser(user._id, userUpdate);
 
-  const token = await signSessionToken(user._id, user.emailVerified, c.env.JWT_SECRET);
+  // Successful auth -- clear the throttle counters for this email + IP.
+  await Promise.all([
+    resetRateLimit(c.env.RATE_LIMIT_KV, "login-email", normalizedEmail),
+    resetRateLimit(c.env.RATE_LIMIT_KV, "login-ip", ip),
+  ]);
+
+  const token = await signSessionToken(user._id, user.emailVerified, user.tokenVersion, c.env.JWT_SECRET);
   setCookie(c, SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: true,
@@ -127,7 +190,9 @@ auth.get("/me", authRequired, async (c) => {
     id: user._id,
     email: user.email,
     emailVerified: user.emailVerified,
-    profile: user.profile,
+    // Sign the Cloudinary URLs at response time -- keep parity with
+    // GET /api/profile, which also returns signed URLs.
+    profile: await signProfileImageUrls(user.profile, c.env.CLOUDINARY_API_SECRET, c.env.CLOUDINARY_CLOUD_NAME),
   });
 });
 
@@ -174,7 +239,9 @@ auth.post("/resend-verification", jsonValidator(emailOnlySchema), async (c) => {
     const nextVersion = user.tokenVersion + 1;
     await stub.updateUser(user._id, { tokenVersion: nextVersion });
     const token = await signActionToken(user._id, normalizedEmail, "email_verification", nextVersion, c.env.JWT_SECRET);
-    await sendVerificationEmail(normalizedEmail, token, resendConfig(c.env));
+    // Send off the response path so latency is identical whether or not the
+    // account exists -- closes the timing-based enumeration channel (spec 5.3).
+    c.executionCtx.waitUntil(sendVerificationEmail(normalizedEmail, token, resendConfig(c.env)));
   }
 
   // Generic response regardless of account existence -- no email enumeration (spec 5.3).
@@ -196,7 +263,9 @@ auth.post("/forgot-password", jsonValidator(emailOnlySchema), async (c) => {
     const nextVersion = user.tokenVersion + 1;
     await stub.updateUser(user._id, { tokenVersion: nextVersion });
     const token = await signActionToken(user._id, normalizedEmail, "password_reset", nextVersion, c.env.JWT_SECRET);
-    await sendPasswordResetEmail(normalizedEmail, token, resendConfig(c.env));
+    // Send off the response path -- constant response timing regardless of
+    // account existence (spec 5.4).
+    c.executionCtx.waitUntil(sendPasswordResetEmail(normalizedEmail, token, resendConfig(c.env)));
   }
 
   // Generic response regardless of account existence -- no email enumeration (spec 5.4).
@@ -209,6 +278,11 @@ const resetPasswordSchema = z.object({
 });
 
 auth.post("/reset-password", jsonValidator(resetPasswordSchema), async (c) => {
+  const ipRate = await checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "reset-password-ip", clientIp(c), IP_AUTH_LIMIT);
+  if (!ipRate.allowed) {
+    return c.json({ error: "RATE_LIMITED", retryAfterSeconds: ipRate.retryAfterSeconds }, 429);
+  }
+
   const { token, password } = c.req.valid("json");
   const payload = await verifyActionToken(token, "password_reset", c.env.JWT_SECRET);
   if (!payload) {

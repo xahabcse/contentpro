@@ -6,9 +6,8 @@ interface AuthShellProps {
   children: ReactNode;
 }
 
-// Centered single-column card, matching the live Porhi site's mobile-first
-// pattern (full-bleed stacked content, generous rounded corners, one primary
-// action) rather than a two-column desktop-first auth layout.
+// Centered single-column auth card: mobile-first stacked content, generous
+// rounded corners, one primary action -- not a two-column desktop layout.
 export default function AuthShell({ title, subtitle, children }: AuthShellProps) {
   return (
     <div

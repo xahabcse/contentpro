@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import SlideCanvas from '@/components/editor/SlideCanvas';
 import { canvasSize, type FieldValue, type FooterData, type LocalDesign, type ResolvedSlide, type Slide, type TemplateId } from '@/lib/design-types';
@@ -39,6 +39,17 @@ export default function EditorPage() {
   const exportRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dirty = useRef(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // latest design/active kept in refs so unmount + stable callbacks can read
+  // them without re-subscribing.
+  const designRef = useRef<LocalDesign | null>(null);
+  const activeRef = useRef(0);
+  designRef.current = design;
+  activeRef.current = active;
+
+  // stable so the memoised TemplatePicker doesn't re-render on every keystroke
+  const onPickTemplate = useCallback((tid: TemplateId) => {
+    setDesign((d) => (d ? { ...d, slides: d.slides.map((sl, i) => (i === activeRef.current ? { ...sl, template: tid, fields: templateDefaults(tid) } : sl)) } : d));
+  }, []);
 
   // ---- load design (localStorage) + profile (server) ----
   useEffect(() => {
@@ -78,12 +89,28 @@ export default function EditorPage() {
     if (!loaded || !design) return;
     if (!dirty.current) { dirty.current = true; return; }
     const t = setTimeout(() => {
-      saveDesign(design);
       storagePressure().then((p) => { if (p && p.ratio > 0.85) showToast('Your browser storage is getting full — back up and remove old designs.'); });
+      try {
+        saveDesign(design);
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : "Couldn't save your design.");
+      }
     }, 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [design]);
+
+  // Flush the pending debounced save on unmount / tab-close so the last few
+  // keystrokes before leaving the editor are never lost (there is no manual
+  // Save button in this browser-only model).
+  useEffect(() => {
+    const flush = () => {
+      if (!dirty.current || !designRef.current) return;
+      try { saveDesign(designRef.current); } catch { /* quota surfaced on the debounced path */ }
+    };
+    window.addEventListener('beforeunload', flush);
+    return () => { window.removeEventListener('beforeunload', flush); flush(); };
+  }, []);
 
   const cv = design ? canvasSize(design.type) : { w: 1080, h: 1080 };
   const colors = resolveColors(design?.paletteId ?? 'bone', { bg: design?.customBg, text: design?.customText, accent: design?.customAccent });
@@ -128,7 +155,6 @@ export default function EditorPage() {
 
   const activeSlide = (): Slide | null => (design ? design.slides[Math.min(active, design.slides.length - 1)] || design.slides[0] : null);
 
-  function applyTemplate(tid: TemplateId) { patchSlides((s) => s.map((sl, i) => (i === active ? { ...sl, template: tid, fields: templateDefaults(tid) } : sl))); }
   function updateField(k: string, v: FieldValue) { patchSlides((s) => s.map((sl, i) => (i === active ? { ...sl, fields: { ...sl.fields, [k]: v } } : sl))); }
   function setPalette(pid: string) { patch({ paletteId: pid, customBg: null, customText: null, customAccent: null }); }
   function setAuthorOverride(k: 'name' | 'handle', v: string) { setDesign((d) => (d ? { ...d, authorOverride: { ...d.authorOverride, [k]: v } } : d)); }
@@ -158,13 +184,20 @@ export default function EditorPage() {
   }
 
   async function storeImage(file: File): Promise<string | null> {
+    const iid = newImageId();
     try {
-      const iid = newImageId();
       await putImage(iid, file);
+    } catch {
+      showToast("Couldn't save that image — your browser storage may be full.");
+      return null;
+    }
+    try {
       const url = await getImageUrl(iid);
       if (url) setImgUrls((prev) => ({ ...prev, [iid]: url }));
-      return iid;
-    } catch { showToast('Could not load that image.'); return null; }
+    } catch {
+      showToast("Saved the image, but couldn't show a preview.");
+    }
+    return iid;
   }
 
   async function exportNow() {
@@ -195,7 +228,7 @@ export default function EditorPage() {
         showToast('PDF · ' + design.slides.length + ' slides downloaded ✓');
       }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Export failed');
+      showToast(err instanceof Error ? err.message : 'Export failed. If you use a profile photo or company logo, try re-uploading it, then export again.');
     }
     setExporting(false);
   }
@@ -237,11 +270,18 @@ export default function EditorPage() {
             <span style={{ font: "600 9px/1.4 'Space Grotesk'", letterSpacing: '.22em', color: 'var(--c-dim)' }}>CARD &amp; CAROUSEL STUDIO</span>
           </div>
         </button>
-        <div style={{ flex: 1 }} />
-        <span style={{ font: "500 13px/1 'Space Grotesk'", color: 'var(--c-dim)' }}>{tpl.name + (isCar ? ' · ' + design.slides.length + ' slides · 1080×1350' : ' · 1080×1080')}</span>
-        <button onClick={() => setUi(ui === 'light' ? 'dark' : 'light')} title={ui === 'light' ? 'Switch to dark' : 'Switch to light'} style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid var(--c-line2)', background: 'transparent', color: 'var(--c-dim2)', cursor: 'pointer', font: '16px/1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{ui === 'light' ? '☽' : '☀'}</button>
-        <button onClick={exportNow} disabled={exporting} style={{ display: 'flex', alignItems: 'center', gap: 9, border: 'none', cursor: exporting ? 'wait' : 'pointer', font: "700 13px/1 'Space Grotesk'", padding: '11px 18px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)', opacity: exporting ? 0.6 : 1 }}>
-          {exporting ? <span style={{ width: 13, height: 13, border: '2px solid rgba(27,22,14,.35)', borderTopColor: '#1B160E', borderRadius: '50%', animation: 'cp-spin .7s linear infinite' }} /> : <span style={{ fontSize: 14 }}>↓</span>}
+        <input
+          type="text"
+          value={design.title ?? ''}
+          onChange={(e) => patch({ title: e.target.value })}
+          placeholder="Untitled design"
+          aria-label="Design title"
+          style={{ flex: 1, minWidth: 0, background: 'transparent', border: '1px solid var(--c-line2)', borderRadius: 8, color: 'var(--c-text)', font: "700 14px/1 'Space Grotesk'", padding: '10px 12px' }}
+        />
+        <span className="cp-topstatus" style={{ font: "500 13px/1 'Space Grotesk'", color: 'var(--c-dim)', flex: 'none', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name + (isCar ? ' · ' + design.slides.length + ' slides · 1080×1350' : ' · 1080×1080')}</span>
+        <button onClick={() => setUi(ui === 'light' ? 'dark' : 'light')} title={ui === 'light' ? 'Switch to dark' : 'Switch to light'} aria-label={ui === 'light' ? 'Switch to dark theme' : 'Switch to light theme'} style={{ width: 44, height: 44, borderRadius: 10, border: '1px solid var(--c-line2)', background: 'transparent', color: 'var(--c-dim2)', cursor: 'pointer', font: '16px/1', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{ui === 'light' ? '☽' : '☀'}</button>
+        <button onClick={exportNow} disabled={exporting} style={{ display: 'flex', alignItems: 'center', gap: 9, border: 'none', cursor: exporting ? 'wait' : 'pointer', font: "700 13px/1 'Space Grotesk'", padding: '12px 18px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)', opacity: exporting ? 0.6 : 1, flex: 'none' }}>
+          {exporting ? <span style={{ width: 13, height: 13, border: '2px solid color-mix(in srgb, var(--c-accent-ink) 35%, transparent)', borderTopColor: 'var(--c-accent-ink)', borderRadius: '50%', animation: 'cp-spin .7s linear infinite' }} /> : <span style={{ fontSize: 14 }}>↓</span>}
           {exporting ? 'Exporting…' : design.type === 'card' ? 'Export PNG' : 'Export PDF'}
         </button>
       </div>
@@ -251,18 +291,21 @@ export default function EditorPage() {
         <aside className="cp-left" style={{ background: 'var(--c-panel)', borderRight: '1px solid var(--c-line)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div style={{ padding: '16px 18px 12px', font: "700 11px/1 'Space Grotesk'", letterSpacing: '.16em', color: 'var(--c-dim)' }}>TEMPLATES</div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '0 14px 18px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {TEMPLATE_ORDER.map((tid) => {
-                const on = a.template === tid;
-                const sample: Slide = { template: tid, fields: templateDefaults(tid), bgImageId: null };
-                return (
-                  <button key={tid} onClick={() => applyTemplate(tid)} title={TEMPLATES[tid].name} style={{ border: on ? '2px solid var(--c-accent)' : '1px solid var(--c-line2)', background: 'var(--c-chip)', borderRadius: 10, padding: 5, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, textAlign: 'left' }}>
-                    {scaledCanvas(sample, 88)}
-                    <span style={{ font: "600 10px/1.1 'Space Grotesk'", color: on ? 'var(--c-accent-ink)' : 'var(--c-dim)', paddingLeft: 2 }}>{TEMPLATES[tid].name}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <TemplatePicker
+              activeTemplate={a.template}
+              bg={colors.bg}
+              text={colors.text}
+              accent={colors.accent}
+              name={footerData.name}
+              handle={footerData.handle}
+              avatar={footerData.avatar ?? null}
+              designation={footerData.designation ?? null}
+              companyName={footerData.companyName ?? null}
+              companyLogo={footerData.companyLogo ?? null}
+              cvW={cv.w}
+              cvH={cv.h}
+              onPick={onPickTemplate}
+            />
           </div>
         </aside>
 
@@ -280,18 +323,24 @@ export default function EditorPage() {
           </div>
 
           {isCar ? (
-            <div style={{ flex: '0 0 auto', borderTop: '1px solid var(--c-line)', background: 'var(--c-filmstrip)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, overflowX: 'auto' }}>
-              {design.slides.map((s, i) => {
-                const on = i === active;
-                return (
-                  <div key={i} draggable onClick={() => setActive(i)} onDragStart={() => setDragFrom(i)} onDragOver={(e) => e.preventDefault()} onDrop={() => dragFrom !== null && move(dragFrom, i)} style={{ position: 'relative', flex: 'none', cursor: 'grab', borderRadius: 7, padding: 3, background: on ? 'var(--c-accent)' : 'transparent', border: on ? 'none' : '1px solid var(--c-line2)' }}>
-                    {scaledCanvas(s, 64)}
-                    <span style={{ position: 'absolute', top: 1, left: 5, font: "700 9px/1 'Space Grotesk'", color: on ? 'var(--c-accent-ink)' : '#fff', textShadow: on ? 'none' : '0 1px 3px rgba(0,0,0,.8)' }}>{i + 1}</span>
-                    {design.slides.length > 1 ? <button onClick={(e) => { e.stopPropagation(); delSlide(i); }} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', background: '#E1402B', color: '#fff', font: '11px/1 sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: on ? 1 : 0 }}>×</button> : null}
-                  </div>
-                );
-              })}
-              <button onClick={addSlide} disabled={design.slides.length >= MAX_SLIDES} style={{ flex: 'none', width: 70, alignSelf: 'stretch', minHeight: 80, borderRadius: 7, border: '1.5px dashed var(--c-line2)', background: 'transparent', color: 'var(--c-dim)', cursor: design.slides.length >= MAX_SLIDES ? 'not-allowed' : 'pointer', font: '22px/1 Archivo', opacity: design.slides.length >= MAX_SLIDES ? 0.4 : 1 }}>+</button>
+            <div style={{ flex: '0 0 auto', borderTop: '1px solid var(--c-line)', background: 'var(--c-filmstrip)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div role="group" aria-label="Reorder or delete the current slide" style={{ display: 'flex', gap: 6, flex: 'none' }}>
+                <button onClick={() => move(active, active - 1)} disabled={active === 0} aria-label="Move slide earlier" title="Move slide earlier" style={filmCtrl(active === 0)}>‹</button>
+                <button onClick={() => move(active, active + 1)} disabled={active >= design.slides.length - 1} aria-label="Move slide later" title="Move slide later" style={filmCtrl(active >= design.slides.length - 1)}>›</button>
+                <button onClick={() => delSlide(active)} disabled={design.slides.length <= 1} aria-label="Delete current slide" title="Delete current slide" style={{ ...filmCtrl(design.slides.length <= 1), color: 'var(--c-danger)' }}>×</button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflowX: 'auto', flex: 1, minWidth: 0 }}>
+                {design.slides.map((s, i) => {
+                  const on = i === active;
+                  return (
+                    <button key={i} type="button" draggable aria-label={`Slide ${i + 1}${on ? ' (current)' : ''}`} aria-current={on ? true : undefined} onClick={() => setActive(i)} onDragStart={() => setDragFrom(i)} onDragOver={(e) => e.preventDefault()} onDrop={() => dragFrom !== null && move(dragFrom, i)} style={{ position: 'relative', flex: 'none', cursor: 'grab', borderRadius: 7, padding: 3, background: on ? 'var(--c-accent)' : 'transparent', border: on ? 'none' : '1px solid var(--c-line2)' }}>
+                      {scaledCanvas(s, 64)}
+                      <span style={{ position: 'absolute', top: 1, left: 5, font: "700 9px/1 'Space Grotesk'", color: on ? 'var(--c-accent-ink)' : '#fff', textShadow: on ? 'none' : '0 1px 3px rgba(0,0,0,.8)' }}>{i + 1}</span>
+                    </button>
+                  );
+                })}
+                <button onClick={addSlide} disabled={design.slides.length >= MAX_SLIDES} aria-label="Add slide" title="Add slide" style={{ flex: 'none', width: 70, alignSelf: 'stretch', minHeight: 80, borderRadius: 7, border: '1.5px dashed var(--c-line2)', background: 'transparent', color: 'var(--c-dim)', cursor: design.slides.length >= MAX_SLIDES ? 'not-allowed' : 'pointer', font: '22px/1 Archivo', opacity: design.slides.length >= MAX_SLIDES ? 0.4 : 1 }}>+</button>
+              </div>
             </div>
           ) : null}
         </main>
@@ -334,24 +383,24 @@ export default function EditorPage() {
             <Labeled label="Handle">
               <div style={{ display: 'flex', alignItems: 'center', background: 'var(--c-input)', border: '1px solid var(--c-line2)', borderRadius: 9, padding: '0 12px' }}>
                 <span style={{ color: 'var(--c-dim)', font: "500 14px/1 'Space Grotesk'" }}>@</span>
-                <input type="text" value={footerData.handle} placeholder="yourhandle" onChange={(e) => setAuthorOverride('handle', e.target.value.replace(/^@/, ''))} style={{ flex: 1, background: 'none', border: 'none', color: 'var(--c-text)', font: "500 14px/1 'Space Grotesk'", padding: '10px 6px', outline: 'none' }} />
+                <input type="text" value={footerData.handle} placeholder="yourhandle" onChange={(e) => setAuthorOverride('handle', e.target.value.replace(/^@/, ''))} style={{ flex: 1, background: 'none', border: 'none', color: 'var(--c-text)', font: "500 14px/1 'Space Grotesk'", padding: '10px 6px' }} />
               </div>
             </Labeled>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <label style={{ flex: 1 }}>
+              <label className="file-trigger" style={{ flex: 1 }}>
                 <span style={{ display: 'block', padding: '9px 0', textAlign: 'center', border: '1px dashed var(--c-line2)', borderRadius: 9, color: 'var(--c-dim2)', font: "600 12px/1 'Space Grotesk'", cursor: 'pointer' }}>Override photo</span>
-                <input type="file" accept="image/*" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const iid = await storeImage(f); if (iid) setDesign((d) => (d ? { ...d, authorOverride: { ...d.authorOverride, avatarImageId: iid } } : d)); } }} style={{ display: 'none' }} />
+                <input type="file" accept="image/*" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const iid = await storeImage(f); if (iid) setDesign((d) => (d ? { ...d, authorOverride: { ...d.authorOverride, avatarImageId: iid } } : d)); } }} className="visually-hidden" />
               </label>
               {!usingProfileAuthor ? <button onClick={resetAuthor} style={{ ...linkBtn, flex: 'none' }}>Use profile</button> : null}
             </div>
           </Section>
 
           <Section title="BACKGROUND IMAGE">
-            {a.bgImageId && imgUrls[a.bgImageId] ? <div style={{ height: 80, borderRadius: 10, backgroundImage: `url(${imgUrls[a.bgImageId]})`, backgroundSize: 'cover', backgroundPosition: 'center', marginBottom: 10, position: 'relative' }}><div style={{ position: 'absolute', inset: 0, background: 'rgba(20,17,9,.35)', borderRadius: 10 }} /></div> : null}
+            {a.bgImageId && imgUrls[a.bgImageId] ? <div style={{ height: 80, borderRadius: 10, backgroundImage: `url(${imgUrls[a.bgImageId]})`, backgroundSize: 'cover', backgroundPosition: 'center', marginBottom: 10, position: 'relative' }}><div style={{ position: 'absolute', inset: 0, background: 'var(--c-scrim)', borderRadius: 10 }} /></div> : null}
             <div style={{ display: 'flex', gap: 8 }}>
-              <label style={{ flex: 1 }}>
+              <label className="file-trigger" style={{ flex: 1 }}>
                 <span style={{ display: 'block', padding: '9px 0', textAlign: 'center', border: '1px dashed var(--c-line2)', borderRadius: 9, color: 'var(--c-dim2)', font: "600 12px/1 'Space Grotesk'", cursor: 'pointer' }}>{a.bgImageId ? 'Replace' : 'Upload image'}</span>
-                <input type="file" accept="image/*" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const iid = await storeImage(f); if (iid) setBg(iid, false); } }} style={{ display: 'none' }} />
+                <input type="file" accept="image/*" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const iid = await storeImage(f); if (iid) setBg(iid, false); } }} className="visually-hidden" />
               </label>
               {a.bgImageId ? <button onClick={() => setBg(null, false)} style={{ flex: 'none', padding: '0 14px', border: '1px solid var(--c-line2)', borderRadius: 9, background: 'none', color: 'var(--c-dim2)', cursor: 'pointer', font: "600 12px/1 'Space Grotesk'" }}>Remove</button> : null}
             </div>
@@ -370,13 +419,16 @@ export default function EditorPage() {
         ))}
       </div>
 
-      {toast ? <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--c-text)', color: 'var(--c-app)', font: "700 13px/1 'Space Grotesk'", padding: '13px 22px', borderRadius: 12, boxShadow: '0 20px 50px rgba(0,0,0,.35)', zIndex: 50, animation: 'cp-fade .3s ease', maxWidth: 360, textAlign: 'center', lineHeight: 1.4 }}>{toast}</div> : null}
+      {toast ? <div role="status" aria-live="polite" style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--c-text)', color: 'var(--c-app)', font: "700 13px/1 'Space Grotesk'", padding: '13px 22px', borderRadius: 12, boxShadow: '0 20px 50px rgba(0,0,0,.35)', zIndex: 50, animation: 'cp-fade .3s ease', maxWidth: 360, textAlign: 'center', lineHeight: 1.4 }}>{toast}</div> : null}
     </div>
   );
 }
 
 const centerBox: CSSProperties = { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--c-app)', color: 'var(--c-dim)', font: "600 14px/1 'Space Grotesk'" };
-const inputStyle: CSSProperties = { width: '100%', background: 'var(--c-input)', border: '1px solid var(--c-line2)', borderRadius: 9, color: 'var(--c-text)', font: "500 14px/1.4 'Space Grotesk'", padding: '10px 12px', outline: 'none', boxSizing: 'border-box' };
+const inputStyle: CSSProperties = { width: '100%', background: 'var(--c-input)', border: '1px solid var(--c-line2)', borderRadius: 9, color: 'var(--c-text)', font: "500 14px/1.4 'Space Grotesk'", padding: '10px 12px', boxSizing: 'border-box' };
+function filmCtrl(disabled: boolean): CSSProperties {
+  return { width: 40, height: 40, flex: 'none', borderRadius: 9, border: '1px solid var(--c-line2)', background: 'var(--c-chip)', color: 'var(--c-text)', cursor: disabled ? 'not-allowed' : 'pointer', font: '20px/1 Archivo', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.4 : 1 };
+}
 const linkBtn: CSSProperties = { border: 'none', background: 'none', color: 'var(--c-dim)', font: "600 11px/1 'Space Grotesk'", cursor: 'pointer', padding: 0, marginTop: 4 };
 const accentPill: CSSProperties = { border: 'none', cursor: 'pointer', font: "700 13px/1 'Space Grotesk'", padding: '12px 20px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)' };
 function arrowStyle(dir: 'left' | 'right'): CSSProperties {
@@ -409,9 +461,51 @@ function ColorRow({ label, value, onChange }: { label: string; value: string; on
   const hex = /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000';
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
-      <input type="color" value={hex} onChange={(e) => onChange(e.target.value)} style={{ width: 34, height: 34, borderRadius: 8, flex: 'none' }} />
+      <input type="color" value={hex} onChange={(e) => onChange(e.target.value)} aria-label={label + ' colour'} style={{ width: 34, height: 34, borderRadius: 8, flex: 'none' }} />
       <span style={{ font: "500 12px/1 'Space Grotesk'", color: 'var(--c-dim2)', flex: 1 }}>{label}</span>
       <span style={{ font: "500 12px/1 'Space Grotesk'", color: 'var(--c-dim)' }}>{String(value).toUpperCase()}</span>
     </div>
   );
 }
+
+interface TemplatePickerProps {
+  activeTemplate: TemplateId;
+  bg: string;
+  text: string;
+  accent: string;
+  name: string;
+  handle: string;
+  avatar: string | null;
+  designation: string | null;
+  companyName: string | null;
+  companyLogo: string | null;
+  cvW: number;
+  cvH: number;
+  onPick: (t: TemplateId) => void;
+}
+
+// Memoised so typing content (which changes the active slide, not these
+// primitive props) doesn't re-render all 10 scaled SlideCanvas previews.
+const TemplatePicker = memo(function TemplatePicker(props: TemplatePickerProps) {
+  const { activeTemplate, bg, text, accent, name, handle, avatar, designation, companyName, companyLogo, cvW, cvH, onPick } = props;
+  const colors = { bg, text, accent };
+  const footer: FooterData = { name, handle, avatar, designation, companyName, companyLogo };
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      {TEMPLATE_ORDER.map((tid) => {
+        const on = activeTemplate === tid;
+        const slide: ResolvedSlide = { template: tid, fields: templateDefaults(tid), bgImage: null };
+        return (
+          <button key={tid} onClick={() => onPick(tid)} title={TEMPLATES[tid].name} aria-pressed={on} style={{ border: on ? '2px solid var(--c-accent)' : '1px solid var(--c-line2)', background: 'var(--c-chip)', borderRadius: 10, padding: 5, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, textAlign: 'left' }}>
+            <div style={{ width: 88, aspectRatio: cvW + '/' + cvH, borderRadius: 5, overflow: 'hidden', position: 'relative', background: '#000' }}>
+              <div style={{ width: cvW, height: cvH, transform: `scale(${88 / cvW})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+                <SlideCanvas slide={slide} colors={colors} footer={footer} width={cvW} height={cvH} />
+              </div>
+            </div>
+            <span style={{ font: "600 10px/1.1 'Space Grotesk'", color: on ? 'var(--c-accent-ink)' : 'var(--c-dim)', paddingLeft: 2 }}>{TEMPLATES[tid].name}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+});

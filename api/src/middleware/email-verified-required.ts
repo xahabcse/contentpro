@@ -7,7 +7,7 @@ import type { AppEnv } from "../env";
  * false. This checks the claim set by `authRequired`, not a fresh Mongo read
  * -- a user who verifies mid-session must log in again to get a JWT carrying
  * `emailVerified: true`. Must run after `authRequired` on every route that
- * needs it (all Profile and Designs routes, per spec section 4.1).
+ * needs it (all Profile routes; designs are browser-only now).
  */
 export const emailVerifiedRequired = createMiddleware<AppEnv>(async (c, next) => {
   if (!c.get("emailVerified")) {

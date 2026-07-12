@@ -75,7 +75,7 @@ export default function SignupPage() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || 'Signup failed');
       }
-      navigate('/verify-email');
+      navigate('/verify-email', { state: { email } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Signup failed');
     } finally {
@@ -117,9 +117,12 @@ export default function SignupPage() {
         <div style={{ marginBottom: 16 }} data-testid="turnstile-placeholder">
           {TURNSTILE_SITE_KEY ? (
             <div ref={turnstileContainerRef} />
-          ) : (
+          ) : import.meta.env.DEV ? (
+            // Dev-only bypass -- import.meta.env.DEV is statically false in a
+            // production build, so this branch is dead-code-eliminated and can
+            // never render for real users.
             <div>
-              <p className="error-text" style={{ marginBottom: 6 }}>Turnstile site key not configured yet.</p>
+              <p className="error-text" style={{ marginBottom: 6 }}>Turnstile site key not configured (dev).</p>
               <button
                 type="button"
                 className="btn btn-outline"
@@ -129,10 +132,12 @@ export default function SignupPage() {
                 {turnstileToken ? 'Dev bypass active ✓' : 'Simulate Turnstile success (dev only)'}
               </button>
             </div>
+          ) : (
+            <p className="error-text" role="alert">Signups are temporarily unavailable. Please try again later.</p>
           )}
         </div>
 
-        {error && <p className="error-text" style={{ marginBottom: 16 }}>{error}</p>}
+        {error && <p className="error-text" role="alert" style={{ marginBottom: 16 }}>{error}</p>}
 
         <button type="submit" className="btn btn-primary" disabled={submitting || !turnstileToken}>
           {submitting ? 'Creating account…' : 'Create account'}

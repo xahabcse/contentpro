@@ -23,7 +23,23 @@ function openDb(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
+// Bounded LRU of object URLs. Object URLs are never garbage-collected on their
+// own -- without a cap, browsing many designs leaks one per image for the whole
+// session. On eviction we revoke the URL; the next getImageUrl re-materialises.
+const URL_CACHE_MAX = 60;
 const urlCache = new Map<string, string>();
+
+function cacheTouch(id: string, url: string): void {
+  urlCache.delete(id);
+  urlCache.set(id, url);
+  while (urlCache.size > URL_CACHE_MAX) {
+    const oldest = urlCache.keys().next().value as string | undefined;
+    if (oldest === undefined) break;
+    const stale = urlCache.get(oldest);
+    if (stale) URL.revokeObjectURL(stale);
+    urlCache.delete(oldest);
+  }
+}
 
 export function newImageId(): string {
   return 'img_' + crypto.randomUUID();
@@ -55,11 +71,11 @@ export async function getImageBlob(id: string): Promise<Blob | null> {
 /** Materialise an image id to an object URL (cached). Null if not found. */
 export async function getImageUrl(id: string): Promise<string | null> {
   const cached = urlCache.get(id);
-  if (cached) return cached;
+  if (cached) { cacheTouch(id, cached); return cached; }
   const blob = await getImageBlob(id);
   if (!blob) return null;
   const url = URL.createObjectURL(blob);
-  urlCache.set(id, url);
+  cacheTouch(id, url);
   return url;
 }
 

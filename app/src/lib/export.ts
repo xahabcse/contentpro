@@ -49,7 +49,7 @@ async function waitForImages(node: HTMLElement): Promise<void> {
 async function renderNodeToCanvas(node: HTMLElement, w: number, h: number): Promise<HTMLCanvasElement> {
   await waitForImages(node);
   return withTimeout(
-    html2canvas(node, { width: w, height: h, scale: 2, useCORS: true, backgroundColor: null }),
+    html2canvas(node, { width: w, height: h, scale: 2, useCORS: true, backgroundColor: null, logging: false }),
     EXPORT_TIMEOUT_MS,
     'Rendering',
   );

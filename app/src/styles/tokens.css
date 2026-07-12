@@ -12,7 +12,7 @@
   --surface: #f7f2e5;
   --surface-2: #fbf7ec;
   --ink: #1b160e;
-  --muted: #8c8468;
+  --muted: #6f6750;
   --muted-2: #5e5844;
   --brand: #f2b705;
   --brand-ink: #1b160e;
@@ -71,6 +71,29 @@ h3 {
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 16px;
+}
+
+/* keeps a control in the tab order while hiding it visually (accessible file
+   inputs) -- unlike display:none, which removes it from focus/tab order. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+/* visible ring when the hidden input is focused via keyboard */
+.file-trigger:focus-within > span {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.cp .file-trigger:focus-within > span {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
 }
 
 .btn {
@@ -271,7 +294,7 @@ h3 {
   --c-panel: #f7f2e5;
   --c-stage: #e4dcc9;
   --c-text: #1b160e;
-  --c-dim: #8c8468;
+  --c-dim: #6f6750;
   --c-dim2: #5e5844;
   --c-line: rgba(27, 22, 14, 0.1);
   --c-line2: rgba(27, 22, 14, 0.16);
@@ -280,6 +303,9 @@ h3 {
   --c-filmstrip: #f1ebdb;
   --c-accent: #f2b705;
   --c-accent-ink: #1b160e;
+  --c-danger: #c9351f;
+  --c-danger-ink: #ffffff;
+  --c-scrim: rgba(0, 0, 0, 0.35);
   --c-sb: rgba(27, 22, 14, 0.2);
 }
 
@@ -298,6 +324,9 @@ h3 {
   --c-filmstrip: #161209;
   --c-accent: #ffda36;
   --c-accent-ink: #141109;
+  --c-danger: #ff6a52;
+  --c-danger-ink: #141109;
+  --c-scrim: rgba(0, 0, 0, 0.45);
   --c-sb: rgba(243, 238, 225, 0.16);
 }
 
@@ -317,6 +346,15 @@ h3 {
 .cp textarea,
 .cp button {
   font-family: var(--font-ui);
+}
+
+/* visible keyboard focus for inspector controls (inline styles used to set
+   outline:none, which left keyboard focus invisible). */
+.cp input:focus-visible,
+.cp textarea:focus-visible,
+.cp button:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
 }
 
 .cp input[type='color'] {
@@ -349,6 +387,14 @@ h3 {
   width: 322px;
   flex: 0 0 322px;
 }
+/* top-bar status text is secondary -- drop it before it can crowd the title
+   input + actions on narrow screens. */
+@media (max-width: 640px) {
+  .cp-topstatus {
+    display: none;
+  }
+}
+
 @media (max-width: 900px) {
   .cp-body {
     flex-direction: column;

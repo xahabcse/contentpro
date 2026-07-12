@@ -12,6 +12,7 @@
 // ever handing back a Cloudinary URL.
 
 import type { Env } from "../env";
+import type { UserProfile } from "../schema";
 
 // ---------------------------------------------------------------------------
 // upload
@@ -208,16 +209,26 @@ export async function signCloudinaryUrlOrOriginal(
 }
 
 /**
- * Inserts Cloudinary's `fl_attachment` transformation flag so the browser
- * downloads (Save As) instead of displaying inline -- only used for the
- * design-export download route, never for profile photo/logo (those stay
- * inline, matching the original R2 behavior's `download` opt-in flag).
+ * Signs both profile image URLs (photo + company logo) for response. Storage
+ * keeps the plain secure_url; signing happens only at response time. Shared by
+ * every route that returns a profile so signed/unsigned shapes never diverge
+ * (routes/profile.ts and auth.ts's /me). Absent fields become `null`.
  */
-export function withAttachmentFlag(secureUrl: string, filename: string): string {
-  const safe = filename.replace(/[^\w.-]+/g, "_");
-  const marker = "/upload/";
-  const idx = secureUrl.indexOf(marker);
-  if (idx === -1) return secureUrl;
-  const insertAt = idx + marker.length;
-  return `${secureUrl.slice(0, insertAt)}fl_attachment:${encodeURIComponent(safe)}/${secureUrl.slice(insertAt)}`;
+export async function signProfileImageUrls(
+  profile: UserProfile,
+  apiSecret: string | undefined,
+  cloudName: string | undefined,
+): Promise<
+  Omit<UserProfile, "photoUrl" | "companyLogoUrl"> & {
+    photoUrl: string | null;
+    companyLogoUrl: string | null;
+  }
+> {
+  const [photoUrl, companyLogoUrl] = await Promise.all([
+    profile.photoUrl ? signCloudinaryUrlOrOriginal(profile.photoUrl, apiSecret, cloudName) : null,
+    profile.companyLogoUrl
+      ? signCloudinaryUrlOrOriginal(profile.companyLogoUrl, apiSecret, cloudName)
+      : null,
+  ]);
+  return { ...profile, photoUrl, companyLogoUrl };
 }

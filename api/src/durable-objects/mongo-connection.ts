@@ -11,9 +11,29 @@ const DATABASE_NAME = "contentpro";
 // on a warm DO instance, so this doesn't double up on the hot path.
 const MAX_ATTEMPTS = 2;
 
+// See routes/auth.ts -- RPC preserves Error.message but not custom props, so
+// duplicate-key is signalled by throwing an Error with this exact message.
+const DUPLICATE_EMAIL_ERROR = "DUPLICATE_EMAIL";
+
 function toUserRecord(doc: UserDocument): UserRecord {
   const { _id, ...rest } = doc;
   return { ...rest, _id: _id ? _id.toHexString() : "" };
+}
+
+/**
+ * Only network/topology/pool/timeout failures are worth tearing down the warm
+ * connection and retrying. Logical server errors (duplicate key E11000,
+ * validation, etc.) are deterministic -- retrying just wastes a reconnect and
+ * loses the original error, so let them propagate immediately.
+ */
+function isTransientMongoError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const name = (err as { name?: string }).name ?? "";
+  return /Network|ServerSelection|PoolCleared|Topology|NotConnected|Timeout/i.test(name);
+}
+
+function isDuplicateKeyError(err: unknown): boolean {
+  return !!err && typeof err === "object" && (err as { code?: number }).code === 11000;
 }
 
 /**
@@ -107,6 +127,9 @@ export class MongoConnectionDO extends DurableObject<Env> {
         const db = await this.getDb();
         return await fn(db);
       } catch (err) {
+        // Logical errors (duplicate key, validation) are deterministic -- don't
+        // tear down the warm connection or retry, just surface them.
+        if (!isTransientMongoError(err)) throw err;
         lastErr = err;
         console.error(`Mongo operation failed (attempt ${attempt}/${MAX_ATTEMPTS})`, err);
         await this.teardown();
@@ -131,7 +154,13 @@ export class MongoConnectionDO extends DurableObject<Env> {
   }
 
   async findUserById(id: string): Promise<UserRecord | null> {
-    const _id = await this.oid(id);
+    // A malformed id (not a 24-hex ObjectId) must be a clean miss, not a 500.
+    let _id: Awaited<ReturnType<MongoConnectionDO["oid"]>>;
+    try {
+      _id = await this.oid(id);
+    } catch {
+      return null;
+    }
     return this.withDb(async (db) => {
       const doc = await this.users(db).findOne({ _id });
       return doc ? toUserRecord(doc) : null;
@@ -140,8 +169,15 @@ export class MongoConnectionDO extends DurableObject<Env> {
 
   async insertUser(user: NewUserInput): Promise<string> {
     return this.withDb(async (db) => {
-      const result = await this.users(db).insertOne(user);
-      return result.insertedId.toHexString();
+      try {
+        const result = await this.users(db).insertOne(user);
+        return result.insertedId.toHexString();
+      } catch (err) {
+        // Map the unique-email-index violation to a stable sentinel the signup
+        // route can turn into a 409 (see routes/auth.ts).
+        if (isDuplicateKeyError(err)) throw new Error(DUPLICATE_EMAIL_ERROR);
+        throw err;
+      }
     });
   }
 

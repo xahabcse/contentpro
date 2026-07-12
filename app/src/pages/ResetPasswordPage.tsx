@@ -58,7 +58,7 @@ export default function ResetPasswordPage() {
             autoComplete="new-password"
           />
         </div>
-        {error && <p className="error-text" style={{ marginBottom: 16 }}>{error}</p>}
+        {error && <p className="error-text" role="alert" style={{ marginBottom: 16 }}>{error}</p>}
         <button type="submit" className="btn btn-primary" disabled={submitting}>
           {submitting ? 'Saving…' : 'Save new password'}
         </button>

@@ -56,7 +56,7 @@ function PersonIcon({ size, c }: { size: number; c: Ctx }) {
 function frame(c: Ctx, children: ReactNode, opts: { pad?: number; bgImage?: string | null } = {}): ReactNode {
   const layers: ReactNode[] = [];
   if (opts.bgImage) {
-    layers.push(<img key="img" src={opts.bgImage} crossOrigin="anonymous" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />);
+    layers.push(<img key="img" src={opts.bgImage} alt="" crossOrigin="anonymous" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />);
     layers.push(<div key="scrim" style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg, ${dim(c.bg, 55)} 0%, ${dim(c.bg, 88)} 100%)` }} />);
   }
   return (
@@ -75,7 +75,7 @@ function eyebrow(c: Ctx, text: string, u: number): ReactNode {
 function footer(c: Ctx, fd: FooterData, u: number, compact?: boolean): ReactNode {
   const size = (compact ? 52 : 60) * u;
   const avatar = fd.avatar
-    ? <img src={fd.avatar} crossOrigin="anonymous" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />
+    ? <img src={fd.avatar} alt="" crossOrigin="anonymous" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />
     : <PersonIcon size={size} c={c} />;
   const name = fd.name || 'Your name';
   const hasCompany = !!(fd.companyName || fd.companyLogo);
@@ -91,7 +91,7 @@ function footer(c: Ctx, fd: FooterData, u: number, compact?: boolean): ReactNode
       </div>
       {hasCompany ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 * u, flex: 'none' }}>
-          {fd.companyLogo ? <img src={fd.companyLogo} crossOrigin="anonymous" style={{ width: (compact ? 40 : 46) * u, height: (compact ? 40 : 46) * u, borderRadius: 10 * u, objectFit: 'contain', background: '#FFFFFF', padding: 5 * u }} /> : null}
+          {fd.companyLogo ? <img src={fd.companyLogo} alt="" crossOrigin="anonymous" style={{ width: (compact ? 40 : 46) * u, height: (compact ? 40 : 46) * u, borderRadius: 10 * u, objectFit: 'contain', background: '#FFFFFF', padding: 5 * u }} /> : null}
           {fd.companyName ? <span style={{ font: `600 ${16 * u}px/1.2 'Space Grotesk'`, color: dim(c.text, 82), maxWidth: 260 * u }}>{fd.companyName}</span> : null}
         </div>
       ) : null}

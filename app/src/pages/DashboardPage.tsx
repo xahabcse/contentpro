@@ -51,8 +51,19 @@ export default function DashboardPage() {
   };
 
   function handleCreate(type: 'card' | 'carousel') {
-    const d = createDesign(type);
-    navigate('/designs/' + d.id);
+    // A design signs itself from the profile footer -- send users with an
+    // incomplete profile to fill it in first (spec §6).
+    if (!profile.name || !profile.handle) {
+      setError('Add your name and handle in Profile settings before creating your first design.');
+      navigate('/settings/profile');
+      return;
+    }
+    try {
+      const d = createDesign(type);
+      navigate('/designs/' + d.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not create the design.');
+    }
   }
   async function handleDelete(id: string) {
     if (!confirm('Delete this design? It is removed from this browser only.')) return;
@@ -93,8 +104,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {error && <p className="error-text" style={{ marginBottom: 12 }}>{error}</p>}
-      {note && <p className="pill pill-brand" style={{ marginBottom: 12 }}>{note}</p>}
+      {error && <p className="error-text" role="alert" style={{ marginBottom: 12 }}>{error}</p>}
+      {note && <p className="pill pill-brand" role="status" style={{ marginBottom: 12 }}>{note}</p>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
         <button className="btn btn-primary" onClick={() => handleCreate('card')}>+ New Single Card</button>

@@ -4,12 +4,25 @@
 // documented *future* hardening path for Workers Paid, not a v1 shortcut.
 
 const SALT_BYTES = 16;
-// 50,000-80,000 iterations: deliberately below OWASP's ~600,000 recommendation,
-// tuned to stay under the Workers free plan's ~10ms CPU-time-per-request ceiling.
-// The exact count used is stored per-user (passwordIterations) so it can be
-// raised for new signups later without invalidating existing hashes.
-const DEFAULT_ITERATIONS = 60_000;
+// Iteration target. Raised from the original 60k toward OWASP guidance, but
+// deliberately NOT the full ~600,000: that risks exceeding the Workers CPU-time
+// budget on the current plan and hard-failing login. 210k is a defensible
+// middle ground (~3.5x the old cost). The exact count used is stored per-user
+// (passwordIterations), so:
+//   - new signups hash at TARGET_ITERATIONS;
+//   - existing users hashed at a lower count are transparently upgraded on
+//     their next successful login (see needsRehash + rehash-on-login in the
+//     login route).
+// If login latency or CPU-limit errors appear in production, lower this.
+export const TARGET_ITERATIONS = 210_000;
+const DEFAULT_ITERATIONS = TARGET_ITERATIONS;
 const DERIVED_KEY_BITS = 256;
+
+// Constant fake credential for the login "user not found" branch. Deriving
+// against this burns ~the same CPU as a real verify, so an attacker can't tell
+// a missing account from a wrong password by response timing (enumeration).
+const DUMMY_SALT = "AAAAAAAAAAAAAAAAAAAAAA==";
+const DUMMY_HASH = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
 function toBase64(bytes: ArrayBuffer | Uint8Array): string {
   const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -71,4 +84,18 @@ export async function verifyPassword(
   const saltBytes = fromBase64(salt);
   const bits = await deriveBits(password, saltBytes, iterations);
   return timingSafeEqual(toBase64(bits), hash);
+}
+
+/**
+ * Burns equivalent CPU to a real verify without revealing anything -- call this
+ * on the login "email not found" path so timing doesn't leak account existence.
+ * Always returns false.
+ */
+export async function verifyPasswordDummy(password: string): Promise<boolean> {
+  return verifyPassword(password, DUMMY_HASH, DUMMY_SALT, TARGET_ITERATIONS);
+}
+
+/** True when a stored hash was derived below the current target and should be upgraded. */
+export function needsRehash(iterations: number): boolean {
+  return iterations < TARGET_ITERATIONS;
 }

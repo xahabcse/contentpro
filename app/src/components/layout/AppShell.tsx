@@ -7,10 +7,8 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-// Mobile-first top bar: hamburger (left) + wordmark, condensed icon actions
-// (right) -- directly modeled on the observed live layout at
-// https://learn.xahabcse.me (logo left, hamburger/search/toggles collapsed
-// into a single row on narrow viewports).
+// Mobile-first top bar: hamburger (left) + wordmark, condensed avatar action
+// (right); the nav links collapse into the hamburger menu on all viewports.
 export default function AppShell({ title, children }: AppShellProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();

@@ -4,9 +4,14 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv, Env } from "../env";
 import { isUploadedFile } from "../lib/http";
-import { signCloudinaryUrlOrOriginal, uploadToCloudinary } from "../lib/cloudinary";
+import {
+  signCloudinaryUrlOrOriginal,
+  signProfileImageUrls,
+  uploadToCloudinary,
+} from "../lib/cloudinary";
 import { authRequired } from "../middleware/auth-required";
 import { emailVerifiedRequired } from "../middleware/email-verified-required";
+import { checkAndRecordRateLimit } from "../middleware/rate-limit";
 import type { UserProfile } from "../schema";
 
 const profile = new Hono<AppEnv>();
@@ -19,21 +24,33 @@ function mongoStub(env: Env) {
 
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5MB
+// Modest per-user upload throttle so a verified account can't churn unlimited
+// 5MB objects into Cloudinary storage. Best-effort (see rate-limit.ts caveat).
+const UPLOAD_MAX_PER_HOUR = 20;
 
-// Every URL handed back to the client is signed here (matches protfolio's
-// files.ts, which signs on every route that returns a stored URL, not just a
-// dedicated redirect endpoint). Storage keeps the plain secure_url; signing
-// happens only at response time.
+// Magic-byte (content) validation -- `file.type` from the multipart part is
+// client-controlled, so the MIME allow-list alone is spoofable. Sniff the
+// leading bytes to confirm the payload really is one of the accepted image
+// formats before it reaches Cloudinary.
+function sniffImageType(bytes: Uint8Array): "image/png" | "image/jpeg" | "image/webp" | null {
+  if (bytes.length >= 8 &&
+    bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 &&
+    bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a) {
+    return "image/png";
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (bytes.length >= 12 &&
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && // "RIFF"
+    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) { // "WEBP"
+    return "image/webp";
+  }
+  return null;
+}
+
 async function signedProfile(env: Env, profile: UserProfile) {
-  const [photoUrl, companyLogoUrl] = await Promise.all([
-    profile.photoUrl
-      ? signCloudinaryUrlOrOriginal(profile.photoUrl, env.CLOUDINARY_API_SECRET, env.CLOUDINARY_CLOUD_NAME)
-      : null,
-    profile.companyLogoUrl
-      ? signCloudinaryUrlOrOriginal(profile.companyLogoUrl, env.CLOUDINARY_API_SECRET, env.CLOUDINARY_CLOUD_NAME)
-      : null,
-  ]);
-  return { ...profile, photoUrl, companyLogoUrl };
+  return signProfileImageUrls(profile, env.CLOUDINARY_API_SECRET, env.CLOUDINARY_CLOUD_NAME);
 }
 
 // Flat shape -- matches app/src/pages/ProfileSettingsPage.tsx's
@@ -72,6 +89,17 @@ async function handleImageUpload(
   field: ProfileImageField,
   cloudinaryFolder: string,
 ): Promise<Response> {
+  const userId = c.get("userId");
+
+  const rate = await checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "profile-upload", userId, {
+    cooldownSeconds: 0,
+    maxAttempts: UPLOAD_MAX_PER_HOUR,
+    windowSeconds: 60 * 60,
+  });
+  if (!rate.allowed) {
+    return c.json({ error: "RATE_LIMITED", retryAfterSeconds: rate.retryAfterSeconds }, 429);
+  }
+
   const form = await c.req.formData();
   const file = form.get("file");
   if (!isUploadedFile(file)) {
@@ -84,7 +112,17 @@ async function handleImageUpload(
     return c.json({ error: "FILE_TOO_LARGE" }, 400);
   }
 
-  const userId = c.get("userId");
+  // Confirm the bytes actually match a permitted image format (magic bytes),
+  // not just the client-supplied Content-Type. Blob.arrayBuffer() is
+  // re-readable, so `file` can still be streamed to Cloudinary afterward. The
+  // `as Blob` cast sidesteps the workers-types FormData#get union (see
+  // lib/http.ts) that otherwise collapses `.slice` to String.prototype.slice.
+  const head = new Uint8Array(await (file as unknown as Blob).slice(0, 12).arrayBuffer());
+  const sniffed = sniffImageType(head);
+  if (!sniffed || !ALLOWED_IMAGE_TYPES.has(sniffed)) {
+    return c.json({ error: "UNSUPPORTED_FILE_TYPE" }, 400);
+  }
+
   const stub = mongoStub(c.env);
   const user = await stub.findUserById(userId);
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);

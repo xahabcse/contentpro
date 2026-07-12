@@ -16,8 +16,27 @@ function readAll(): LocalDesign[] {
     return [];
   }
 }
+export class StorageFullError extends Error {
+  constructor() {
+    super("Couldn't save — browser storage is full. Back up and delete old designs.");
+    this.name = 'StorageFullError';
+  }
+}
+
+function isQuotaError(e: unknown): boolean {
+  return (
+    e instanceof DOMException &&
+    (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')
+  );
+}
+
 function writeAll(designs: LocalDesign[]): void {
-  localStorage.setItem(KEY, JSON.stringify(designs));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(designs));
+  } catch (e) {
+    if (isQuotaError(e)) throw new StorageFullError();
+    throw e;
+  }
 }
 
 export function listDesigns(): LocalDesign[] {
@@ -129,11 +148,24 @@ export async function buildBackup(): Promise<Blob> {
   return new Blob([JSON.stringify(payload)], { type: 'application/json' });
 }
 
+const MAX_BACKUP_BYTES = 100 * 1024 * 1024; // 100MB guard against corrupt/hostile files
+
 export async function restoreBackup(file: File): Promise<number> {
+  if (file.size > MAX_BACKUP_BYTES) {
+    throw new Error('That backup file is too large to restore.');
+  }
   const text = await file.text();
-  const data = JSON.parse(text) as BackupFile;
-  if (data.app !== 'contentpro' || !Array.isArray(data.designs)) {
+  let data: BackupFile;
+  try {
+    data = JSON.parse(text) as BackupFile;
+  } catch {
     throw new Error('Not a valid ContentPro backup file.');
+  }
+  if (!data || data.app !== 'contentpro' || !Array.isArray(data.designs)) {
+    throw new Error('Not a valid ContentPro backup file.');
+  }
+  if (data.version !== 1) {
+    throw new Error('This backup was made by a newer version of ContentPro and can’t be restored here.');
   }
   // restore images first
   for (const [id, dataUrl] of Object.entries(data.images || {})) {

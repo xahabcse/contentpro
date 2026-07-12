@@ -125,8 +125,8 @@ export default function ProfileSettingsPage() {
           </div>
         </section>
 
-        {error && <p className="error-text">{error}</p>}
-        {saved && <p className="pill pill-brand" style={{ alignSelf: 'flex-start' }}>Saved.</p>}
+        {error && <p className="error-text" role="alert">{error}</p>}
+        {saved && <p className="pill pill-brand" role="status" style={{ alignSelf: 'flex-start' }}>Saved.</p>}
 
         <button type="submit" className="btn btn-primary" disabled={saving}>
           {saving ? 'Saving…' : 'Save profile'}

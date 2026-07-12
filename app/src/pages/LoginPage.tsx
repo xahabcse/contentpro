@@ -71,7 +71,7 @@ export default function LoginPage() {
           <Link to="/forgot-password" style={{ fontSize: 13, color: 'var(--muted)' }}>Forgot password?</Link>
         </p>
 
-        {error && <p className="error-text" style={{ marginBottom: 16 }}>{error}</p>}
+        {error && <p className="error-text" role="alert" style={{ marginBottom: 16 }}>{error}</p>}
 
         <button type="submit" className="btn btn-primary" disabled={submitting}>
           {submitting ? 'Logging in…' : 'Log in'}
