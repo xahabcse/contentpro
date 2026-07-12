@@ -22,13 +22,20 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 // still shows the previous background" class of bug.
 async function waitForImages(node: HTMLElement): Promise<void> {
   const imgs = Array.from(node.querySelectorAll('img'));
+  // Cap the wait per image so a stalled/never-settling load can never hang the
+  // whole export -- worst case we proceed after IMG_WAIT_MS and let html2canvas
+  // do its best with whatever is decoded.
+  const IMG_WAIT_MS = 6000;
   await Promise.all(
     imgs.map(async (img) => {
       try {
         if (!img.complete || img.naturalWidth === 0) {
           await new Promise<void>((resolve) => {
-            img.addEventListener('load', () => resolve(), { once: true });
-            img.addEventListener('error', () => resolve(), { once: true });
+            const done = () => resolve();
+            const timer = setTimeout(done, IMG_WAIT_MS);
+            const settle = () => { clearTimeout(timer); done(); };
+            img.addEventListener('load', settle, { once: true });
+            img.addEventListener('error', settle, { once: true });
           });
         }
         if (typeof img.decode === 'function') await img.decode().catch(() => undefined);

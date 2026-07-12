@@ -173,7 +173,10 @@ export default function EditorPage() {
     try {
       // Let React flush any just-applied change (e.g. a background swapped a
       // moment ago) into the offscreen export pool before we read its nodes.
-      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+      // A short timeout (not requestAnimationFrame -- browsers pause rAF in
+      // hidden/background tabs, which would hang the export) is enough for the
+      // pending commit + paint to land.
+      await new Promise<void>((r) => setTimeout(r, 50));
       const nodes = exportRefs.current.filter((n): n is HTMLDivElement => n !== null);
       // Timestamp suffix so re-exports never collide on the same filename --
       // otherwise the browser writes "name (1).png" while the user re-opens the
