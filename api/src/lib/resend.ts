@@ -3,11 +3,14 @@
 // header so a client retry never double-sends the same email.
 //
 // The two transactional emails are rendered from a single, brand-consistent
-// HTML shell (renderBrandedEmail) so header/footer/button styling never
-// drifts between them. Everything is email-client-safe: table-based layout,
-// all styles INLINE (the small <style> block only adds optional niceties and
-// nothing depends on it), no external CSS, no webfonts (email clients can't
-// load Archivo reliably -> web-safe stack). Brand = Cardstock.
+// HTML shell (renderBrandedEmail). Its structure deliberately mirrors the
+// learning/Porhi template that renders cleanly in this exact Gmail account:
+// a MINIMAL <head> (charset + viewport only), NO <style> block / color-scheme
+// / title / x-apple metas (those trip Gmail's sanitizer, which was stripping
+// the inline `style` attribute off block elements and killing header/CTA
+// colors), and NO single overflow:hidden card wrapper -- instead each section
+// is its own <tr><td> with its own `background:` shorthand + corner radii.
+// Everything stays inline + table-based; no webfonts. Brand = Cardstock.
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 
@@ -89,7 +92,7 @@ function escapeHtml(value: string): string {
 interface BrandedEmailOptions {
   /** Hidden inbox-preview text shown before the body is opened. */
   preheader: string;
-  /** UPPERCASE amber eyebrow in the dark header, e.g. "VERIFY YOUR EMAIL". */
+  /** UPPERCASE amber eyebrow in the dark header, e.g. "Verify your email". */
   eyebrow: string;
   /** Big friendly heading, e.g. "Verify your email". */
   heading: string;
@@ -104,11 +107,11 @@ interface BrandedEmailOptions {
 }
 
 /**
- * Renders the shared Cardstock email: a dark ink header band (amber eyebrow +
+ * Renders the shared Cardstock email: dark ink header band (amber eyebrow +
  * serif "Cardstock." wordmark + subtitle), a light cream card body with the
- * caller's copy, a bulletproof amber CTA button, a selectable plain-link
- * fallback, expiry + ignore notes, and a footer with brand line, secondary
- * pill links, and the automated-message note.
+ * caller's copy + amber CTA + plain-link fallback + notes, and a footer with
+ * brand line, secondary pill links, and the automated-message note. See the
+ * file header for why the head/structure are intentionally minimal.
  */
 function renderBrandedEmail(options: BrandedEmailOptions): string {
   const safeUrl = escapeHtml(options.url);
@@ -119,147 +122,117 @@ function renderBrandedEmail(options: BrandedEmailOptions): string {
   const bodyParagraphs = options.paragraphs
     .map(
       (text) =>
-        `<p style="margin:0 0 16px; font-family:${FONT_STACK}; font-size:16px; line-height:1.6; color:${BRAND.ink};">${escapeHtml(
+        `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:${BRAND.ink};font-family:${FONT_STACK};">${escapeHtml(
           text,
         )}</p>`,
     )
     .join("");
 
-  // Subtle outline pill for the footer secondary links.
-  const pill = (href: string, label: string): string =>
-    `<a href="${href}" target="_blank" rel="noopener" style="display:inline-block; padding:8px 16px; font-family:${FONT_STACK}; font-size:12px; font-weight:600; color:${BRAND.ink}; text-decoration:none; border:1px solid ${BRAND.border}; border-radius:999px;">${escapeHtml(
+  // Footer pills -- inline-styled <a>s (which survive Gmail, matching Porhi's
+  // footer button row). Filled ink primary + outline secondary.
+  const pillPrimary = (href: string, label: string): string =>
+    `<a href="${href}" target="_blank" rel="noopener" style="display:inline-block;background:${BRAND.ink};color:${BRAND.creamLight};font-size:12px;font-weight:600;text-decoration:none;padding:8px 16px;border-radius:999px;font-family:${FONT_STACK};">${escapeHtml(
+      label,
+    )}</a>`;
+  const pillOutline = (href: string, label: string): string =>
+    `<a href="${href}" target="_blank" rel="noopener" style="display:inline-block;background:${BRAND.card};color:${BRAND.ink};font-size:12px;font-weight:600;text-decoration:none;padding:8px 16px;border:1px solid ${BRAND.border};border-radius:999px;font-family:${FONT_STACK};">${escapeHtml(
       label,
     )}</a>`;
 
   return `<!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="x-apple-disable-message-reformatting" />
-<meta name="color-scheme" content="light only" />
-<title>${escapeHtml(options.heading)}</title>
-<style>
-  /* Optional niceties only -- the layout is fully inlined and works without this. */
-  a.cs-btn:hover { filter: brightness(0.95); }
-  @media (max-width: 600px) {
-    .cs-card { width: 100% !important; }
-    .cs-pad { padding-left: 24px !important; padding-right: 24px !important; }
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
 </head>
-<body style="margin:0; padding:0; background-color:${BRAND.cream}; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%;">
-  <!-- preheader: hidden inbox preview text -->
-  <span style="display:none !important; visibility:hidden; mso-hide:all; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden; color:transparent;">${escapeHtml(
+<body style="margin:0;padding:0;background:${BRAND.cream};font-family:${FONT_STACK};">
+  <span style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(
     options.preheader,
   )}</span>
-
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:${
     BRAND.cream
-  };">
+  };padding:40px 16px;">
     <tr>
-      <td align="center" style="padding:32px 16px;">
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;width:100%;">
 
-        <table role="presentation" class="cs-card" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px; max-width:560px; background-color:${
-          BRAND.card
-        }; border:1px solid ${BRAND.border}; border-radius:16px; overflow:hidden;">
-
-          <!-- dark header band (bgcolor on td so Outlook fills it too) -->
+          <!-- dark header band -->
           <tr>
-            <td align="center" bgcolor="${BRAND.ink}" class="cs-pad" style="background-color:${
-              BRAND.ink
-            }; padding:40px 40px; border-top-left-radius:16px; border-top-right-radius:16px;">
-              <!-- Use <p>/<h1> (not <div>) here: Gmail strips inline styles off
-                   <div>s in this position, which turned the light header text
-                   invisible on the dark band; <p>/<h1> inline styles survive. -->
-              <p style="margin:0 0 10px; font-family:${FONT_STACK}; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.18em; color:${
+            <td style="background:${BRAND.ink};border-radius:16px 16px 0 0;padding:40px 40px;text-align:center;">
+              <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:${
                 BRAND.amber
-              };">${escapeHtml(options.eyebrow)}</p>
-              <h1 style="margin:0; font-family:${SERIF_STACK}; font-size:36px; line-height:1.1; font-weight:700; color:${
+              };font-weight:700;font-family:${FONT_STACK};">${escapeHtml(options.eyebrow)}</p>
+              <h1 style="margin:0;font-size:36px;line-height:1.1;font-weight:700;color:${
                 BRAND.creamLight
-              };">Cardstock.</h1>
-              <p style="margin:8px 0 0; font-family:${FONT_STACK}; font-size:13px; color:${
+              };font-family:${SERIF_STACK};">Cardstock.</h1>
+              <p style="margin:8px 0 0;font-size:13px;color:${
                 BRAND.creamDim
-              };">LinkedIn card &amp; carousel studio</p>
+              };font-family:${FONT_STACK};">LinkedIn card &amp; carousel studio</p>
             </td>
           </tr>
 
-          <!-- body -->
+          <!-- body: heading + copy + CTA + fallback + notes -->
           <tr>
-            <td class="cs-pad" style="padding:36px 40px 8px;">
-              <h1 style="margin:0 0 16px; font-family:${FONT_STACK}; font-size:24px; line-height:1.3; font-weight:800; color:${
+            <td style="background:${BRAND.card};padding:36px 40px 8px;">
+              <h2 style="margin:0 0 16px;font-size:23px;line-height:1.3;font-weight:800;color:${
                 BRAND.ink
-              };">${escapeHtml(options.heading)}</h1>
+              };font-family:${FONT_STACK};">${escapeHtml(options.heading)}</h2>
               ${bodyParagraphs}
-            </td>
-          </tr>
 
-          <!-- bulletproof CTA button -->
-          <tr>
-            <td class="cs-pad" style="padding:12px 40px 8px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <table cellpadding="0" cellspacing="0" role="presentation" style="margin:24px 0 8px;">
                 <tr>
-                  <td align="center" bgcolor="${
-                    BRAND.amber
-                  }" style="border-radius:10px;">
-                    <a class="cs-btn" href="${safeUrl}" target="_blank" rel="noopener" style="display:inline-block; padding:15px 32px; font-family:${FONT_STACK}; font-size:16px; font-weight:700; line-height:1; color:${
+                  <td style="background:${BRAND.amber};border-radius:8px;">
+                    <a href="${safeUrl}" target="_blank" rel="noopener" style="display:inline-block;padding:14px 30px;font-size:16px;font-weight:700;color:${
                       BRAND.ink
-                    }; text-decoration:none; border-radius:10px;">${escapeHtml(
+                    };text-decoration:none;font-family:${FONT_STACK};">${escapeHtml(
                       options.buttonLabel,
                     )} &rarr;</a>
                   </td>
                 </tr>
               </table>
-            </td>
-          </tr>
 
-          <!-- plain-link fallback (kept selectable + intact for ?token=) -->
-          <tr>
-            <td class="cs-pad" style="padding:16px 40px 0;">
-              <p style="margin:0 0 6px; font-family:${FONT_STACK}; font-size:13px; color:${
+              <p style="margin:20px 0 6px;font-size:13px;color:${
                 BRAND.muted
-              };">Button not working? Paste this link into your browser:</p>
-              <p style="margin:0; font-family:${FONT_STACK}; font-size:13px; line-height:1.5; word-break:break-all;">
-                <a href="${safeUrl}" target="_blank" rel="noopener" style="color:#8A6D0B; text-decoration:underline;">${safeUrl}</a>
+              };font-family:${FONT_STACK};">Button not working? Paste this link into your browser:</p>
+              <p style="margin:0;font-size:13px;line-height:1.5;word-break:break-all;font-family:${FONT_STACK};">
+                <a href="${safeUrl}" target="_blank" rel="noopener" style="color:#8A6D0B;text-decoration:underline;">${safeUrl}</a>
               </p>
+
+              <p style="margin:22px 0 8px;font-size:13px;color:${
+                BRAND.muted
+              };font-family:${FONT_STACK};">This link expires in 45 minutes.</p>
+              <p style="margin:0;font-size:13px;color:${
+                BRAND.muted
+              };font-family:${FONT_STACK};">If you didn&#39;t request this, you can safely ignore this email.</p>
             </td>
           </tr>
 
-          <!-- expiry + ignore notes -->
+          <!-- footer divider -->
           <tr>
-            <td class="cs-pad" style="padding:20px 40px 4px;">
-              <p style="margin:0 0 8px; font-family:${FONT_STACK}; font-size:13px; color:${
-                BRAND.muted
-              };">This link expires in 45 minutes.</p>
-              <p style="margin:0; font-family:${FONT_STACK}; font-size:13px; color:${
-                BRAND.muted
-              };">If you didn&#39;t request this, you can safely ignore this email.</p>
+            <td style="background:${BRAND.card};padding:0 40px;">
+              <hr style="border:none;border-top:1px solid ${BRAND.border};margin:24px 0 0;" />
             </td>
           </tr>
 
           <!-- footer -->
           <tr>
-            <td class="cs-pad" style="padding:28px 40px 32px;">
-              <div style="height:1px; line-height:1px; font-size:1px; background-color:${
-                BRAND.border
-              }; margin-bottom:20px;">&nbsp;</div>
-              <p style="margin:0 0 16px; font-family:${FONT_STACK}; font-size:13px; line-height:1.5; color:${
+            <td style="background:${BRAND.card};border-radius:0 0 16px 16px;padding:24px 40px 32px;">
+              <p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${
                 BRAND.ink
-              };"><strong style="font-weight:800;">Cardstock</strong> &mdash; design LinkedIn cards &amp; carousels</p>
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">
+              };font-family:${FONT_STACK};"><strong style="font-weight:800;">Cardstock</strong> &mdash; design LinkedIn cards &amp; carousels</p>
+              <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 18px;">
                 <tr>
-                  <td style="padding-right:8px;">${pill(homeUrl, "Open Cardstock")}</td>
-                  <td>${pill(aboutUrl, "About")}</td>
+                  <td style="padding-right:10px;">${pillPrimary(homeUrl, "Open Cardstock")}</td>
+                  <td>${pillOutline(aboutUrl, "About")}</td>
                 </tr>
               </table>
-              <p style="margin:0; font-family:${FONT_STACK}; font-size:12px; line-height:1.5; color:${
+              <p style="margin:0;font-size:12px;line-height:1.5;color:${
                 BRAND.muted
-              };">Automated message from a send-only address &mdash; please don&#39;t reply.<br />&copy; ${year} Cardstock</p>
+              };font-family:${FONT_STACK};">Automated message from a send-only address &mdash; please don&#39;t reply.<br />&copy; ${year} Cardstock</p>
             </td>
           </tr>
 
         </table>
-
       </td>
     </tr>
   </table>
