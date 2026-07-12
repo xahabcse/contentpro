@@ -1,0 +1,14 @@
+# Keep build contexts small and never copy local state / secrets into images.
+**/node_modules
+**/dist
+**/.wrangler
+**/*.tsbuildinfo
+.git
+.github
+.claude
+.playwright-mcp
+posts/*/output
+.env
+.dev.vars
+*.local.env
+.secrets.local.env

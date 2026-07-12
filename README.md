@@ -8,6 +8,34 @@ ContentPro is a self-service, multi-tenant web app where users sign up and creat
 
 This repo also contains a **legacy Claude-driven pipeline** (`templates/`, `scripts/render.js`, `posts/`) that predates the web app — see [Legacy pipeline](#legacy-pipeline) at the bottom.
 
+> Open source under the [MIT License](LICENSE). Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## Quick start (Docker)
+
+Run the whole stack — frontend, the Cloudflare Worker API (via `wrangler dev`), and MongoDB — locally with one command. **No Cloudflare account, MongoDB Atlas, Resend, or Cloudinary needed.** Requires only Docker.
+
+```bash
+git clone https://github.com/xahabcse/contentpro.git
+cd contentpro
+docker compose up --build
+```
+
+Then open **http://localhost:8080** and log in with the seeded demo account:
+
+| Email | Password |
+|---|---|
+| `demo@contentpro.local` | `demo1234` |
+
+That's it — you can design cards & carousels, switch templates/palettes, upload backgrounds, and export PNG/PDF entirely offline. Stop with `docker compose down` (add `-v` to also wipe the local database).
+
+**What's optional:** e-mail verification (Resend) and profile-photo / logo uploads (Cloudinary) are off by default — the demo account is already verified, and footers fall back to a placeholder avatar. To enable them, copy `.env.example` to `.env` and add your keys. Turnstile uses Cloudflare's public **test keys** (always pass) unless you supply real ones.
+
+> Use a Chromium-based browser (Chrome/Edge) for the local run — the session cookie is `Secure`, which those browsers accept on `http://localhost`.
+
+For manual (non-Docker) development, see [Getting started](#getting-started).
+
 ---
 
 ## Features

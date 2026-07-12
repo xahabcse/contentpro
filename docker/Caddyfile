@@ -1,0 +1,20 @@
+{
+	admin off
+	auto_https off
+}
+
+# Single local origin: serves the built SPA and proxies /api/* to the Worker so
+# the session cookie (SameSite=Strict) stays same-origin.
+:8080 {
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy api:8787
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

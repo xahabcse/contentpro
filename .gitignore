@@ -2,5 +2,7 @@ node_modules/
 .secrets.local.env
 .dev.vars
 *.local.env
+.env
 dist/
 *.tsbuildinfo
+.wrangler/
