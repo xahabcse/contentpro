@@ -4,19 +4,21 @@ import { useAuth } from '@/lib/auth';
 import SlideCanvas from '@/components/editor/SlideCanvas';
 import { resolveColors } from '@/lib/palettes';
 import { templateDefaults } from '@/lib/templates';
-import type { Author, Slide, TemplateId } from '@/lib/design-types';
+import type { FooterData, ResolvedSlide, TemplateId } from '@/lib/design-types';
 
-const DEMO_AUTHOR: Author = { name: 'Ayesha Rahman', handle: 'ayesharahman', avatar: null };
+// No account context on the landing page -> the demo cards show the same
+// placeholder author a signed-out / empty-profile user would see.
+const PLACEHOLDER_FOOTER: FooterData = { name: '', handle: '', avatar: null };
 
 // A scaled, non-interactive card built from a real template + palette -- the
 // same renderer the editor and export use, so the page shows genuine output.
 function CardPreview({ template, paletteId, target, radius = 16 }: { template: TemplateId; paletteId: string; target: number; radius?: number }) {
-  const slide: Slide = { template, fields: templateDefaults(template), bgImage: null };
+  const slide: ResolvedSlide = { template, fields: templateDefaults(template), bgImage: null };
   const colors = resolveColors(paletteId, {});
   return (
     <div style={{ width: target, height: target, borderRadius: radius, overflow: 'hidden', position: 'relative' }}>
       <div style={{ width: 1080, height: 1080, transform: `scale(${target / 1080})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-        <SlideCanvas slide={slide} colors={colors} author={DEMO_AUTHOR} width={1080} height={1080} />
+        <SlideCanvas slide={slide} colors={colors} footer={PLACEHOLDER_FOOTER} width={1080} height={1080} />
       </div>
     </div>
   );

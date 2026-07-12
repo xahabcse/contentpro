@@ -1,17 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Collection, Db, MongoClient } from "mongodb";
 import type { Env } from "../env";
-import type {
-  DesignDocument,
-  DesignFileType,
-  DesignRecord,
-  DesignUpdateInput,
-  NewDesignInput,
-  NewUserInput,
-  UserDocument,
-  UserRecord,
-  UserUpdateInput,
-} from "../schema";
+import type { NewUserInput, UserDocument, UserRecord, UserUpdateInput } from "../schema";
 
 const DATABASE_NAME = "contentpro";
 // One retry after tearing down a dead connection -- covers Atlas-side connection
@@ -24,11 +14,6 @@ const MAX_ATTEMPTS = 2;
 function toUserRecord(doc: UserDocument): UserRecord {
   const { _id, ...rest } = doc;
   return { ...rest, _id: _id ? _id.toHexString() : "" };
-}
-
-function toDesignRecord(doc: DesignDocument): DesignRecord {
-  const { _id, userId, ...rest } = doc;
-  return { ...rest, _id: _id ? _id.toHexString() : "", userId: userId.toHexString() };
 }
 
 /**
@@ -107,13 +92,9 @@ export class MongoConnectionDO extends DurableObject<Env> {
     if (this.db) return this.db;
     const db = await this.connectToMongo();
     if (!this.indexesEnsured) {
-      // Indexes per spec 3.2: unique email lookup, the 5/5 per-type cap query,
-      // and the dashboard/gallery listing order.
-      await Promise.all([
-        db.collection("users").createIndex({ email: 1 }, { unique: true }),
-        db.collection("designs").createIndex({ userId: 1, fileType: 1 }),
-        db.collection("designs").createIndex({ userId: 1, updatedAt: -1 }),
-      ]);
+      // Unique email lookup for auth. Designs are browser-only now, so there
+      // is no designs collection to index.
+      await db.collection("users").createIndex({ email: 1 }, { unique: true });
       this.indexesEnsured = true;
     }
     return db;
@@ -136,10 +117,6 @@ export class MongoConnectionDO extends DurableObject<Env> {
 
   private users(db: Db): Collection<UserDocument> {
     return db.collection<UserDocument>("users");
-  }
-
-  private designsCol(db: Db): Collection<DesignDocument> {
-    return db.collection<DesignDocument>("designs");
   }
 
   // ---------------------------------------------------------------------
@@ -172,62 +149,6 @@ export class MongoConnectionDO extends DurableObject<Env> {
     const _id = await this.oid(id);
     await this.withDb(async (db) => {
       await this.users(db).updateOne({ _id }, { $set: update });
-    });
-  }
-
-  // ---------------------------------------------------------------------
-  // designs
-  // ---------------------------------------------------------------------
-
-  async findDesign(id: string): Promise<DesignRecord | null> {
-    const _id = await this.oid(id);
-    return this.withDb(async (db) => {
-      const doc = await this.designsCol(db).findOne({ _id });
-      return doc ? toDesignRecord(doc) : null;
-    });
-  }
-
-  async listDesignsForUser(userId: string): Promise<DesignRecord[]> {
-    const uid = await this.oid(userId);
-    return this.withDb(async (db) => {
-      const docs = await this.designsCol(db)
-        .find({ userId: uid })
-        .sort({ updatedAt: -1 })
-        .toArray();
-      return docs.map(toDesignRecord);
-    });
-  }
-
-  async insertDesign(design: NewDesignInput): Promise<string> {
-    const { userId, ...rest } = design;
-    const uid = await this.oid(userId);
-    return this.withDb(async (db) => {
-      const result = await this.designsCol(db).insertOne({
-        ...rest,
-        userId: uid,
-      });
-      return result.insertedId.toHexString();
-    });
-  }
-
-  async updateDesign(id: string, update: DesignUpdateInput): Promise<void> {
-    const _id = await this.oid(id);
-    await this.withDb(async (db) => {
-      await this.designsCol(db).updateOne({ _id }, { $set: update });
-    });
-  }
-
-  async deleteDesign(id: string): Promise<void> {
-    const _id = await this.oid(id);
-    await this.withDb(async (db) => {
-      await this.designsCol(db).deleteOne({ _id });
-    });
-  }
-
-  async countDesignsByType(userId: string, fileType: DesignFileType): Promise<number> {
-    const uid = await this.oid(userId);
-    return this.withDb(async (db) => {
-      return this.designsCol(db).countDocuments({ userId: uid, fileType });
     });
   }
 }

@@ -3,7 +3,6 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv, Env } from "../env";
-import { buildDemoDesigns } from "../lib/demo-designs";
 import { isUploadedFile } from "../lib/http";
 import { signCloudinaryUrlOrOriginal, uploadToCloudinary } from "../lib/cloudinary";
 import { authRequired } from "../middleware/auth-required";
@@ -53,10 +52,6 @@ const updateProfileSchema = z.object({
   handle: z.string().trim().min(1).max(60).optional(),
 });
 
-function isProfileComplete(p: UserProfile): boolean {
-  return Boolean(p.name && p.designation && p.handle);
-}
-
 profile.put("/", jsonValidator(updateProfileSchema), async (c) => {
   const updates = c.req.valid("json");
   const userId = c.get("userId");
@@ -65,27 +60,8 @@ profile.put("/", jsonValidator(updateProfileSchema), async (c) => {
   const user = await stub.findUserById(userId);
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
 
-  const wasComplete = isProfileComplete(user.profile);
   const nextProfile: UserProfile = { ...user.profile, ...updates };
   await stub.updateUser(userId, { profile: nextProfile, updatedAt: new Date() });
-
-  // First time the profile becomes complete -- seed two ready example
-  // designs so the dashboard isn't empty. The author is snapshotted from the
-  // just-completed profile (name/handle/photo), matching the design model.
-  if (!wasComplete && isProfileComplete(nextProfile)) {
-    const existing = await stub.listDesignsForUser(userId);
-    if (existing.length === 0) {
-      const author = {
-        name: nextProfile.name || "Your Name",
-        handle: nextProfile.handle || "yourhandle",
-        avatar: nextProfile.photoUrl || null,
-      };
-      for (const demo of buildDemoDesigns(userId, author)) {
-        await stub.insertDesign(demo);
-      }
-    }
-  }
-
   return c.json(await signedProfile(c.env, nextProfile));
 });
 
