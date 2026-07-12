@@ -20,30 +20,46 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 // a capture fired right after a background change could race the browser's
 // async image decode and paint a stale/blank frame -- the "downloaded card
 // still shows the previous background" class of bug.
+// Resolve after `ms`, regardless of what else happens. Used to cap every wait
+// below so nothing can hang the export.
+function timeoutAfter(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function settleImage(img: HTMLImageElement): Promise<void> {
+  try {
+    // Wait for a still-loading image to finish, capped so a stalled load can't
+    // block. A broken image is already `complete` with naturalWidth 0 -- don't
+    // wait on it (no further load/error event will ever fire).
+    if (!img.complete) {
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          img.addEventListener('load', () => resolve(), { once: true });
+          img.addEventListener('error', () => resolve(), { once: true });
+        }),
+        timeoutAfter(5000),
+      ]);
+    }
+    // decode() is best-effort: it removes the stale-frame race for freshly-
+    // swapped backgrounds, but on some cross-origin / broken images it can
+    // REJECT *or never settle at all* -- .catch() only covers rejection, so it
+    // must be raced against a timeout or it hangs the whole export. Skip it
+    // entirely for images that failed to load.
+    if (img.naturalWidth > 0 && typeof img.decode === 'function') {
+      await Promise.race([img.decode().catch(() => undefined), timeoutAfter(1500)]);
+    }
+  } catch {
+    /* never let one image block the export */
+  }
+}
+
+// Guarantee every <img> inside the node (background photo, avatar, company
+// logo) is loaded/decoded before html2canvas reads it -- without this, a capture
+// fired right after a background change could paint a stale/blank frame. The
+// whole thing is also hard-capped so it can never hang the export.
 async function waitForImages(node: HTMLElement): Promise<void> {
   const imgs = Array.from(node.querySelectorAll('img'));
-  // Cap the wait per image so a stalled/never-settling load can never hang the
-  // whole export -- worst case we proceed after IMG_WAIT_MS and let html2canvas
-  // do its best with whatever is decoded.
-  const IMG_WAIT_MS = 6000;
-  await Promise.all(
-    imgs.map(async (img) => {
-      try {
-        if (!img.complete || img.naturalWidth === 0) {
-          await new Promise<void>((resolve) => {
-            const done = () => resolve();
-            const timer = setTimeout(done, IMG_WAIT_MS);
-            const settle = () => { clearTimeout(timer); done(); };
-            img.addEventListener('load', settle, { once: true });
-            img.addEventListener('error', settle, { once: true });
-          });
-        }
-        if (typeof img.decode === 'function') await img.decode().catch(() => undefined);
-      } catch {
-        /* never let one image block the export */
-      }
-    }),
-  );
+  await Promise.race([Promise.all(imgs.map(settleImage)), timeoutAfter(8000)]);
 }
 
 async function renderNodeToCanvas(node: HTMLElement, w: number, h: number): Promise<HTMLCanvasElement> {
