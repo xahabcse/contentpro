@@ -268,6 +268,35 @@ h3 {
   }
 }
 
+/* landing navbar: responsive padding + secondary-link collapse so the logo,
+   Log in and Sign up never crowd/overflow at ~390px. */
+.lp-nav-inner {
+  padding: 13px 16px;
+}
+@media (min-width: 560px) {
+  .lp-nav-inner {
+    padding: 14px 22px;
+  }
+}
+.lp-nav-about {
+  display: none;
+}
+@media (min-width: 600px) {
+  .lp-nav-about {
+    display: inline-flex;
+  }
+}
+/* on the very narrowest screens drop the "Log in" text link (still reachable
+   from the footer + the Sign up screen) so the primary CTA always fits. */
+.lp-nav-login {
+  display: none;
+}
+@media (min-width: 380px) {
+  .lp-nav-login {
+    display: inline-flex;
+  }
+}
+
 /* horizontal slider track (landing template showcase) */
 .slider-track {
   display: flex;

@@ -6,6 +6,7 @@ import SlideCanvas from '@/components/editor/SlideCanvas';
 import { resolveColors } from '@/lib/palettes';
 import { templateDefaults } from '@/lib/templates';
 import type { FooterData, ResolvedSlide, TemplateId } from '@/lib/design-types';
+import versionData from '@/version.json';
 
 // No account context on the landing page -> the demo cards show the same
 // placeholder author a signed-out / empty-profile user would see.
@@ -64,19 +65,22 @@ export default function LandingPage() {
 
       {/* ---- nav ---- */}
       <header style={{ position: 'sticky', top: 0, zIndex: 30, background: 'color-mix(in srgb, var(--bar) 88%, transparent)', backdropFilter: 'blur(8px)', borderBottom: '1px solid var(--ink)' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 22px', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div className="lp-nav-inner" style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center' }}>
           <Link to="/" aria-label="Cardstock home" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
             <CardstockLogo size={32} wordSize={19} color="var(--ink)" collapsed={scrolled} />
           </Link>
           <div style={{ flex: 1 }} />
-          {user ? (
-            <Link to="/dashboard" style={ctaBtn}>Dashboard →</Link>
-          ) : (
-            <>
-              <Link to="/login" className="lp-underline" style={{ font: "700 14px/1 'Space Grotesk'", color: 'var(--ink)', textDecoration: 'none', paddingBottom: 2 }}>Log in</Link>
-              <Link to="/signup" style={ctaBtn}>Sign up</Link>
-            </>
-          )}
+          <nav style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Link to="/about" className="lp-underline lp-nav-about" style={navTextLink}>About</Link>
+            {user ? (
+              <Link to="/dashboard" style={navPill}>Dashboard →</Link>
+            ) : (
+              <>
+                <Link to="/login" className="lp-underline lp-nav-login" style={navTextLink}>Log in</Link>
+                <Link to="/signup" style={navPill}>Sign up</Link>
+              </>
+            )}
+          </nav>
         </div>
       </header>
 
@@ -198,8 +202,12 @@ export default function LandingPage() {
       {/* ---- footer ---- */}
       <footer style={{ position: 'relative', zIndex: 1, borderTop: '1px solid var(--ink)', background: 'var(--bar)' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '26px 22px', display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted)', letterSpacing: '.04em' }}>© 2026 Cardstock — Card &amp; Carousel Studio</span>
+          <span style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted)', letterSpacing: '.04em' }}>
+            © 2026 Cardstock — Card &amp; Carousel Studio
+            <span style={{ marginLeft: 10, color: 'var(--muted)', opacity: 0.75 }}>v{versionData.version}</span>
+          </span>
           <div style={{ display: 'flex', gap: 20 }}>
+            <Link to="/about" className="lp-underline" style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted-2)', textDecoration: 'none', paddingBottom: 2 }}>About</Link>
             <Link to="/login" className="lp-underline" style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted-2)', textDecoration: 'none', paddingBottom: 2 }}>Log in</Link>
             <Link to="/signup" className="lp-underline" style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted-2)', textDecoration: 'none', paddingBottom: 2 }}>Sign up</Link>
           </div>
@@ -261,4 +269,16 @@ const darkArrow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+};
+// navbar primary CTA — 44px tall so it clears the mobile tap-target minimum
+const navPill: CSSProperties = { ...ctaBtn, height: 44, padding: '0 18px' };
+// navbar text link with a full 44px tap height
+const navTextLink: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  height: 44,
+  padding: '0 6px',
+  font: "700 14px/1 'Space Grotesk'",
+  color: 'var(--ink)',
+  textDecoration: 'none',
 };

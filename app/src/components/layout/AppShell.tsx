@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { CardstockLogo } from '@/components/Logo';
+import versionData from '@/version.json';
 
 interface AppShellProps {
   title: string;
@@ -44,11 +45,12 @@ export default function AppShell({ title, children }: AppShellProps) {
             justifyContent: 'space-between',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
               aria-label="Menu"
+              aria-expanded={menuOpen}
               onClick={() => setMenuOpen((v) => !v)}
-              style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: 4 }}
+              style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, color: 'var(--ink)' }}
             >
               ☰
             </button>
@@ -89,6 +91,7 @@ export default function AppShell({ title, children }: AppShellProps) {
           >
             <Link to="/dashboard" onClick={() => setMenuOpen(false)} style={navLinkStyle}>Dashboard</Link>
             <Link to="/settings/profile" onClick={() => setMenuOpen(false)} style={navLinkStyle}>Profile &amp; Company Settings</Link>
+            <Link to="/about" onClick={() => setMenuOpen(false)} style={navLinkStyle}>About</Link>
             <button onClick={handleLogout} style={{ ...navLinkStyle, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
               Log out
             </button>
@@ -96,16 +99,23 @@ export default function AppShell({ title, children }: AppShellProps) {
         )}
       </header>
 
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '20px 16px 96px 16px' }}>
+      <main style={{ maxWidth: 960, margin: '0 auto', padding: '20px 16px 40px 16px' }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 16px 0' }}>{title}</h1>
         {children}
       </main>
+
+      <footer style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px 40px 16px' }}>
+        <span style={{ fontSize: 12, color: 'var(--muted)', opacity: 0.8 }}>Cardstock v{versionData.version}</span>
+      </footer>
     </div>
   );
 }
 
 const navLinkStyle = {
-  padding: '10px 12px',
+  display: 'flex',
+  alignItems: 'center',
+  minHeight: 44,
+  padding: '0 12px',
   borderRadius: 10,
   fontSize: 15,
   fontWeight: 600,
