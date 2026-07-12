@@ -1,0 +1,8 @@
+# Force LF for files that run inside Linux containers, so the Docker build works
+# regardless of the contributor's OS (Windows git autocrlf would otherwise check
+# these out with CRLF and break the shell shebang / build).
+*.sh            text eol=lf
+*.Dockerfile    text eol=lf
+Dockerfile      text eol=lf
+Caddyfile       text eol=lf
+docker/**       text eol=lf
