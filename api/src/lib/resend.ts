@@ -169,15 +169,18 @@ function renderBrandedEmail(options: BrandedEmailOptions): string {
             <td align="center" bgcolor="${BRAND.ink}" class="cs-pad" style="background-color:${
               BRAND.ink
             }; padding:40px 40px; border-top-left-radius:16px; border-top-right-radius:16px;">
-              <div style="font-family:${FONT_STACK}; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.18em; color:${
+              <!-- Use <p>/<h1> (not <div>) here: Gmail strips inline styles off
+                   <div>s in this position, which turned the light header text
+                   invisible on the dark band; <p>/<h1> inline styles survive. -->
+              <p style="margin:0 0 10px; font-family:${FONT_STACK}; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.18em; color:${
                 BRAND.amber
-              };">${escapeHtml(options.eyebrow)}</div>
-              <div style="font-family:${SERIF_STACK}; font-size:36px; line-height:1.1; font-weight:700; color:${
+              };">${escapeHtml(options.eyebrow)}</p>
+              <h1 style="margin:0; font-family:${SERIF_STACK}; font-size:36px; line-height:1.1; font-weight:700; color:${
                 BRAND.creamLight
-              }; margin-top:10px;">Cardstock.</div>
-              <div style="font-family:${FONT_STACK}; font-size:13px; color:${
+              };">Cardstock.</h1>
+              <p style="margin:8px 0 0; font-family:${FONT_STACK}; font-size:13px; color:${
                 BRAND.creamDim
-              }; margin-top:8px;">LinkedIn card &amp; carousel studio</div>
+              };">LinkedIn card &amp; carousel studio</p>
             </td>
           </tr>
 
