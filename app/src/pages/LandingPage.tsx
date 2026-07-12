@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import SlideCanvas from '@/components/editor/SlideCanvas';
@@ -8,28 +8,13 @@ import type { Author, Slide, TemplateId } from '@/lib/design-types';
 
 const DEMO_AUTHOR: Author = { name: 'Ayesha Rahman', handle: 'ayesharahman', avatar: null };
 
-const sliderArrow: React.CSSProperties = {
-  width: 42,
-  height: 42,
-  borderRadius: '50%',
-  border: '1px solid var(--line-2)',
-  background: 'var(--surface-2)',
-  color: 'var(--ink)',
-  cursor: 'pointer',
-  font: '22px/1 Archivo',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-};
-
-// A scaled, non-interactive 1080-square card preview built from a real
-// template + palette -- the same renderer the editor and export use, so the
-// landing page shows genuine output, not a mockup.
-function CardPreview({ template, paletteId, target, style }: { template: TemplateId; paletteId: string; target: number; style?: React.CSSProperties }) {
+// A scaled, non-interactive card built from a real template + palette -- the
+// same renderer the editor and export use, so the page shows genuine output.
+function CardPreview({ template, paletteId, target, radius = 16 }: { template: TemplateId; paletteId: string; target: number; radius?: number }) {
   const slide: Slide = { template, fields: templateDefaults(template), bgImage: null };
   const colors = resolveColors(paletteId, {});
   return (
-    <div style={{ width: target, height: target, borderRadius: 14, overflow: 'hidden', position: 'relative', boxShadow: '0 24px 60px rgba(27,22,14,0.22)', ...style }}>
+    <div style={{ width: target, height: target, borderRadius: radius, overflow: 'hidden', position: 'relative' }}>
       <div style={{ width: 1080, height: 1080, transform: `scale(${target / 1080})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
         <SlideCanvas slide={slide} colors={colors} author={DEMO_AUTHOR} width={1080} height={1080} />
       </div>
@@ -37,14 +22,16 @@ function CardPreview({ template, paletteId, target, style }: { template: Templat
   );
 }
 
-const FEATURES: { title: string; body: string }[] = [
-  { title: '10 curated templates', body: 'Quotes, big stats, numbered tips, covers, before/after, frameworks, CTAs and more — each one already looks designed.' },
-  { title: 'Live WYSIWYG editor', body: 'Type your words and watch the card update instantly. What you see is exactly what exports — no surprises.' },
-  { title: '6 palettes + custom colors', body: 'Swap the whole look in one click, fine-tune background/text/accent, or flip the editor into dark mode.' },
-  { title: 'Export PNG & PDF', body: 'Single cards download as crisp 1080×1080 PNGs; carousels assemble into a multi-page 1080×1350 PDF — all in your browser.' },
-  { title: 'Your profile is the footer', body: 'Set your name, handle and photo once. Every design signs itself off automatically, on-brand.' },
-  { title: 'Background images', body: 'Drop a photo behind any slide and a readable dark scrim is added for you — no fiddling.' },
+const FEATURES: { n: string; title: string; body: string }[] = [
+  { n: '01', title: 'Ten templates that already look designed', body: 'Quotes, big stats, numbered tips, covers, before/after, frameworks, CTAs, bold questions and statements — each one composed by hand, not a blank box.' },
+  { n: '02', title: 'A true what-you-see editor', body: 'Type a word, watch the card change. The frame on screen is the exact frame that exports — no preview lies, no re-rendering surprises.' },
+  { n: '03', title: 'Palettes, custom colours & dark mode', body: 'Six ready palettes, or dial in your own background, text and accent. Flip the whole studio to dark when the light one gets loud.' },
+  { n: '04', title: 'PNG for cards, PDF for carousels', body: 'Single cards come out as crisp 1080-square PNGs. Carousels assemble into a multi-page 1080×1350 PDF — all stitched together in your browser.' },
+  { n: '05', title: 'Your profile signs every post', body: 'Set your name, handle and photo once. Every design signs itself off in the footer, consistently, so you never retype it.' },
+  { n: '06', title: 'Background photos, handled', body: 'Drop an image behind any slide and a readable dark scrim is layered in automatically — legible text, zero fiddling.' },
 ];
+
+const TEMPLATE_TICKER = ['Quote', 'Big Stat', 'Numbered Tips', 'Cover', 'Announcement', 'Bold Question', 'Before / After', 'Framework', 'Call to Action', 'Statement'];
 
 export default function LandingPage() {
   const { user } = useAuth();
@@ -56,109 +43,211 @@ export default function LandingPage() {
     el.scrollBy({ left: dir * Math.max(320, el.clientWidth * 0.8), behavior: 'smooth' });
   }
 
-  const primaryCta = user
-    ? { to: '/dashboard', label: 'Go to your dashboard' }
-    : { to: '/signup', label: "Start designing — it's free" };
+  const cta = user ? { to: '/dashboard', label: 'Open your dashboard' } : { to: '/signup', label: 'Start for free' };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--ink)' }}>
-      {/* nav */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 20, background: 'var(--bar)', borderBottom: '1px solid var(--line)' }}>
-        <div style={{ maxWidth: 1140, margin: '0 auto', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+    <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)', color: 'var(--ink)', overflowX: 'hidden' }}>
+      <div className="lp-grain" />
+
+      {/* ---- nav ---- */}
+      <header style={{ position: 'sticky', top: 0, zIndex: 30, background: 'color-mix(in srgb, var(--bar) 88%, transparent)', backdropFilter: 'blur(8px)', borderBottom: '1px solid var(--ink)' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 22px', display: 'flex', alignItems: 'center', gap: 16 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 11, textDecoration: 'none' }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '900 17px/1 Archivo', color: 'var(--brand-ink)' }}>C</div>
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-              <span style={{ font: '800 16px/1 Archivo', color: 'var(--ink)' }}>ContentPro</span>
-              <span style={{ font: "600 9px/1.4 'Space Grotesk'", letterSpacing: '.22em', color: 'var(--muted)' }}>CARD &amp; CAROUSEL STUDIO</span>
-            </div>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '900 18px/1 Archivo', color: 'var(--brand)' }}>C</div>
+            <span style={{ font: '900 17px/1 Archivo', letterSpacing: '-0.02em' }}>ContentPro</span>
+            <span style={{ font: "600 9px/1.3 'Space Grotesk'", letterSpacing: '.24em', color: 'var(--muted)', borderLeft: '1px solid var(--line-2)', paddingLeft: 11 }}>STUDIO</span>
           </Link>
           <div style={{ flex: 1 }} />
           {user ? (
-            <Link to="/dashboard" className="btn btn-primary" style={{ width: 'auto', height: 40, padding: '0 18px', fontSize: 14, textDecoration: 'none' }}>Dashboard</Link>
+            <Link to="/dashboard" style={ctaBtn}>Dashboard →</Link>
           ) : (
             <>
-              <Link to="/login" style={{ font: "700 14px/1 'Space Grotesk'", color: 'var(--ink)', textDecoration: 'none' }}>Log in</Link>
-              <Link to="/signup" className="btn btn-primary" style={{ width: 'auto', height: 40, padding: '0 18px', fontSize: 14, textDecoration: 'none' }}>Get started</Link>
+              <Link to="/login" className="lp-underline" style={{ font: "700 14px/1 'Space Grotesk'", color: 'var(--ink)', textDecoration: 'none', paddingBottom: 2 }}>Log in</Link>
+              <Link to="/signup" style={ctaBtn}>Sign up</Link>
             </>
           )}
         </div>
       </header>
 
-      {/* hero */}
-      <section style={{ maxWidth: 1140, margin: '0 auto', padding: '64px 20px 40px', display: 'flex', flexWrap: 'wrap', gap: 48, alignItems: 'center' }}>
-        <div style={{ flex: '1 1 420px', minWidth: 300 }}>
-          <span className="pill pill-brand" style={{ marginBottom: 20 }}>Design LinkedIn posts in minutes</span>
-          <h1 style={{ font: '900 clamp(38px, 6vw, 64px)/1.02 Archivo', letterSpacing: '-0.03em', margin: '0 0 20px' }}>
-            Make LinkedIn cards &amp; carousels that stop the scroll.
-          </h1>
-          <p style={{ font: "400 clamp(16px,2.2vw,20px)/1.55 'Space Grotesk'", color: 'var(--muted-2)', maxWidth: 520, margin: '0 0 32px' }}>
-            Pick a template, drop in your words, tweak the palette, and export a crisp PNG or PDF — right in your browser. No design tools, no watermarks.
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            <Link to={primaryCta.to} className="btn btn-primary" style={{ width: 'auto', padding: '0 26px', fontSize: 16, textDecoration: 'none' }}>{primaryCta.label}</Link>
-            {!user && <Link to="/login" className="btn btn-outline" style={{ width: 'auto', padding: '0 26px', fontSize: 16, textDecoration: 'none' }}>Log in</Link>}
-          </div>
-        </div>
+      {/* ---- hero ---- */}
+      <section style={{ position: 'relative', zIndex: 1, maxWidth: 1200, margin: '0 auto', padding: '72px 22px 40px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(0, 0.85fr)', gap: 40, alignItems: 'center' }} className="lp-hero-grid">
+          <div>
+            <div className="lp-reveal" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 26, animationDelay: '0.05s' }}>
+              <span style={{ height: 1, width: 46, background: 'var(--ink)' }} />
+              <span style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.28em', color: 'var(--muted-2)' }}>IN-BROWSER STUDIO · EST. 2026</span>
+            </div>
 
-        <div style={{ flex: '1 1 380px', minWidth: 300, display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', minHeight: 360 }}>
-          <CardPreview template="stat" paletteId="cobalt" target={230} style={{ transform: 'rotate(-6deg) translateX(-40px)' }} />
-          <CardPreview template="quote" paletteId="ink" target={270} style={{ position: 'relative', zIndex: 2 }} />
-          <CardPreview template="cta" paletteId="forest" target={230} style={{ transform: 'rotate(6deg) translateX(40px)' }} />
+            <h1 className="lp-reveal" style={{ margin: '0 0 24px', animationDelay: '0.12s' }}>
+              <span style={{ display: 'block', font: '900 clamp(42px, 7vw, 82px)/0.98 Archivo', letterSpacing: '-0.035em' }}>Cards &amp; carousels</span>
+              <span style={{ display: 'block', font: '900 clamp(42px, 7vw, 82px)/0.98 Archivo', letterSpacing: '-0.035em' }}>
+                worth the{' '}
+                <em style={{ fontFamily: 'Newsreader, serif', fontWeight: 500, fontStyle: 'italic', color: 'var(--brand-strong, #7a5a00)', position: 'relative', whiteSpace: 'nowrap' }}>
+                  <span style={{ position: 'relative', zIndex: 1, color: 'var(--ink)' }}>double&#8209;take</span>
+                  <span style={{ position: 'absolute', left: '-2%', right: '-2%', bottom: '0.08em', height: '0.34em', background: 'var(--brand)', zIndex: 0, borderRadius: 2 }} />
+                </em>
+                .
+              </span>
+            </h1>
+
+            <p className="lp-reveal" style={{ font: "400 clamp(16px, 2.1vw, 20px)/1.6 'Space Grotesk'", color: 'var(--muted-2)', maxWidth: 500, margin: '0 0 30px', animationDelay: '0.2s' }}>
+              Pick a template, type your words, nudge the palette — then export a razor-sharp PNG or PDF. All in the browser. No design app, no watermark, no learning curve.
+            </p>
+
+            <div className="lp-reveal" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 26, animationDelay: '0.28s' }}>
+              <Link to={cta.to} style={{ ...ctaBtn, height: 52, padding: '0 30px', fontSize: 16 }}>{cta.label}</Link>
+              {!user && <Link to="/login" style={{ ...ghostBtn, height: 52, padding: '0 26px', fontSize: 16 }}>I have an account</Link>}
+            </div>
+
+            <div className="lp-reveal" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', animationDelay: '0.34s' }}>
+              {['10 templates', 'Light & dark', 'PNG + PDF', 'Free to start'].map((m) => (
+                <span key={m} style={{ font: "600 11px/1 'Space Grotesk'", letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>◦ {m}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* collage */}
+          <div className="lp-hero-art" style={{ position: 'relative', height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FigCard template="stat" palette="cobalt" size={210} rot={-7} x={-118} y={-30} delay="0.5s" caption="Fig.1 — Big Stat" z={1} />
+            <FigCard template="quote" palette="ink" size={252} rot={2} x={0} y={16} delay="0.3s" caption="Fig.2 — Quote" z={3} />
+            <FigCard template="cta" palette="forest" size={210} rot={8} x={122} y={-6} delay="0.65s" caption="Fig.3 — Call to Action" z={2} />
+          </div>
         </div>
       </section>
 
-      {/* features */}
-      <section style={{ maxWidth: 1140, margin: '0 auto', padding: '48px 20px' }}>
-        <h2 style={{ font: '800 clamp(26px,4vw,38px)/1.1 Archivo', letterSpacing: '-0.02em', margin: '0 0 8px' }}>Everything you need to look polished</h2>
-        <p style={{ font: "400 16px/1.5 'Space Grotesk'", color: 'var(--muted-2)', margin: '0 0 32px', maxWidth: 560 }}>Built for founders, job-seekers and creators who want on-brand posts without opening a design app.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-          {FEATURES.map((f) => (
-            <div key={f.title} className="card-surface" style={{ padding: 22 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '900 18px/1 Archivo', color: 'var(--brand-ink)', marginBottom: 14 }}>✦</div>
-              <h3 style={{ font: '700 18px/1.25 Archivo', margin: '0 0 8px' }}>{f.title}</h3>
-              <p style={{ font: "400 14px/1.55 'Space Grotesk'", color: 'var(--muted-2)', margin: 0 }}>{f.body}</p>
+      {/* ---- marquee ---- */}
+      <div className="lp-marquee" style={{ position: 'relative', zIndex: 1, margin: '20px 0 8px' }}>
+        <div className="lp-marquee__track">
+          {[0, 1].map((dup) => (
+            <div key={dup} style={{ display: 'inline-flex' }} aria-hidden={dup === 1}>
+              {TEMPLATE_TICKER.map((t, i) => (
+                <span key={t + i} style={{ display: 'inline-flex', alignItems: 'center', gap: 22, padding: '13px 22px', font: '800 15px/1 Archivo', letterSpacing: '-0.01em', color: i % 2 ? 'var(--brand)' : 'var(--bar)' }}>
+                  {t}<span style={{ color: 'var(--brand)', fontSize: 12 }}>✦</span>
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ---- features (editorial index) ---- */}
+      <section style={{ position: 'relative', zIndex: 1, maxWidth: 1200, margin: '0 auto', padding: '56px 22px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 8, borderBottom: '2px solid var(--ink)', paddingBottom: 18 }}>
+          <h2 style={{ font: '900 clamp(28px, 4.5vw, 44px)/1 Archivo', letterSpacing: '-0.03em', margin: 0, maxWidth: 640 }}>
+            Built to make you look like you hired a designer.
+          </h2>
+          <span style={{ font: "italic 500 20px/1 Newsreader", color: 'var(--muted-2)' }}>Six reasons</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 0 }}>
+          {FEATURES.map((f, i) => (
+            <div key={f.n} style={{ display: 'flex', gap: 18, padding: '26px 22px 26px 0', borderBottom: '1px solid var(--line-2)', ...(i % 2 === 0 ? { borderRight: '1px solid var(--line-2)', paddingRight: 30 } : { paddingLeft: 30 }) }}>
+              <div style={{ font: 'italic 500 34px/1 Newsreader', color: 'var(--brand)', flex: 'none', width: 52 }}>{f.n}</div>
+              <div>
+                <h3 style={{ font: '800 19px/1.25 Archivo', letterSpacing: '-0.01em', margin: '2px 0 8px' }}>{f.title}</h3>
+                <p style={{ font: "400 14px/1.6 'Space Grotesk'", color: 'var(--muted-2)', margin: 0 }}>{f.body}</p>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* template showcase slider */}
-      <section style={{ background: 'var(--surface)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
-        <div style={{ maxWidth: 1140, margin: '0 auto', padding: '48px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
-            <h2 style={{ font: '800 clamp(24px,4vw,34px)/1.1 Archivo', letterSpacing: '-0.02em', margin: 0 }}>Start from a template, make it yours</h2>
+      {/* ---- template slider ---- */}
+      <section style={{ position: 'relative', zIndex: 1, background: 'var(--ink)', color: 'var(--bar)', borderTop: '2px solid var(--ink)' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '56px 22px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 26 }}>
+            <div>
+              <span style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.28em', color: 'var(--brand)' }}>THE TEMPLATE RACK</span>
+              <h2 style={{ font: '900 clamp(26px, 4vw, 40px)/1.02 Archivo', letterSpacing: '-0.03em', margin: '12px 0 0', color: 'var(--bar)' }}>Start from one. Make it unmistakably yours.</h2>
+            </div>
             <div style={{ display: 'flex', gap: 10, flex: 'none' }}>
-              <button aria-label="Previous" onClick={() => scrollSlider(-1)} style={sliderArrow}>‹</button>
-              <button aria-label="Next" onClick={() => scrollSlider(1)} style={sliderArrow}>›</button>
+              <button aria-label="Previous" onClick={() => scrollSlider(-1)} style={darkArrow}>‹</button>
+              <button aria-label="Next" onClick={() => scrollSlider(1)} style={darkArrow}>›</button>
             </div>
           </div>
           <div ref={sliderRef} className="slider-track">
             {([['cover', 'ink'], ['tips', 'crimson'], ['framework', 'grape'], ['question', 'bone'], ['statement', 'forest'], ['announce', 'cobalt'], ['quote', 'ink'], ['stat', 'cobalt'], ['contrast', 'crimson'], ['cta', 'forest']] as [TemplateId, string][]).map(([t, p], i) => (
-              <div key={t + i} style={{ flex: 'none' }}>
-                <CardPreview template={t} paletteId={p} target={220} />
+              <div key={t + i} style={{ flex: 'none' }} className="lp-lift">
+                <CardPreview template={t} paletteId={p} target={224} radius={12} />
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA band */}
-      <section style={{ maxWidth: 1140, margin: '0 auto', padding: '64px 20px', textAlign: 'center' }}>
-        <h2 style={{ font: '900 clamp(30px,5vw,48px)/1.05 Archivo', letterSpacing: '-0.02em', margin: '0 0 16px' }}>Your next post is 5 minutes away.</h2>
-        <p style={{ font: "400 18px/1.5 'Space Grotesk'", color: 'var(--muted-2)', margin: '0 0 28px' }}>Create an account and design your first card free.</p>
-        <Link to={primaryCta.to} className="btn btn-primary" style={{ width: 'auto', padding: '0 30px', fontSize: 17, textDecoration: 'none', display: 'inline-flex' }}>{primaryCta.label}</Link>
+      {/* ---- closing ---- */}
+      <section style={{ position: 'relative', zIndex: 1, maxWidth: 1000, margin: '0 auto', padding: '84px 22px', textAlign: 'center' }}>
+        <p style={{ font: "italic 500 clamp(18px,3vw,24px)/1.4 Newsreader", color: 'var(--muted-2)', margin: '0 0 14px' }}>Stop screenshotting Notes. Stop wrestling Canva.</p>
+        <h2 style={{ font: '900 clamp(34px, 6vw, 62px)/1 Archivo', letterSpacing: '-0.035em', margin: '0 0 28px' }}>
+          Your next post is <span style={{ position: 'relative', whiteSpace: 'nowrap' }}>five minutes<span style={{ position: 'absolute', left: 0, right: 0, bottom: '0.06em', height: '0.28em', background: 'var(--brand)', zIndex: -1 }} /></span> away.
+        </h2>
+        <Link to={cta.to} style={{ ...ctaBtn, height: 56, padding: '0 34px', fontSize: 17, display: 'inline-flex' }}>{cta.label}</Link>
       </section>
 
-      {/* footer */}
-      <footer style={{ borderTop: '1px solid var(--line)', background: 'var(--bar)' }}>
-        <div style={{ maxWidth: 1140, margin: '0 auto', padding: '24px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ font: "600 13px/1 'Space Grotesk'", color: 'var(--muted)' }}>© 2026 ContentPro · Card &amp; Carousel Studio</span>
-          <div style={{ display: 'flex', gap: 18 }}>
-            <Link to="/login" style={{ font: "600 13px/1 'Space Grotesk'", color: 'var(--muted-2)', textDecoration: 'none' }}>Log in</Link>
-            <Link to="/signup" style={{ font: "600 13px/1 'Space Grotesk'", color: 'var(--muted-2)', textDecoration: 'none' }}>Sign up</Link>
+      {/* ---- footer ---- */}
+      <footer style={{ position: 'relative', zIndex: 1, borderTop: '1px solid var(--ink)', background: 'var(--bar)' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '26px 22px', display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted)', letterSpacing: '.04em' }}>© 2026 ContentPro — Card &amp; Carousel Studio</span>
+          <div style={{ display: 'flex', gap: 20 }}>
+            <Link to="/login" className="lp-underline" style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted-2)', textDecoration: 'none', paddingBottom: 2 }}>Log in</Link>
+            <Link to="/signup" className="lp-underline" style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted-2)', textDecoration: 'none', paddingBottom: 2 }}>Sign up</Link>
           </div>
         </div>
       </footer>
     </div>
   );
 }
+
+// Floating figure card with caption for the hero collage.
+function FigCard({ template, palette, size, rot, x, y, delay, caption, z }: { template: TemplateId; palette: string; size: number; rot: number; x: number; y: number; delay: string; caption: string; z: number }) {
+  return (
+    <div className="lp-reveal" style={{ position: 'absolute', zIndex: z, animationDelay: delay, transform: `translate(${x}px, ${y}px)` }}>
+      <div style={{ ['--lp-rot' as string]: `rotate(${rot}deg)`, animation: 'lp-float 7s ease-in-out infinite', animationDelay: delay, transform: `rotate(${rot}deg)`, boxShadow: '0 26px 60px rgba(27,22,14,0.28)', border: '4px solid var(--bar)', borderRadius: 18 }}>
+        <CardPreview template={template} paletteId={palette} target={size} radius={14} />
+      </div>
+      <div style={{ marginTop: 8, textAlign: 'center', font: "600 9px/1 'Space Grotesk'", letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--muted)', transform: `rotate(${rot}deg)` }}>{caption}</div>
+    </div>
+  );
+}
+
+// ---- shared button styles ----
+const ctaBtn: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: 42,
+  padding: '0 20px',
+  borderRadius: 999,
+  background: 'var(--ink)',
+  color: 'var(--brand)',
+  font: "800 14px/1 'Space Grotesk'",
+  letterSpacing: '0.01em',
+  textDecoration: 'none',
+  border: '1px solid var(--ink)',
+};
+const ghostBtn: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: 42,
+  padding: '0 20px',
+  borderRadius: 999,
+  background: 'transparent',
+  color: 'var(--ink)',
+  font: "800 14px/1 'Space Grotesk'",
+  textDecoration: 'none',
+  border: '1px solid var(--ink)',
+};
+const darkArrow: CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: '50%',
+  border: '1px solid rgba(243,238,225,0.28)',
+  background: 'transparent',
+  color: 'var(--bar)',
+  cursor: 'pointer',
+  font: '22px/1 Archivo',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
