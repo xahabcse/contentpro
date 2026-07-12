@@ -15,7 +15,32 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
-function renderNodeToCanvas(node: HTMLElement, w: number, h: number): Promise<HTMLCanvasElement> {
+// Guarantee every <img> inside the node (background photo, avatar, company
+// logo) is fully loaded AND decoded before html2canvas reads it. Without this,
+// a capture fired right after a background change could race the browser's
+// async image decode and paint a stale/blank frame -- the "downloaded card
+// still shows the previous background" class of bug.
+async function waitForImages(node: HTMLElement): Promise<void> {
+  const imgs = Array.from(node.querySelectorAll('img'));
+  await Promise.all(
+    imgs.map(async (img) => {
+      try {
+        if (!img.complete || img.naturalWidth === 0) {
+          await new Promise<void>((resolve) => {
+            img.addEventListener('load', () => resolve(), { once: true });
+            img.addEventListener('error', () => resolve(), { once: true });
+          });
+        }
+        if (typeof img.decode === 'function') await img.decode().catch(() => undefined);
+      } catch {
+        /* never let one image block the export */
+      }
+    }),
+  );
+}
+
+async function renderNodeToCanvas(node: HTMLElement, w: number, h: number): Promise<HTMLCanvasElement> {
+  await waitForImages(node);
   return withTimeout(
     html2canvas(node, { width: w, height: h, scale: 2, useCORS: true, backgroundColor: null }),
     EXPORT_TIMEOUT_MS,

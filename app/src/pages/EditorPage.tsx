@@ -171,15 +171,24 @@ export default function EditorPage() {
     if (exporting || !design) return;
     setExporting(true);
     try {
+      // Let React flush any just-applied change (e.g. a background swapped a
+      // moment ago) into the offscreen export pool before we read its nodes.
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
       const nodes = exportRefs.current.filter((n): n is HTMLDivElement => n !== null);
-      const fname = (design.title || (design.type === 'card' ? 'contentpro-card' : 'contentpro-carousel'));
+      // Timestamp suffix so re-exports never collide on the same filename --
+      // otherwise the browser writes "name (1).png" while the user re-opens the
+      // stale "name.png" and thinks the new background didn't apply.
+      const base = (design.title || (design.type === 'card' ? 'contentpro-card' : 'contentpro-carousel')).replace(/[\\/:*?"<>|]+/g, '-');
+      const d = new Date();
+      const p = (n: number) => String(n).padStart(2, '0');
+      const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
       if (design.type === 'card') {
         const blob = await exportCardAsPng(nodes[0], cv.w, cv.h);
-        downloadBlob(blob, fname + '.png');
+        downloadBlob(blob, `${base}-${stamp}.png`);
         showToast('PNG downloaded ✓');
       } else {
         const blob = await exportCarouselAsPdf(nodes, cv.w, cv.h);
-        downloadBlob(blob, fname + '.pdf');
+        downloadBlob(blob, `${base}-${stamp}.pdf`);
         showToast('PDF · ' + design.slides.length + ' slides downloaded ✓');
       }
     } catch (err) {
