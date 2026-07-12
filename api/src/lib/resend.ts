@@ -153,15 +153,15 @@ function renderBrandedEmail(options: BrandedEmailOptions): string {
                    its own <td> so the light text colour survives on the dark
                    band. -->
               <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-                <tr><td align="center" style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:${
+                <tr><td align="center" style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;font-weight:700;font-family:${FONT_STACK};padding-bottom:10px;"><font color="${
                   BRAND.amber
-                };font-weight:700;font-family:${FONT_STACK};padding-bottom:10px;">${escapeHtml(options.eyebrow)}</td></tr>
-                <tr><td align="center" style="font-size:36px;line-height:1.1;font-weight:700;color:${
+                }">${escapeHtml(options.eyebrow)}</font></td></tr>
+                <tr><td align="center" style="font-size:36px;line-height:1.1;font-weight:700;font-family:${SERIF_STACK};"><font color="${
                   BRAND.creamLight
-                };font-family:${SERIF_STACK};">Cardstock.</td></tr>
-                <tr><td align="center" style="font-size:13px;color:${
+                }">Cardstock.</font></td></tr>
+                <tr><td align="center" style="font-size:13px;font-family:${FONT_STACK};padding-top:8px;"><font color="${
                   BRAND.creamDim
-                };font-family:${FONT_STACK};padding-top:8px;">LinkedIn card &amp; carousel studio</td></tr>
+                }">LinkedIn card &amp; carousel studio</font></td></tr>
               </table>
             </td>
           </tr>
