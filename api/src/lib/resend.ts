@@ -1,8 +1,29 @@
 // Resend email delivery (spec sections 5.3/5.4) -- verification + password
 // reset share this one send helper; every call carries an Idempotency-Key
 // header so a client retry never double-sends the same email.
+//
+// The two transactional emails are rendered from a single, brand-consistent
+// HTML shell (renderBrandedEmail) so header/footer/button styling never
+// drifts between them. Everything is email-client-safe: table-based layout,
+// all styles INLINE (the small <style> block only adds optional niceties and
+// nothing depends on it), no external CSS, no webfonts (email clients can't
+// load Archivo reliably -> web-safe stack). Brand = Cardstock.
 
 const RESEND_API_URL = "https://api.resend.com/emails";
+
+// Cardstock brand tokens (mirrors brand/brand-kit.md; repeated here so the
+// email layer has no cross-package import).
+const BRAND = {
+  amber: "#F2B705",
+  ink: "#1B160E",
+  cream: "#EFE8D8",
+  muted: "#6F6750",
+  card: "#FBF7EC",
+  border: "#E3D9C2",
+} as const;
+
+// Web-safe stack -- Archivo/webfonts don't load reliably in email clients.
+const FONT_STACK = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
 
 export interface ResendConfig {
   apiKey: string;
@@ -47,6 +68,200 @@ function idempotencyKeyFor(scope: string, email: string, token: string): string 
   return `${scope}:${email.toLowerCase()}:${token.slice(-32)}`;
 }
 
+// ---------------------------------------------------------------------------
+// branded HTML shell
+// ---------------------------------------------------------------------------
+
+/** Escape untrusted text for safe embedding in HTML text/attribute contexts. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+interface BrandedEmailOptions {
+  /** Hidden inbox-preview text shown before the body is opened. */
+  preheader: string;
+  /** Big friendly heading, e.g. "Verify your email". */
+  heading: string;
+  /** One or two short intro sentences (already plain text -- escaped here). */
+  paragraphs: string[];
+  /** CTA button label. */
+  buttonLabel: string;
+  /** Destination URL -- MUST stay intact (the token lives in ?token=). */
+  url: string;
+}
+
+/**
+ * Renders the shared Cardstock email: cream body, centered ~560px card with a
+ * wordmark header, the caller's body copy, a bulletproof amber CTA button, a
+ * selectable plain-link fallback, expiry + ignore notes, and a footer.
+ */
+function renderBrandedEmail(options: BrandedEmailOptions): string {
+  const safeUrl = escapeHtml(options.url);
+  const year = new Date().getFullYear();
+
+  const bodyParagraphs = options.paragraphs
+    .map(
+      (text) =>
+        `<p style="margin:0 0 16px; font-family:${FONT_STACK}; font-size:16px; line-height:1.6; color:${BRAND.ink};">${escapeHtml(
+          text,
+        )}</p>`,
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="x-apple-disable-message-reformatting" />
+<meta name="color-scheme" content="light only" />
+<title>${escapeHtml(options.heading)}</title>
+<style>
+  /* Optional niceties only -- the layout is fully inlined and works without this. */
+  a.cs-btn:hover { filter: brightness(0.95); }
+  @media (max-width: 600px) {
+    .cs-card { width: 100% !important; }
+    .cs-pad { padding-left: 24px !important; padding-right: 24px !important; }
+  }
+</style>
+</head>
+<body style="margin:0; padding:0; background-color:${BRAND.cream}; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%;">
+  <!-- preheader: hidden inbox preview text -->
+  <span style="display:none !important; visibility:hidden; mso-hide:all; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden; color:transparent;">${escapeHtml(
+    options.preheader,
+  )}</span>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${
+    BRAND.cream
+  };">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+
+        <table role="presentation" class="cs-card" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px; max-width:560px; background-color:${
+          BRAND.card
+        }; border:1px solid ${BRAND.border}; border-radius:16px; overflow:hidden;">
+
+          <!-- header / wordmark -->
+          <tr>
+            <td class="cs-pad" style="padding:32px 40px 8px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" style="padding-right:12px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" valign="middle" width="40" height="40" style="width:40px; height:40px; background-color:${
+                          BRAND.amber
+                        }; border-radius:10px; font-family:${FONT_STACK}; font-size:22px; font-weight:800; color:${
+                          BRAND.ink
+                        };">C</td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td valign="middle">
+                    <div style="font-family:${FONT_STACK}; font-size:20px; font-weight:800; letter-spacing:-0.2px; color:${
+                      BRAND.ink
+                    };">Cardstock</div>
+                    <div style="font-family:${FONT_STACK}; font-size:12px; color:${
+                      BRAND.muted
+                    }; margin-top:2px;">LinkedIn card &amp; carousel studio</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- divider -->
+          <tr>
+            <td class="cs-pad" style="padding:16px 40px 0;">
+              <div style="height:1px; line-height:1px; font-size:1px; background-color:${
+                BRAND.border
+              };">&nbsp;</div>
+            </td>
+          </tr>
+
+          <!-- body -->
+          <tr>
+            <td class="cs-pad" style="padding:24px 40px 8px;">
+              <h1 style="margin:0 0 16px; font-family:${FONT_STACK}; font-size:24px; line-height:1.3; font-weight:800; color:${
+                BRAND.ink
+              };">${escapeHtml(options.heading)}</h1>
+              ${bodyParagraphs}
+            </td>
+          </tr>
+
+          <!-- bulletproof CTA button -->
+          <tr>
+            <td class="cs-pad" style="padding:8px 40px 8px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" bgcolor="${
+                    BRAND.amber
+                  }" style="border-radius:10px;">
+                    <a class="cs-btn" href="${safeUrl}" target="_blank" rel="noopener" style="display:inline-block; padding:14px 34px; font-family:${FONT_STACK}; font-size:16px; font-weight:700; line-height:1; color:${
+                      BRAND.ink
+                    }; text-decoration:none; border-radius:10px;">${escapeHtml(
+                      options.buttonLabel,
+                    )}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- plain-link fallback (kept selectable + intact for ?token=) -->
+          <tr>
+            <td class="cs-pad" style="padding:16px 40px 0;">
+              <p style="margin:0 0 6px; font-family:${FONT_STACK}; font-size:13px; color:${
+                BRAND.muted
+              };">Button not working? Paste this link into your browser:</p>
+              <p style="margin:0; font-family:${FONT_STACK}; font-size:13px; line-height:1.5; word-break:break-all;">
+                <a href="${safeUrl}" target="_blank" rel="noopener" style="color:#8A6D0B; text-decoration:underline;">${safeUrl}</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- expiry + ignore notes -->
+          <tr>
+            <td class="cs-pad" style="padding:20px 40px 4px;">
+              <p style="margin:0 0 8px; font-family:${FONT_STACK}; font-size:13px; color:${
+                BRAND.muted
+              };">This link expires in 45 minutes.</p>
+              <p style="margin:0; font-family:${FONT_STACK}; font-size:13px; color:${
+                BRAND.muted
+              };">If you didn&#39;t request this, you can safely ignore this email.</p>
+            </td>
+          </tr>
+
+          <!-- footer -->
+          <tr>
+            <td class="cs-pad" style="padding:24px 40px 32px;">
+              <div style="height:1px; line-height:1px; font-size:1px; background-color:${
+                BRAND.border
+              }; margin-bottom:16px;">&nbsp;</div>
+              <p style="margin:0; font-family:${FONT_STACK}; font-size:12px; line-height:1.5; color:${
+                BRAND.muted
+              };">&copy; ${year} Cardstock &middot; LinkedIn card &amp; carousel studio<br />This is an automated message from a send-only address, please don&#39;t reply.</p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
+// public senders
+// ---------------------------------------------------------------------------
+
 export async function sendVerificationEmail(
   email: string,
   token: string,
@@ -57,12 +272,17 @@ export async function sendVerificationEmail(
     apiKey: config.apiKey,
     from: config.from,
     to: email,
-    subject: "Verify your ContentPro email address",
-    html: [
-      "<p>Welcome to ContentPro.</p>",
-      `<p><a href="${link}">Click here to verify your email address</a>.</p>`,
-      "<p>This link expires in 45 minutes. If you didn't create this account, you can ignore this email.</p>",
-    ].join(""),
+    subject: "Verify your Cardstock email address",
+    html: renderBrandedEmail({
+      preheader: "Confirm your email to start creating LinkedIn cards & carousels with Cardstock.",
+      heading: "Verify your email",
+      paragraphs: [
+        "Welcome to Cardstock! You're one click away from designing polished LinkedIn cards and carousels.",
+        "Confirm this is your email address to activate your account.",
+      ],
+      buttonLabel: "Verify email address",
+      url: link,
+    }),
     idempotencyKey: idempotencyKeyFor("email-verification", email, token),
   });
 }
@@ -77,12 +297,17 @@ export async function sendPasswordResetEmail(
     apiKey: config.apiKey,
     from: config.from,
     to: email,
-    subject: "Reset your ContentPro password",
-    html: [
-      "<p>We received a request to reset your ContentPro password.</p>",
-      `<p><a href="${link}">Click here to choose a new password</a>.</p>`,
-      "<p>This link expires in 45 minutes. If you didn't request this, you can ignore this email.</p>",
-    ].join(""),
+    subject: "Reset your Cardstock password",
+    html: renderBrandedEmail({
+      preheader: "Choose a new password for your Cardstock account.",
+      heading: "Reset your password",
+      paragraphs: [
+        "We received a request to reset the password for your Cardstock account.",
+        "Click the button below to choose a new one.",
+      ],
+      buttonLabel: "Choose a new password",
+      url: link,
+    }),
     idempotencyKey: idempotencyKeyFor("password-reset", email, token),
   });
 }

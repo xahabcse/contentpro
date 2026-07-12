@@ -9,7 +9,7 @@ compatibility_flags = ["nodejs_compat_v2"]
 # than editing these -- see .dev.vars.example.
 ENV = "production"
 FRONTEND_URL = "https://content.xahabcse.me"
-RESEND_FROM_EMAIL = "ContentPro <noreply@xahabcse.me>"
+RESEND_FROM_EMAIL = "Cardstock <noreply@xahabcse.me>"
 
 # Cloudinary storage (spec section 5.6, revised) -- profile photos, company
 # logos, and every exported PNG/PDF. Cloud name + API key are not secret

@@ -42,7 +42,7 @@ function mongoStub(env: Env) {
 function resendConfig(env: Env) {
   return {
     apiKey: env.RESEND_API_KEY,
-    from: env.RESEND_FROM_EMAIL ?? "ContentPro <noreply@contentpro.app>",
+    from: env.RESEND_FROM_EMAIL ?? "Cardstock <noreply@xahabcse.me>",
     frontendUrl: env.FRONTEND_URL ?? "http://localhost:5173",
   };
 }
