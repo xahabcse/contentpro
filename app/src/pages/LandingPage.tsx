@@ -54,7 +54,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 22px', display: 'flex', alignItems: 'center', gap: 16 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 11, textDecoration: 'none' }}>
             <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '900 18px/1 Archivo', color: 'var(--brand)' }}>C</div>
-            <span style={{ font: '900 17px/1 Archivo', letterSpacing: '-0.02em' }}>ContentPro</span>
+            <span style={{ font: '900 17px/1 Archivo', letterSpacing: '-0.02em', color: 'var(--ink)' }}>ContentPro</span>
             <span style={{ font: "600 9px/1.3 'Space Grotesk'", letterSpacing: '.24em', color: 'var(--muted)', borderLeft: '1px solid var(--line-2)', paddingLeft: 11 }}>STUDIO</span>
           </Link>
           <div style={{ flex: 1 }} />
@@ -107,10 +107,10 @@ export default function LandingPage() {
           </div>
 
           {/* collage */}
-          <div className="lp-hero-art" style={{ position: 'relative', height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FigCard template="stat" palette="cobalt" size={210} rot={-7} x={-118} y={-30} delay="0.5s" caption="Fig.1 — Big Stat" z={1} />
-            <FigCard template="quote" palette="ink" size={252} rot={2} x={0} y={16} delay="0.3s" caption="Fig.2 — Quote" z={3} />
-            <FigCard template="cta" palette="forest" size={210} rot={8} x={122} y={-6} delay="0.65s" caption="Fig.3 — Call to Action" z={2} />
+          <div className="lp-hero-art" style={{ position: 'relative', height: 420 }}>
+            <FigCard template="stat" palette="cobalt" size={196} rot={-7} x={-132} y={-18} delay="0.5s" caption="Fig.1 — Big Stat" z={1} />
+            <FigCard template="quote" palette="ink" size={244} rot={2} x={8} y={24} delay="0.3s" caption="Fig.2 — Quote" z={3} />
+            <FigCard template="cta" palette="forest" size={196} rot={8} x={150} y={-8} delay="0.65s" caption="Fig.3 — Call to Action" z={2} />
           </div>
         </div>
       </section>
@@ -201,7 +201,7 @@ export default function LandingPage() {
 // Floating figure card with caption for the hero collage.
 function FigCard({ template, palette, size, rot, x, y, delay, caption, z }: { template: TemplateId; palette: string; size: number; rot: number; x: number; y: number; delay: string; caption: string; z: number }) {
   return (
-    <div className="lp-reveal" style={{ position: 'absolute', zIndex: z, animationDelay: delay, transform: `translate(${x}px, ${y}px)` }}>
+    <div className="lp-reveal" style={{ position: 'absolute', left: '50%', top: '50%', zIndex: z, animationDelay: delay, transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}>
       <div style={{ ['--lp-rot' as string]: `rotate(${rot}deg)`, animation: 'lp-float 7s ease-in-out infinite', animationDelay: delay, transform: `rotate(${rot}deg)`, boxShadow: '0 26px 60px rgba(27,22,14,0.28)', border: '4px solid var(--bar)', borderRadius: 18 }}>
         <CardPreview template={template} paletteId={palette} target={size} radius={14} />
       </div>
