@@ -9,7 +9,7 @@ import { signProfileImageUrls } from "../lib/cloudinary";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../lib/resend";
 import { verifyTurnstileToken } from "../lib/turnstile";
 import { authRequired, SESSION_COOKIE_NAME } from "../middleware/auth-required";
-import { checkAndRecordRateLimit, resetRateLimit } from "../middleware/rate-limit";
+import { checkAndRecordRateLimit } from "../middleware/rate-limit";
 import type { NewUserInput } from "../schema";
 
 // Duplicate-key sentinel thrown by MongoConnectionDO.insertUser -- RPC across
@@ -17,12 +17,16 @@ import type { NewUserInput } from "../schema";
 // message string.
 const DUPLICATE_EMAIL_ERROR = "DUPLICATE_EMAIL";
 
-// Auth-abuse throttles (best-effort, KV-backed -- see rate-limit.ts caveat).
+// Auth-abuse throttles. These are ATOMIC (backed by the global DO's serialized
+// storage, not KV) -- KV edge-caches reads ~60s with no read-your-writes, so
+// rapid sequential login attempts all read a stale counter and the cap never
+// fires. The DO get-then-put can't interleave, so brute-force is actually
+// blocked. maxAttempts/windowSeconds/cooldownSeconds map to DO.rateLimit args.
 // Login: ~8 failed attempts per 15 min, per email and per IP, reset on success.
-const LOGIN_LIMIT = { cooldownSeconds: 0, maxAttempts: 8, windowSeconds: 15 * 60 };
+const LOGIN_LIMIT = { maxAttempts: 8, windowSeconds: 15 * 60, cooldownSeconds: 0 };
 // Signup / reset-password: per-IP cap so one host can't mass-create accounts or
 // hammer the reset endpoint (the emailed token is high-entropy, but cap anyway).
-const IP_AUTH_LIMIT = { cooldownSeconds: 0, maxAttempts: 15, windowSeconds: 60 * 60 };
+const IP_AUTH_LIMIT = { maxAttempts: 15, windowSeconds: 60 * 60, cooldownSeconds: 0 };
 
 function clientIp(c: { req: { header: (name: string) => string | undefined } }): string {
   return c.req.header("cf-connecting-ip") ?? "unknown-ip";
@@ -59,7 +63,13 @@ auth.post("/signup", jsonValidator(signupSchema), async (c) => {
   const { email, password, turnstileToken } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
 
-  const ipRate = await checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "signup-ip", clientIp(c), IP_AUTH_LIMIT);
+  const stub = mongoStub(c.env);
+  const ipRate = await stub.rateLimit(
+    `signup-ip:${clientIp(c)}`,
+    IP_AUTH_LIMIT.maxAttempts,
+    IP_AUTH_LIMIT.windowSeconds,
+    IP_AUTH_LIMIT.cooldownSeconds,
+  );
   if (!ipRate.allowed) {
     return c.json({ error: "RATE_LIMITED", retryAfterSeconds: ipRate.retryAfterSeconds }, 429);
   }
@@ -73,7 +83,6 @@ auth.post("/signup", jsonValidator(signupSchema), async (c) => {
     return c.json({ error: "TURNSTILE_FAILED" }, 400);
   }
 
-  const stub = mongoStub(c.env);
   const existing = await stub.findUserByEmail(normalizedEmail);
   if (existing) {
     return c.json({ error: "EMAIL_IN_USE" }, 409);
@@ -124,19 +133,20 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
   const { email, password } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
   const ip = clientIp(c);
+  const stub = mongoStub(c.env);
 
-  // Brute-force throttle: fail closed if EITHER the per-email OR per-IP counter
-  // is exhausted. Both are recorded on every attempt and cleared on success.
+  // Atomic brute-force throttle (DO storage, not KV -- see LOGIN_LIMIT note):
+  // fail closed if EITHER the per-email OR per-IP counter is exhausted. Both
+  // are recorded on every attempt and cleared on success.
   const [emailRate, ipRate] = await Promise.all([
-    checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "login-email", normalizedEmail, LOGIN_LIMIT),
-    checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "login-ip", ip, LOGIN_LIMIT),
+    stub.rateLimit(`login-email:${normalizedEmail}`, LOGIN_LIMIT.maxAttempts, LOGIN_LIMIT.windowSeconds, LOGIN_LIMIT.cooldownSeconds),
+    stub.rateLimit(`login-ip:${ip}`, LOGIN_LIMIT.maxAttempts, LOGIN_LIMIT.windowSeconds, LOGIN_LIMIT.cooldownSeconds),
   ]);
   if (!emailRate.allowed || !ipRate.allowed) {
     const retryAfterSeconds = Math.max(emailRate.retryAfterSeconds ?? 0, ipRate.retryAfterSeconds ?? 0);
     return c.json({ error: "RATE_LIMITED", retryAfterSeconds }, 429);
   }
 
-  const stub = mongoStub(c.env);
   const user = await stub.findUserByEmail(normalizedEmail);
   if (!user) {
     // Burn equivalent CPU so response timing doesn't reveal that the account is
@@ -163,8 +173,8 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
 
   // Successful auth -- clear the throttle counters for this email + IP.
   await Promise.all([
-    resetRateLimit(c.env.RATE_LIMIT_KV, "login-email", normalizedEmail),
-    resetRateLimit(c.env.RATE_LIMIT_KV, "login-ip", ip),
+    stub.resetRateLimit(`login-email:${normalizedEmail}`),
+    stub.resetRateLimit(`login-ip:${ip}`),
   ]);
 
   const token = await signSessionToken(user._id, user.emailVerified, user.tokenVersion, c.env.JWT_SECRET);
@@ -227,6 +237,8 @@ auth.post("/resend-verification", jsonValidator(emailOnlySchema), async (c) => {
   const { email } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
 
+  // Stays on KV (not the DO): this is anti-spam (a 60s cooldown on emails),
+  // not brute-force defense, so KV's best-effort eventual consistency is fine.
   const rate = await checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "resend-verification", normalizedEmail);
   if (!rate.allowed) {
     return c.json({ error: "RATE_LIMITED", message: GENERIC_RATE_LIMITED_MESSAGE, retryAfterSeconds: rate.retryAfterSeconds }, 429);
@@ -252,6 +264,8 @@ auth.post("/forgot-password", jsonValidator(emailOnlySchema), async (c) => {
   const { email } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
 
+  // Stays on KV (not the DO): anti-spam email cooldown, not brute-force -- KV's
+  // best-effort consistency is acceptable here.
   const rate = await checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "forgot-password", normalizedEmail);
   if (!rate.allowed) {
     return c.json({ error: "RATE_LIMITED", message: GENERIC_RATE_LIMITED_MESSAGE, retryAfterSeconds: rate.retryAfterSeconds }, 429);
@@ -278,7 +292,13 @@ const resetPasswordSchema = z.object({
 });
 
 auth.post("/reset-password", jsonValidator(resetPasswordSchema), async (c) => {
-  const ipRate = await checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "reset-password-ip", clientIp(c), IP_AUTH_LIMIT);
+  const stub = mongoStub(c.env);
+  const ipRate = await stub.rateLimit(
+    `reset-password-ip:${clientIp(c)}`,
+    IP_AUTH_LIMIT.maxAttempts,
+    IP_AUTH_LIMIT.windowSeconds,
+    IP_AUTH_LIMIT.cooldownSeconds,
+  );
   if (!ipRate.allowed) {
     return c.json({ error: "RATE_LIMITED", retryAfterSeconds: ipRate.retryAfterSeconds }, 429);
   }
@@ -289,7 +309,6 @@ auth.post("/reset-password", jsonValidator(resetPasswordSchema), async (c) => {
     return c.json({ error: "INVALID_OR_EXPIRED_TOKEN" }, 400);
   }
 
-  const stub = mongoStub(c.env);
   const user = await stub.findUserById(payload.sub);
   if (!user || user.tokenVersion !== payload.v) {
     return c.json({ error: "INVALID_OR_EXPIRED_TOKEN" }, 400);
