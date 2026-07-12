@@ -225,18 +225,12 @@ h3 {
 @media (max-width: 860px) {
   .lp-hero-grid {
     grid-template-columns: 1fr !important;
-    gap: 8px !important;
   }
+  /* the fanned collage is decorative and overflows narrow screens --
+     drop it on mobile; the bold type carries the hero and real cards
+     still appear in the marquee + slider below. */
   .lp-hero-art {
-    order: -1;
-    height: 300px !important;
-    margin-bottom: 30px;
-  }
-}
-@media (max-width: 440px) {
-  .lp-hero-art {
-    height: 250px !important;
-    margin-bottom: 26px;
+    display: none !important;
   }
 }
 
