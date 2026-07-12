@@ -17,13 +17,17 @@ const BRAND = {
   amber: "#F2B705",
   ink: "#1B160E",
   cream: "#EFE8D8",
+  creamLight: "#FBFAF6", // near-white cream, used for the wordmark on the dark header
+  creamDim: "#C9BFA6", // dimmed cream for the header subtitle
   muted: "#6F6750",
   card: "#FBF7EC",
   border: "#E3D9C2",
 } as const;
 
-// Web-safe stack -- Archivo/webfonts don't load reliably in email clients.
+// Web-safe stacks -- Archivo/Newsreader webfonts don't load reliably in email
+// clients. Sans for body/UI; serif for the editorial wordmark accent.
 const FONT_STACK = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+const SERIF_STACK = `Georgia, "Times New Roman", Times, serif`;
 
 export interface ResendConfig {
   apiKey: string;
@@ -85,6 +89,8 @@ function escapeHtml(value: string): string {
 interface BrandedEmailOptions {
   /** Hidden inbox-preview text shown before the body is opened. */
   preheader: string;
+  /** UPPERCASE amber eyebrow in the dark header, e.g. "VERIFY YOUR EMAIL". */
+  eyebrow: string;
   /** Big friendly heading, e.g. "Verify your email". */
   heading: string;
   /** One or two short intro sentences (already plain text -- escaped here). */
@@ -93,15 +99,21 @@ interface BrandedEmailOptions {
   buttonLabel: string;
   /** Destination URL -- MUST stay intact (the token lives in ?token=). */
   url: string;
+  /** Frontend base URL -- powers the footer "Open Cardstock" / "About" pills. */
+  frontendUrl: string;
 }
 
 /**
- * Renders the shared Cardstock email: cream body, centered ~560px card with a
- * wordmark header, the caller's body copy, a bulletproof amber CTA button, a
- * selectable plain-link fallback, expiry + ignore notes, and a footer.
+ * Renders the shared Cardstock email: a dark ink header band (amber eyebrow +
+ * serif "Cardstock." wordmark + subtitle), a light cream card body with the
+ * caller's copy, a bulletproof amber CTA button, a selectable plain-link
+ * fallback, expiry + ignore notes, and a footer with brand line, secondary
+ * pill links, and the automated-message note.
  */
 function renderBrandedEmail(options: BrandedEmailOptions): string {
   const safeUrl = escapeHtml(options.url);
+  const homeUrl = escapeHtml(options.frontendUrl.replace(/\/+$/, ""));
+  const aboutUrl = `${homeUrl}/about`;
   const year = new Date().getFullYear();
 
   const bodyParagraphs = options.paragraphs
@@ -112,6 +124,12 @@ function renderBrandedEmail(options: BrandedEmailOptions): string {
         )}</p>`,
     )
     .join("");
+
+  // Subtle outline pill for the footer secondary links.
+  const pill = (href: string, label: string): string =>
+    `<a href="${href}" target="_blank" rel="noopener" style="display:inline-block; padding:8px 16px; font-family:${FONT_STACK}; font-size:12px; font-weight:600; color:${BRAND.ink}; text-decoration:none; border:1px solid ${BRAND.border}; border-radius:999px;">${escapeHtml(
+      label,
+    )}</a>`;
 
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
@@ -146,47 +164,26 @@ function renderBrandedEmail(options: BrandedEmailOptions): string {
           BRAND.card
         }; border:1px solid ${BRAND.border}; border-radius:16px; overflow:hidden;">
 
-          <!-- header / wordmark -->
+          <!-- dark header band (bgcolor on td so Outlook fills it too) -->
           <tr>
-            <td class="cs-pad" style="padding:32px 40px 8px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td valign="middle" style="padding-right:12px;">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                      <tr>
-                        <td align="center" valign="middle" width="40" height="40" style="width:40px; height:40px; background-color:${
-                          BRAND.amber
-                        }; border-radius:10px; font-family:${FONT_STACK}; font-size:22px; font-weight:800; color:${
-                          BRAND.ink
-                        };">C</td>
-                      </tr>
-                    </table>
-                  </td>
-                  <td valign="middle">
-                    <div style="font-family:${FONT_STACK}; font-size:20px; font-weight:800; letter-spacing:-0.2px; color:${
-                      BRAND.ink
-                    };">Cardstock</div>
-                    <div style="font-family:${FONT_STACK}; font-size:12px; color:${
-                      BRAND.muted
-                    }; margin-top:2px;">LinkedIn card &amp; carousel studio</div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- divider -->
-          <tr>
-            <td class="cs-pad" style="padding:16px 40px 0;">
-              <div style="height:1px; line-height:1px; font-size:1px; background-color:${
-                BRAND.border
-              };">&nbsp;</div>
+            <td align="center" bgcolor="${BRAND.ink}" class="cs-pad" style="background-color:${
+              BRAND.ink
+            }; padding:40px 40px; border-top-left-radius:16px; border-top-right-radius:16px;">
+              <div style="font-family:${FONT_STACK}; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.18em; color:${
+                BRAND.amber
+              };">${escapeHtml(options.eyebrow)}</div>
+              <div style="font-family:${SERIF_STACK}; font-size:36px; line-height:1.1; font-weight:700; color:${
+                BRAND.creamLight
+              }; margin-top:10px;">Cardstock.</div>
+              <div style="font-family:${FONT_STACK}; font-size:13px; color:${
+                BRAND.creamDim
+              }; margin-top:8px;">LinkedIn card &amp; carousel studio</div>
             </td>
           </tr>
 
           <!-- body -->
           <tr>
-            <td class="cs-pad" style="padding:24px 40px 8px;">
+            <td class="cs-pad" style="padding:36px 40px 8px;">
               <h1 style="margin:0 0 16px; font-family:${FONT_STACK}; font-size:24px; line-height:1.3; font-weight:800; color:${
                 BRAND.ink
               };">${escapeHtml(options.heading)}</h1>
@@ -196,17 +193,17 @@ function renderBrandedEmail(options: BrandedEmailOptions): string {
 
           <!-- bulletproof CTA button -->
           <tr>
-            <td class="cs-pad" style="padding:8px 40px 8px;">
+            <td class="cs-pad" style="padding:12px 40px 8px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="center" bgcolor="${
                     BRAND.amber
                   }" style="border-radius:10px;">
-                    <a class="cs-btn" href="${safeUrl}" target="_blank" rel="noopener" style="display:inline-block; padding:14px 34px; font-family:${FONT_STACK}; font-size:16px; font-weight:700; line-height:1; color:${
+                    <a class="cs-btn" href="${safeUrl}" target="_blank" rel="noopener" style="display:inline-block; padding:15px 32px; font-family:${FONT_STACK}; font-size:16px; font-weight:700; line-height:1; color:${
                       BRAND.ink
                     }; text-decoration:none; border-radius:10px;">${escapeHtml(
                       options.buttonLabel,
-                    )}</a>
+                    )} &rarr;</a>
                   </td>
                 </tr>
               </table>
@@ -239,13 +236,22 @@ function renderBrandedEmail(options: BrandedEmailOptions): string {
 
           <!-- footer -->
           <tr>
-            <td class="cs-pad" style="padding:24px 40px 32px;">
+            <td class="cs-pad" style="padding:28px 40px 32px;">
               <div style="height:1px; line-height:1px; font-size:1px; background-color:${
                 BRAND.border
-              }; margin-bottom:16px;">&nbsp;</div>
+              }; margin-bottom:20px;">&nbsp;</div>
+              <p style="margin:0 0 16px; font-family:${FONT_STACK}; font-size:13px; line-height:1.5; color:${
+                BRAND.ink
+              };"><strong style="font-weight:800;">Cardstock</strong> &mdash; design LinkedIn cards &amp; carousels</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">
+                <tr>
+                  <td style="padding-right:8px;">${pill(homeUrl, "Open Cardstock")}</td>
+                  <td>${pill(aboutUrl, "About")}</td>
+                </tr>
+              </table>
               <p style="margin:0; font-family:${FONT_STACK}; font-size:12px; line-height:1.5; color:${
                 BRAND.muted
-              };">&copy; ${year} Cardstock &middot; LinkedIn card &amp; carousel studio<br />This is an automated message from a send-only address, please don&#39;t reply.</p>
+              };">Automated message from a send-only address &mdash; please don&#39;t reply.<br />&copy; ${year} Cardstock</p>
             </td>
           </tr>
 
@@ -275,6 +281,7 @@ export async function sendVerificationEmail(
     subject: "Verify your Cardstock email address",
     html: renderBrandedEmail({
       preheader: "Confirm your email to start creating LinkedIn cards & carousels with Cardstock.",
+      eyebrow: "Verify your email",
       heading: "Verify your email",
       paragraphs: [
         "Welcome to Cardstock! You're one click away from designing polished LinkedIn cards and carousels.",
@@ -282,6 +289,7 @@ export async function sendVerificationEmail(
       ],
       buttonLabel: "Verify email address",
       url: link,
+      frontendUrl: config.frontendUrl,
     }),
     idempotencyKey: idempotencyKeyFor("email-verification", email, token),
   });
@@ -300,6 +308,7 @@ export async function sendPasswordResetEmail(
     subject: "Reset your Cardstock password",
     html: renderBrandedEmail({
       preheader: "Choose a new password for your Cardstock account.",
+      eyebrow: "Password reset",
       heading: "Reset your password",
       paragraphs: [
         "We received a request to reset the password for your Cardstock account.",
@@ -307,6 +316,7 @@ export async function sendPasswordResetEmail(
       ],
       buttonLabel: "Choose a new password",
       url: link,
+      frontendUrl: config.frontendUrl,
     }),
     idempotencyKey: idempotencyKeyFor("password-reset", email, token),
   });
