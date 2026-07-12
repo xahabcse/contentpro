@@ -1,10 +1,12 @@
-# ContentPro
+# Cardstock
 
 **Design professional LinkedIn cards & carousels yourself — in a fast, browser-based editor.**
 
 Live: **[content.xahabcse.me](https://content.xahabcse.me)** · Repo: `xahabcse/contentpro`
 
-ContentPro is a self-service, multi-tenant web app where users sign up and create, edit, and export their own LinkedIn **cards** (1080×1080) and **carousels** (1080×1350) from a curated set of templates — no design tool, no Canva, no Claude/CLI required for end users. The whole design engine is code (HTML/CSS rendered to PNG/PDF in the browser).
+Cardstock is a self-service, multi-tenant web app where users sign up and create, edit, and export their own LinkedIn **cards** (1080×1080) and **carousels** (1080×1350) from a curated set of templates — no design tool, no Canva, no Claude/CLI required for end users. The whole design engine is code (HTML/CSS rendered to PNG/PDF in the browser).
+
+> **Cardstock** is the product brand; the repo, Worker, and database are named `contentpro` (the original internal name) — that identifier is kept everywhere in code and infrastructure.
 
 This repo also contains a **legacy Claude-driven pipeline** (`templates/`, `scripts/render.js`, `posts/`) that predates the web app — see [Legacy pipeline](#legacy-pipeline) at the bottom.
 

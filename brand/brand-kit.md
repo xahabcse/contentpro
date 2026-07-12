@@ -1,8 +1,10 @@
-# Brand Kit — ContentPro
+# Brand Kit — Cardstock
 
 **Single source of truth** for the visual brand in this repo. There are **two** design systems here, and this file documents both — but they are deliberately separate, so read the right one:
 
-1. **ContentPro Web App (current, primary)** — the self-service editor at `content.xahabcse.me` where end users design LinkedIn **cards** (1080×1080) and **carousels** (1080×1350). Warm cream/amber UI, `Archivo` / `Newsreader` / `Space Grotesk` type, 10 fixed templates, 6 card palettes. Implemented as literal code under `app/src/` — this section maps 1:1 to those tokens.
+> **Cardstock** is the product brand (logo, wordmark, UI). The repo, Worker, and database keep the original internal name `contentpro` — don't rename those.
+
+1. **Cardstock Web App (current, primary)** — the self-service editor at `content.xahabcse.me` where end users design LinkedIn **cards** (1080×1080) and **carousels** (1080×1350). Warm cream/amber UI, `Archivo` / `Newsreader` / `Space Grotesk` type, 10 fixed templates, 6 card palettes. Implemented as literal code under `app/src/` — this section maps 1:1 to those tokens.
 2. **Legacy `templates/` pipeline (Claude-driven, superseded)** — the original code-only pipeline (`templates/`, `scripts/render.js`, `posts/<slug>/content.json`) that renders posts from HTML/CSS with Playwright. It uses an **older mint-green / Plus Jakarta Sans** system carried over from learn.xahabcse.me. Kept for existing `posts/` but no longer the brand the product ships — see **Legacy Pipeline** at the bottom.
 
 > If you're touching the web app, use **ContentPro Web App** below. The mint-green palette in the legacy section is NOT the ContentPro brand.
@@ -105,7 +107,9 @@ Defaults cascade from the user's **profile** (name, handle, photo, designation, 
 | `app/src/lib/templates.ts` | Template metadata, field sets, default content |
 | `app/src/components/editor/SlideCanvas.tsx` | The renderer (all 10 templates + footer) |
 | `app/src/lib/export.ts` | Client-side PNG/PDF export pipeline |
-| `app/index.html` | Google Fonts (Archivo / Newsreader / Space Grotesk) |
+| `app/src/components/Logo.tsx` | Brand mark (amber tile + dog-eared card glyph) + wordmark lockup; the lockup collapses to the mark on landing-nav scroll |
+| `app/public/favicon.svg` | Favicon (the brand mark) |
+| `app/index.html` | Google Fonts (Archivo / Newsreader / Space Grotesk) + favicon + title |
 
 ### Accessibility
 
