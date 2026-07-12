@@ -1,6 +1,7 @@
-import { useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { CardstockLogo } from '@/components/Logo';
 import SlideCanvas from '@/components/editor/SlideCanvas';
 import { resolveColors } from '@/lib/palettes';
 import { templateDefaults } from '@/lib/templates';
@@ -39,6 +40,16 @@ export default function LandingPage() {
   const { user } = useAuth();
   const sliderRef = useRef<HTMLDivElement>(null);
 
+  // Anthropic-style navbar: the wordmark collapses to just the mark once the
+  // page is scrolled past the hero's top edge.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   function scrollSlider(dir: 1 | -1) {
     const el = sliderRef.current;
     if (!el) return;
@@ -54,10 +65,8 @@ export default function LandingPage() {
       {/* ---- nav ---- */}
       <header style={{ position: 'sticky', top: 0, zIndex: 30, background: 'color-mix(in srgb, var(--bar) 88%, transparent)', backdropFilter: 'blur(8px)', borderBottom: '1px solid var(--ink)' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 22px', display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 11, textDecoration: 'none' }}>
-            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '900 18px/1 Archivo', color: 'var(--brand)' }}>C</div>
-            <span style={{ font: '900 17px/1 Archivo', letterSpacing: '-0.02em', color: 'var(--ink)' }}>ContentPro</span>
-            <span style={{ font: "600 9px/1.3 'Space Grotesk'", letterSpacing: '.24em', color: 'var(--muted)', borderLeft: '1px solid var(--line-2)', paddingLeft: 11 }}>STUDIO</span>
+          <Link to="/" aria-label="Cardstock home" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+            <CardstockLogo size={32} wordSize={19} color="var(--ink)" collapsed={scrolled} />
           </Link>
           <div style={{ flex: 1 }} />
           {user ? (
@@ -189,7 +198,7 @@ export default function LandingPage() {
       {/* ---- footer ---- */}
       <footer style={{ position: 'relative', zIndex: 1, borderTop: '1px solid var(--ink)', background: 'var(--bar)' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '26px 22px', display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted)', letterSpacing: '.04em' }}>© 2026 ContentPro — Card &amp; Carousel Studio</span>
+          <span style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted)', letterSpacing: '.04em' }}>© 2026 Cardstock — Card &amp; Carousel Studio</span>
           <div style={{ display: 'flex', gap: 20 }}>
             <Link to="/login" className="lp-underline" style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted-2)', textDecoration: 'none', paddingBottom: 2 }}>Log in</Link>
             <Link to="/signup" className="lp-underline" style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted-2)', textDecoration: 'none', paddingBottom: 2 }}>Sign up</Link>

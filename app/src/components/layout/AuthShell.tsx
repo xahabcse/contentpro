@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { CardstockLogo } from '@/components/Logo';
 
 interface AuthShellProps {
   title: string;
@@ -20,8 +21,8 @@ export default function AuthShell({ title, subtitle, children }: AuthShellProps)
       }}
     >
       <div className="card-surface" style={{ width: '100%', maxWidth: 420, padding: 28 }}>
-        <div className="pill pill-brand" style={{ marginBottom: 16 }}>
-          <span>ContentPro</span>
+        <div style={{ marginBottom: 18 }}>
+          <CardstockLogo size={30} wordSize={19} color="var(--ink)" />
         </div>
         <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 8px 0' }}>{title}</h1>
         {subtitle && (

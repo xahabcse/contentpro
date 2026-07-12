@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import SlideCanvas from '@/components/editor/SlideCanvas';
+import { CardstockMark } from '@/components/Logo';
 import { canvasSize, type FieldValue, type FooterData, type LocalDesign, type ResolvedSlide, type Slide, type TemplateId } from '@/lib/design-types';
 import { PALETTES, resolveColors } from '@/lib/palettes';
 import { TEMPLATE_ORDER, TEMPLATES, templateDefaults } from '@/lib/templates';
@@ -264,9 +265,9 @@ export default function EditorPage() {
       {/* top bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, height: 60, flex: '0 0 60px', padding: '0 20px', background: 'var(--c-bar)', borderBottom: '1px solid var(--c-line)' }}>
         <button onClick={() => navigate('/dashboard')} title="Back to dashboard" style={{ display: 'flex', alignItems: 'center', gap: 11, border: 'none', background: 'none', cursor: 'pointer' }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--c-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '900 17px/1 Archivo', color: 'var(--c-accent-ink)' }}>C</div>
+          <CardstockMark size={30} />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, textAlign: 'left' }}>
-            <span style={{ font: '800 16px/1 Archivo', color: 'var(--c-text)' }}>ContentPro</span>
+            <span style={{ font: '800 16px/1 Archivo', color: 'var(--c-text)' }}>Cardstock</span>
             <span style={{ font: "600 9px/1.4 'Space Grotesk'", letterSpacing: '.22em', color: 'var(--c-dim)' }}>CARD &amp; CAROUSEL STUDIO</span>
           </div>
         </button>

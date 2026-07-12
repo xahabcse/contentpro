@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { CardstockLogo } from '@/components/Logo';
 
 interface AppShellProps {
   title: string;
@@ -51,8 +52,8 @@ export default function AppShell({ title, children }: AppShellProps) {
             >
               ☰
             </button>
-            <Link to="/dashboard" style={{ fontWeight: 800, fontSize: 18, color: 'var(--ink)', textDecoration: 'none' }}>
-              ContentPro
+            <Link to="/dashboard" aria-label="Cardstock dashboard" style={{ textDecoration: 'none', display: 'flex' }}>
+              <CardstockLogo size={28} wordSize={18} color="var(--ink)" />
             </Link>
           </div>
 
