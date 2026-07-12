@@ -128,17 +128,6 @@ function renderBrandedEmail(options: BrandedEmailOptions): string {
     )
     .join("");
 
-  // Footer pills -- inline-styled <a>s (which survive Gmail, matching Porhi's
-  // footer button row). Filled ink primary + outline secondary.
-  const pillPrimary = (href: string, label: string): string =>
-    `<a href="${href}" target="_blank" rel="noopener" style="display:inline-block;background:${BRAND.ink};color:${BRAND.creamLight};font-size:12px;font-weight:600;text-decoration:none;padding:8px 16px;border-radius:999px;font-family:${FONT_STACK};">${escapeHtml(
-      label,
-    )}</a>`;
-  const pillOutline = (href: string, label: string): string =>
-    `<a href="${href}" target="_blank" rel="noopener" style="display:inline-block;background:${BRAND.card};color:${BRAND.ink};font-size:12px;font-weight:600;text-decoration:none;padding:8px 16px;border:1px solid ${BRAND.border};border-radius:999px;font-family:${FONT_STACK};">${escapeHtml(
-      label,
-    )}</a>`;
-
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -158,16 +147,22 @@ function renderBrandedEmail(options: BrandedEmailOptions): string {
 
           <!-- dark header band -->
           <tr>
-            <td style="background:${BRAND.ink};border-radius:16px 16px 0 0;padding:40px 40px;text-align:center;">
-              <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:${
-                BRAND.amber
-              };font-weight:700;font-family:${FONT_STACK};">${escapeHtml(options.eyebrow)}</p>
-              <h1 style="margin:0;font-size:36px;line-height:1.1;font-weight:700;color:${
-                BRAND.creamLight
-              };font-family:${SERIF_STACK};">Cardstock.</h1>
-              <p style="margin:8px 0 0;font-size:13px;color:${
-                BRAND.creamDim
-              };font-family:${FONT_STACK};">LinkedIn card &amp; carousel studio</p>
+            <td style="background:${BRAND.ink};border-radius:16px 16px 0 0;padding:40px 40px;">
+              <!-- Gmail strips inline styles off <h1>/<p> in this position but
+                   KEEPS them on <td> (verified live). Put each header line in
+                   its own <td> so the light text colour survives on the dark
+                   band. -->
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                <tr><td align="center" style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:${
+                  BRAND.amber
+                };font-weight:700;font-family:${FONT_STACK};padding-bottom:10px;">${escapeHtml(options.eyebrow)}</td></tr>
+                <tr><td align="center" style="font-size:36px;line-height:1.1;font-weight:700;color:${
+                  BRAND.creamLight
+                };font-family:${SERIF_STACK};">Cardstock.</td></tr>
+                <tr><td align="center" style="font-size:13px;color:${
+                  BRAND.creamDim
+                };font-family:${FONT_STACK};padding-top:8px;">LinkedIn card &amp; carousel studio</td></tr>
+              </table>
             </td>
           </tr>
 
@@ -181,12 +176,12 @@ function renderBrandedEmail(options: BrandedEmailOptions): string {
 
               <table cellpadding="0" cellspacing="0" role="presentation" style="margin:24px 0 8px;">
                 <tr>
-                  <td style="background:${BRAND.amber};border-radius:8px;">
-                    <a href="${safeUrl}" target="_blank" rel="noopener" style="display:inline-block;padding:14px 30px;font-size:16px;font-weight:700;color:${
+                  <td style="background:${BRAND.amber};border-radius:8px;padding:14px 30px;">
+                    <a href="${safeUrl}" target="_blank" rel="noopener" style="font-size:16px;font-weight:700;color:${
                       BRAND.ink
-                    };text-decoration:none;font-family:${FONT_STACK};">${escapeHtml(
+                    };text-decoration:none;font-family:${FONT_STACK};"><font color="${BRAND.ink}">${escapeHtml(
                       options.buttonLabel,
-                    )} &rarr;</a>
+                    )} &rarr;</font></a>
                   </td>
                 </tr>
               </table>
@@ -222,8 +217,9 @@ function renderBrandedEmail(options: BrandedEmailOptions): string {
               };font-family:${FONT_STACK};"><strong style="font-weight:800;">Cardstock</strong> &mdash; design LinkedIn cards &amp; carousels</p>
               <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 18px;">
                 <tr>
-                  <td style="padding-right:10px;">${pillPrimary(homeUrl, "Open Cardstock")}</td>
-                  <td>${pillOutline(aboutUrl, "About")}</td>
+                  <td style="background:${BRAND.ink};border-radius:999px;padding:9px 16px;"><a href="${homeUrl}" target="_blank" rel="noopener" style="color:${BRAND.creamLight};font-size:12px;font-weight:600;text-decoration:none;font-family:${FONT_STACK};"><font color="${BRAND.creamLight}">Open Cardstock</font></a></td>
+                  <td style="width:10px;">&nbsp;</td>
+                  <td style="background:${BRAND.card};border:1px solid ${BRAND.border};border-radius:999px;padding:9px 16px;"><a href="${aboutUrl}" target="_blank" rel="noopener" style="color:${BRAND.ink};font-size:12px;font-weight:600;text-decoration:none;font-family:${FONT_STACK};"><font color="${BRAND.ink}">About</font></a></td>
                 </tr>
               </table>
               <p style="margin:0;font-size:12px;line-height:1.5;color:${
