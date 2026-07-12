@@ -4,17 +4,18 @@
 // documented *future* hardening path for Workers Paid, not a v1 shortcut.
 
 const SALT_BYTES = 16;
-// Iteration target. Raised from the original 60k toward OWASP guidance, but
-// deliberately NOT the full ~600,000: that risks exceeding the Workers CPU-time
-// budget on the current plan and hard-failing login. 210k is a defensible
-// middle ground (~3.5x the old cost). The exact count used is stored per-user
-// (passwordIterations), so:
+// Iteration target. Raised from the original 60k, but capped at 100,000 because
+// the Cloudflare Workers Web Crypto runtime HARD-REJECTS PBKDF2 with more than
+// 100k iterations ("NotSupportedError: iteration counts above 100000 are not
+// supported") -- so this is the maximum achievable here, not a CPU-budget
+// compromise. (OWASP's ~600k is simply not reachable on this platform without
+// moving to node:crypto scrypt, a documented future path.) The exact count used
+// is stored per-user (passwordIterations), so:
 //   - new signups hash at TARGET_ITERATIONS;
 //   - existing users hashed at a lower count are transparently upgraded on
 //     their next successful login (see needsRehash + rehash-on-login in the
 //     login route).
-// If login latency or CPU-limit errors appear in production, lower this.
-export const TARGET_ITERATIONS = 210_000;
+export const TARGET_ITERATIONS = 100_000;
 const DEFAULT_ITERATIONS = TARGET_ITERATIONS;
 const DERIVED_KEY_BITS = 256;
 
