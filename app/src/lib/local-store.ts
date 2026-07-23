@@ -78,7 +78,7 @@ export function createDesign(type: DesignType): LocalDesign {
   const design: LocalDesign = {
     id: 'dsn_' + crypto.randomUUID(),
     type,
-    paletteId: type === 'card' ? 'bone' : 'ink',
+    paletteId: type === 'card' ? 'paper' : 'ink',
     customBg: null,
     customText: null,
     customAccent: null,

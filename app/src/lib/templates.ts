@@ -97,19 +97,117 @@ export const TEMPLATES: Record<TemplateId, TemplateMeta> = {
       { k: 'highlight', l: 'Highlight word', t: 'text' },
     ],
   },
+  checklist: {
+    id: 'checklist',
+    name: 'Checklist',
+    fields: [
+      { k: 'title', l: 'Title', t: 'area' },
+      { k: 'items', l: 'Checklist (one per line)', t: 'list' },
+    ],
+  },
+  timeline: {
+    id: 'timeline',
+    name: 'Timeline / Steps',
+    fields: [
+      { k: 'title', l: 'Title', t: 'area' },
+      { k: 'items', l: 'Steps — "Name — desc"', t: 'list' },
+    ],
+  },
+  testimonial: {
+    id: 'testimonial',
+    name: 'Testimonial',
+    fields: [
+      { k: 'quote', l: 'Quote', t: 'area' },
+      { k: 'name', l: 'Name', t: 'text' },
+      { k: 'role', l: 'Role', t: 'text' },
+    ],
+  },
+  agenda: {
+    id: 'agenda',
+    name: 'Agenda / Index',
+    fields: [
+      { k: 'title', l: 'Title', t: 'area' },
+      { k: 'items', l: 'Items (one per line)', t: 'list' },
+    ],
+  },
+  comparison: {
+    id: 'comparison',
+    name: 'Comparison',
+    fields: [
+      { k: 'title', l: 'Title', t: 'area' },
+      { k: 'leftLabel', l: 'Left label', t: 'text' },
+      { k: 'left', l: 'Left points', t: 'list' },
+      { k: 'rightLabel', l: 'Right label', t: 'text' },
+      { k: 'right', l: 'Right points', t: 'list' },
+    ],
+  },
+  myth: {
+    id: 'myth',
+    name: 'Myth vs Fact',
+    fields: [
+      { k: 'myth', l: 'Myth', t: 'area' },
+      { k: 'fact', l: 'Fact', t: 'area' },
+    ],
+  },
+  divider: {
+    id: 'divider',
+    name: 'Section Divider',
+    fields: [
+      { k: 'index', l: 'Index (e.g. 02)', t: 'text' },
+      { k: 'title', l: 'Title', t: 'area' },
+      { k: 'subtitle', l: 'Subtitle', t: 'text' },
+    ],
+  },
+  bio: {
+    id: 'bio',
+    name: 'Intro / Bio',
+    fields: [
+      { k: 'name', l: 'Name', t: 'text' },
+      { k: 'role', l: 'Role', t: 'text' },
+      { k: 'bio', l: 'Bio', t: 'area' },
+    ],
+  },
+  bignum: {
+    id: 'bignum',
+    name: 'Big Number + Ring',
+    fields: [
+      { k: 'label', l: 'Eyebrow', t: 'text' },
+      { k: 'value', l: 'Value (e.g. 68%)', t: 'text' },
+      { k: 'caption', l: 'Caption', t: 'area' },
+    ],
+  },
+  closing: {
+    id: 'closing',
+    name: 'Closing / Thanks',
+    fields: [
+      { k: 'title', l: 'Title', t: 'area' },
+      { k: 'subtitle', l: 'Subtitle', t: 'area' },
+      { k: 'cta', l: 'CTA line', t: 'text' },
+    ],
+  },
 };
 
 export const TEMPLATE_ORDER: TemplateId[] = [
-  'quote',
-  'stat',
-  'tips',
   'cover',
-  'announce',
-  'question',
-  'contrast',
-  'framework',
-  'cta',
+  'quote',
   'statement',
+  'question',
+  'announce',
+  'divider',
+  'stat',
+  'bignum',
+  'tips',
+  'checklist',
+  'framework',
+  'timeline',
+  'agenda',
+  'comparison',
+  'contrast',
+  'myth',
+  'testimonial',
+  'bio',
+  'cta',
+  'closing',
 ];
 
 const DEFAULTS: Record<TemplateId, Record<string, FieldValue>> = {
@@ -166,6 +264,71 @@ const DEFAULTS: Record<TemplateId, Record<string, FieldValue>> = {
   statement: {
     statement: 'Your degree opens the door. Your portfolio gets you the seat.',
     highlight: 'portfolio',
+  },
+  checklist: {
+    title: 'Before you hit publish',
+    items: [
+      'A hook in the first line',
+      'One idea per post, not five',
+      'A clear takeaway near the end',
+      'A question that invites replies',
+      'Formatting that breathes',
+    ],
+  },
+  timeline: {
+    title: 'How the first 90 days went',
+    items: [
+      'Week 1 — Rebuilt the profile headline',
+      'Week 3 — Posted three times a week',
+      'Week 6 — Started replying to comments daily',
+      'Week 12 — Landed the first inbound offer',
+    ],
+  },
+  testimonial: {
+    quote:
+      'I went from invisible to booked out in a quarter. The only thing that changed was showing up consistently.',
+    name: 'Priya Nair',
+    role: 'Product Designer, Freelance',
+  },
+  agenda: {
+    title: "What's inside this post",
+    items: [
+      'Why most profiles get skipped',
+      'The three-line headline formula',
+      'A posting cadence that lasts',
+      'Turning views into conversations',
+    ],
+  },
+  comparison: {
+    title: 'Reach vs Resonance',
+    leftLabel: 'Chasing reach',
+    left: ['Post for the algorithm', 'Copy trending formats', 'Measure impressions'],
+    rightLabel: 'Building resonance',
+    right: ['Post for one real person', 'Share what only you know', 'Measure replies'],
+  },
+  myth: {
+    myth: 'You need to post every single day to grow on LinkedIn.',
+    fact: 'Three thoughtful posts a week beats seven rushed ones — consistency, not volume, compounds.',
+  },
+  divider: {
+    index: '02',
+    title: 'Building the habit',
+    subtitle: 'How to keep showing up when motivation fades',
+  },
+  bio: {
+    name: 'Alex Rahman',
+    role: 'Career coach for new grads',
+    bio: 'I help final-year students turn a blank profile into interviews — one honest post at a time.',
+  },
+  bignum: {
+    label: 'The result',
+    value: '68%',
+    caption: 'of profile views came from posts published before 9 AM.',
+  },
+  closing: {
+    title: 'Thanks for reading',
+    subtitle: 'If one idea here stuck with you, save it for later and pass it on.',
+    cta: 'Follow for a post like this every week →',
   },
 };
 

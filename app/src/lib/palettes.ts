@@ -9,13 +9,20 @@ export interface Palette {
   accent: string;
 }
 
+// Refined, editorial palettes. Each pair is muted/professional and AA-legible
+// (near-white text on dark bg, or ink on warm light bg). Accents are chosen to
+// clear ~4.5:1 on their own background so eyebrows/badges stay readable.
 export const PALETTES: Palette[] = [
-  { id: 'ink', name: 'Ink', bg: '#141109', text: '#F5F1E4', accent: '#FFDA36' },
-  { id: 'bone', name: 'Bone', bg: '#F1EBDC', text: '#171310', accent: '#E1402B' },
-  { id: 'cobalt', name: 'Cobalt', bg: '#1330E6', text: '#FBFAF6', accent: '#FFE24B' },
-  { id: 'crimson', name: 'Crimson', bg: '#B41722', text: '#FDEFDF', accent: '#141109' },
-  { id: 'forest', name: 'Forest', bg: '#0E3B2C', text: '#EEF0DC', accent: '#C6F24B' },
-  { id: 'grape', name: 'Grape', bg: '#241546', text: '#F1E7FF', accent: '#F49BE6' },
+  { id: 'ink', name: 'Ink', bg: '#14110B', text: '#F5F1E4', accent: '#F2B441' },
+  { id: 'paper', name: 'Paper', bg: '#F4EFE4', text: '#1A1712', accent: '#B4531F' },
+  { id: 'slate', name: 'Slate', bg: '#24303A', text: '#E9EEF2', accent: '#8FC0D4' },
+  { id: 'navy', name: 'Navy', bg: '#16233F', text: '#EDF0F5', accent: '#D6A84C' },
+  { id: 'forest', name: 'Forest', bg: '#1B3A2E', text: '#EAF0E4', accent: '#8FC98C' },
+  { id: 'wine', name: 'Wine', bg: '#3B1E27', text: '#F4E6E8', accent: '#E39AA6' },
+  { id: 'sand', name: 'Sand', bg: '#E7DCC7', text: '#2A2117', accent: '#A8481F' },
+  { id: 'charcoal', name: 'Charcoal', bg: '#1C1C1E', text: '#FAFAFA', accent: '#B7B7BC' },
+  { id: 'cobalt', name: 'Cobalt', bg: '#21386E', text: '#EEF1F8', accent: '#EBC258' },
+  { id: 'plum', name: 'Plum', bg: '#2E1F3F', text: '#EFE6F5', accent: '#C79BE0' },
 ];
 
 export function getPalette(id: string): Palette {

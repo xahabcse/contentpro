@@ -14,7 +14,17 @@ export type TemplateId =
   | 'contrast'
   | 'framework'
   | 'cta'
-  | 'statement';
+  | 'statement'
+  | 'checklist'
+  | 'timeline'
+  | 'testimonial'
+  | 'agenda'
+  | 'comparison'
+  | 'myth'
+  | 'divider'
+  | 'bio'
+  | 'bignum'
+  | 'closing';
 
 export type FieldValue = string | string[];
 

@@ -181,7 +181,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div ref={sliderRef} className="slider-track">
-            {([['cover', 'ink'], ['tips', 'crimson'], ['framework', 'grape'], ['question', 'bone'], ['statement', 'forest'], ['announce', 'cobalt'], ['quote', 'ink'], ['stat', 'cobalt'], ['contrast', 'crimson'], ['cta', 'forest']] as [TemplateId, string][]).map(([t, p], i) => (
+            {([['cover', 'ink'], ['tips', 'wine'], ['framework', 'plum'], ['question', 'paper'], ['statement', 'forest'], ['announce', 'cobalt'], ['quote', 'navy'], ['stat', 'slate'], ['contrast', 'sand'], ['cta', 'forest']] as [TemplateId, string][]).map(([t, p], i) => (
               <div key={t + i} style={{ flex: 'none' }} className="lp-lift">
                 <CardPreview template={t} paletteId={p} target={224} radius={12} />
               </div>

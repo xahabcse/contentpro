@@ -424,24 +424,87 @@ h3 {
   }
 }
 
+/* ---- mobile editor (<=900px): canvas-pinned, tabbed bottom-sheet layout ----
+   The desktop 3-panel body (.cp-body) is not rendered on mobile; EditorPage
+   swaps in .cp-mbody. The live canvas stays fixed at the top while only the
+   lower panel scrolls, so editing a field / picking a template / changing the
+   palette updates the card visibly without any scrolling. */
+.cp-mbody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.cp-mstage {
+  flex: 0 0 auto;
+  height: 42vh;
+  min-height: 210px;
+  max-height: 460px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-stage);
+  padding: 12px;
+}
+.cp-mtabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: var(--c-bar);
+  border-top: 1px solid var(--c-line);
+  border-bottom: 1px solid var(--c-line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.cp-mtabs::-webkit-scrollbar {
+  display: none;
+}
+.cp-mtab {
+  flex: 1 1 0;
+  min-width: 62px;
+  min-height: 44px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--c-dim);
+  font: 700 12.5px/1 var(--font-ui);
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 0 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.cp-mtab[data-on='true'] {
+  background: var(--c-accent);
+  color: var(--c-accent-ink);
+}
+.cp-mpanel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--c-panel);
+  padding-bottom: 48px;
+}
+
+/* compact the top bar so the title input + Export stay reachable at 360px */
 @media (max-width: 900px) {
-  .cp-body {
-    flex-direction: column;
-    overflow-y: auto;
+  .cp-topbar {
+    gap: 10px !important;
+    padding: 0 12px !important;
+    height: 54px !important;
+    flex: 0 0 54px !important;
   }
-  .cp-left,
-  .cp-right {
-    width: 100%;
-    flex: 0 0 auto;
-    border-right: none !important;
-    border-left: none !important;
-    border-bottom: 1px solid var(--c-line);
+  .cp-logosub {
+    display: none !important;
   }
-  .cp-left {
-    max-height: 168px;
-  }
-  .cp-stage {
-    min-height: 60vh;
+}
+@media (max-width: 420px) {
+  .cp-topbar {
+    gap: 8px !important;
+    padding: 0 10px !important;
   }
 }
 

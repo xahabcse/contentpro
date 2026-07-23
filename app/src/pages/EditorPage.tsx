@@ -11,6 +11,27 @@ import { getImageUrl, newImageId, putImage } from '@/lib/image-store';
 
 const MAX_SLIDES = 15;
 
+type MobileTab = 'templates' | 'content' | 'theme' | 'author' | 'background';
+const MOBILE_TABS: { id: MobileTab; label: string }[] = [
+  { id: 'templates', label: 'Templates' },
+  { id: 'content', label: 'Content' },
+  { id: 'theme', label: 'Theme' },
+  { id: 'author', label: 'Author' },
+  { id: 'background', label: 'Image' },
+];
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    const on = () => setMatches(m.matches);
+    setMatches(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, [query]);
+  return matches;
+}
+
 interface Profile {
   name?: string;
   handle?: string;
@@ -35,8 +56,11 @@ export default function EditorPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [scale, setScale] = useState(0.35);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('content');
+  const isMobile = useMediaQuery('(max-width: 900px)');
 
   const stageAreaRef = useRef<HTMLDivElement>(null);
+  const mobileStageRef = useRef<HTMLDivElement>(null);
   const exportRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dirty = useRef(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -114,7 +138,7 @@ export default function EditorPage() {
   }, []);
 
   const cv = design ? canvasSize(design.type) : { w: 1080, h: 1080 };
-  const colors = resolveColors(design?.paletteId ?? 'bone', { bg: design?.customBg, text: design?.customText, accent: design?.customAccent });
+  const colors = resolveColors(design?.paletteId ?? 'ink', { bg: design?.customBg, text: design?.customText, accent: design?.customAccent });
 
   // effective footer = per-design override, else profile, else placeholder
   const overrideAvatar = design?.authorOverride?.avatarImageId ? imgUrls[design.authorOverride.avatarImageId] : null;
@@ -131,13 +155,24 @@ export default function EditorPage() {
 
   // ---- measure scale ----
   const measure = useCallback(() => {
+    if (!design) return;
+    if (isMobile) {
+      const el = mobileStageRef.current;
+      if (!el) return;
+      // arrows overlay the edges on carousels -> reserve a little more width
+      const reserve = design.type === 'carousel' ? 76 : 28;
+      const w = el.clientWidth - reserve;
+      const h = el.clientHeight - 28;
+      setScale(Math.max(0.05, Math.min(w / cv.w, h / cv.h)));
+      return;
+    }
     const a = stageAreaRef.current;
-    if (!a || !design) return;
+    if (!a) return;
     const reserve = design.type === 'carousel' ? 134 : 44;
     const w = a.clientWidth - 96;
     const h = a.clientHeight - 64 - reserve;
     setScale(Math.max(0.12, Math.min(w / cv.w, h / cv.h)));
-  }, [design, cv.w, cv.h]);
+  }, [design, cv.w, cv.h, isMobile]);
   useEffect(() => {
     measure();
     const on = () => measure();
@@ -260,15 +295,187 @@ export default function EditorPage() {
     </div>
   );
 
+  // ---- shared editor pieces (composed differently for desktop vs mobile) ----
+  const stageCanvas = (
+    <div style={{ width: cv.w * scale, height: cv.h * scale, position: 'relative', animation: 'cp-fade .3s ease' }}>
+      <div style={{ width: cv.w, height: cv.h, transform: `scale(${scale})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, boxShadow: '0 30px 90px rgba(0,0,0,.35)' }}>
+        <SlideCanvas slide={resolveSlide(a)} colors={colors} footer={footerData} width={cv.w} height={cv.h} />
+      </div>
+    </div>
+  );
+
+  const templatePicker = (
+    <TemplatePicker
+      activeTemplate={a.template}
+      bg={colors.bg}
+      text={colors.text}
+      accent={colors.accent}
+      name={footerData.name}
+      handle={footerData.handle}
+      avatar={footerData.avatar ?? null}
+      designation={footerData.designation ?? null}
+      companyName={footerData.companyName ?? null}
+      companyLogo={footerData.companyLogo ?? null}
+      cvW={cv.w}
+      cvH={cv.h}
+      onPick={onPickTemplate}
+    />
+  );
+
+  const contentPanel = (
+    <Section title={'CONTENT · ' + tpl.name}>
+      {tpl.fields.map((fld) => (
+        <Labeled key={fld.k} label={fld.l}>
+          <FieldInput field={fld} value={a.fields[fld.k]} onChange={(v) => updateField(fld.k, v)} />
+        </Labeled>
+      ))}
+    </Section>
+  );
+
+  const themePanel = (
+    <Section title="THEME">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 16 }}>
+        {PALETTES.map((p) => {
+          const on = design.paletteId === p.id && !design.customBg && !design.customText && !design.customAccent;
+          return (
+            <button key={p.id} onClick={() => setPalette(p.id)} title={p.name} style={{ border: on ? '2px solid var(--c-accent)' : '1px solid var(--c-line2)', borderRadius: 9, padding: 0, cursor: 'pointer', overflow: 'hidden', height: 46, background: p.bg, position: 'relative' }}>
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', font: '800 16px/1 Archivo', color: p.text }}>Aa</div>
+              <div style={{ position: 'absolute', right: 6, bottom: 6, width: 12, height: 12, borderRadius: '50%', background: p.accent }} />
+            </button>
+          );
+        })}
+      </div>
+      <ColorRow label="Background" value={colors.bg} onChange={(v) => patch({ customBg: v })} />
+      <ColorRow label="Text" value={colors.text} onChange={(v) => patch({ customText: v })} />
+      <ColorRow label="Accent" value={colors.accent} onChange={(v) => patch({ customAccent: v })} />
+      <button onClick={() => patch({ customBg: null, customText: null, customAccent: null })} style={linkBtn}>Reset ↺</button>
+    </Section>
+  );
+
+  const authorPanel = (
+    <Section title="AUTHOR">
+      <div style={{ font: "500 11px/1.5 'Space Grotesk'", color: 'var(--c-dim)', marginBottom: 12 }}>
+        {usingProfileAuthor ? 'Signed from your profile. Edit here to override just this design.' : 'Overridden for this design.'}
+      </div>
+      <Labeled label="Name">
+        <input type="text" value={footerData.name} placeholder="Your name" onChange={(e) => setAuthorOverride('name', e.target.value)} style={inputStyle} />
+      </Labeled>
+      <Labeled label="Handle">
+        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--c-input)', border: '1px solid var(--c-line2)', borderRadius: 9, padding: '0 12px' }}>
+          <span style={{ color: 'var(--c-dim)', font: "500 14px/1 'Space Grotesk'" }}>@</span>
+          <input type="text" value={footerData.handle} placeholder="yourhandle" onChange={(e) => setAuthorOverride('handle', e.target.value.replace(/^@/, ''))} style={{ flex: 1, background: 'none', border: 'none', color: 'var(--c-text)', font: "500 14px/1 'Space Grotesk'", padding: '10px 6px' }} />
+        </div>
+      </Labeled>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <label className="file-trigger" style={{ flex: 1 }}>
+          <span style={{ display: 'block', padding: '9px 0', textAlign: 'center', border: '1px dashed var(--c-line2)', borderRadius: 9, color: 'var(--c-dim2)', font: "600 12px/1 'Space Grotesk'", cursor: 'pointer' }}>Override photo</span>
+          <input type="file" accept="image/*" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const iid = await storeImage(f); if (iid) setDesign((d) => (d ? { ...d, authorOverride: { ...d.authorOverride, avatarImageId: iid } } : d)); } }} className="visually-hidden" />
+        </label>
+        {!usingProfileAuthor ? <button onClick={resetAuthor} style={{ ...linkBtn, flex: 'none' }}>Use profile</button> : null}
+      </div>
+    </Section>
+  );
+
+  const backgroundPanel = (
+    <Section title="BACKGROUND IMAGE">
+      {a.bgImageId && imgUrls[a.bgImageId] ? <div style={{ height: 80, borderRadius: 10, backgroundImage: `url(${imgUrls[a.bgImageId]})`, backgroundSize: 'cover', backgroundPosition: 'center', marginBottom: 10, position: 'relative' }}><div style={{ position: 'absolute', inset: 0, background: 'var(--c-scrim)', borderRadius: 10 }} /></div> : null}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <label className="file-trigger" style={{ flex: 1 }}>
+          <span style={{ display: 'block', padding: '9px 0', textAlign: 'center', border: '1px dashed var(--c-line2)', borderRadius: 9, color: 'var(--c-dim2)', font: "600 12px/1 'Space Grotesk'", cursor: 'pointer' }}>{a.bgImageId ? 'Replace' : 'Upload image'}</span>
+          <input type="file" accept="image/*" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const iid = await storeImage(f); if (iid) setBg(iid, false); } }} className="visually-hidden" />
+        </label>
+        {a.bgImageId ? <button onClick={() => setBg(null, false)} style={{ flex: 'none', padding: '0 14px', border: '1px solid var(--c-line2)', borderRadius: 9, background: 'none', color: 'var(--c-dim2)', cursor: 'pointer', font: "600 12px/1 'Space Grotesk'" }}>Remove</button> : null}
+      </div>
+      {isCar && a.bgImageId ? <button onClick={() => setBg(a.bgImageId!, true)} style={{ marginTop: 8, width: '100%', padding: '8px 0', border: 'none', borderRadius: 9, background: 'var(--c-chip)', color: 'var(--c-dim2)', cursor: 'pointer', font: "600 11px/1 'Space Grotesk'" }}>Apply to all slides</button> : null}
+      <div style={{ marginTop: 10, font: "500 11px/1.4 'Space Grotesk'", color: 'var(--c-dim)' }}>A dark scrim is added automatically so text stays readable.</div>
+    </Section>
+  );
+
+  const filmstripBar = isCar ? (
+    <div style={{ flex: '0 0 auto', borderTop: '1px solid var(--c-line)', background: 'var(--c-filmstrip)', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div role="group" aria-label="Reorder or delete the current slide" style={{ display: 'flex', gap: 6, flex: 'none' }}>
+        <button onClick={() => move(active, active - 1)} disabled={active === 0} aria-label="Move slide earlier" title="Move slide earlier" style={filmCtrl(active === 0)}>‹</button>
+        <button onClick={() => move(active, active + 1)} disabled={active >= design.slides.length - 1} aria-label="Move slide later" title="Move slide later" style={filmCtrl(active >= design.slides.length - 1)}>›</button>
+        <button onClick={() => delSlide(active)} disabled={design.slides.length <= 1} aria-label="Delete current slide" title="Delete current slide" style={{ ...filmCtrl(design.slides.length <= 1), color: 'var(--c-danger)' }}>×</button>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflowX: 'auto', flex: 1, minWidth: 0 }}>
+        {design.slides.map((s, i) => {
+          const on = i === active;
+          return (
+            <button key={i} type="button" draggable aria-label={`Slide ${i + 1}${on ? ' (current)' : ''}`} aria-current={on ? true : undefined} onClick={() => setActive(i)} onDragStart={() => setDragFrom(i)} onDragOver={(e) => e.preventDefault()} onDrop={() => dragFrom !== null && move(dragFrom, i)} style={{ position: 'relative', flex: 'none', cursor: 'grab', borderRadius: 7, padding: 3, background: on ? 'var(--c-accent)' : 'transparent', border: on ? 'none' : '1px solid var(--c-line2)' }}>
+              {scaledCanvas(s, 64)}
+              <span style={{ position: 'absolute', top: 1, left: 5, font: "700 9px/1 'Space Grotesk'", color: on ? 'var(--c-accent-ink)' : '#fff', textShadow: on ? 'none' : '0 1px 3px rgba(0,0,0,.8)' }}>{i + 1}</span>
+            </button>
+          );
+        })}
+        <button onClick={addSlide} disabled={design.slides.length >= MAX_SLIDES} aria-label="Add slide" title="Add slide" style={{ flex: 'none', width: 70, alignSelf: 'stretch', minHeight: 80, borderRadius: 7, border: '1.5px dashed var(--c-line2)', background: 'transparent', color: 'var(--c-dim)', cursor: design.slides.length >= MAX_SLIDES ? 'not-allowed' : 'pointer', font: '22px/1 Archivo', opacity: design.slides.length >= MAX_SLIDES ? 0.4 : 1 }}>+</button>
+      </div>
+    </div>
+  ) : null;
+
+  const desktopBody = (
+    <div className="cp-body">
+      <aside className="cp-left" style={{ background: 'var(--c-panel)', borderRight: '1px solid var(--c-line)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div style={{ padding: '16px 18px 12px', font: "700 11px/1 'Space Grotesk'", letterSpacing: '.16em', color: 'var(--c-dim)' }}>TEMPLATES</div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 14px 18px' }}>{templatePicker}</div>
+      </aside>
+
+      <main ref={stageAreaRef} className="cp-stage" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--c-stage)', position: 'relative' }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: '32px 0' }}>
+          {isCar && active > 0 ? <button onClick={() => setActive(active - 1)} style={arrowStyle('left')}>‹</button> : null}
+          {isCar && active < design.slides.length - 1 ? <button onClick={() => setActive(active + 1)} style={arrowStyle('right')}>›</button> : null}
+          {stageCanvas}
+          {isCar ? <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', font: "600 12px/1 'Space Grotesk'", color: 'var(--c-dim)', letterSpacing: '.08em' }}>{active + 1 + ' / ' + design.slides.length}</div> : null}
+        </div>
+        {filmstripBar}
+      </main>
+
+      <aside className="cp-right" style={{ background: 'var(--c-panel)', borderLeft: '1px solid var(--c-line)', overflowY: 'auto' }}>
+        {contentPanel}
+        {themePanel}
+        {authorPanel}
+        {backgroundPanel}
+      </aside>
+    </div>
+  );
+
+  const mobilePanel =
+    mobileTab === 'templates' ? <div style={{ padding: '16px 14px 40px' }}>{templatePicker}</div>
+    : mobileTab === 'content' ? contentPanel
+    : mobileTab === 'theme' ? themePanel
+    : mobileTab === 'author' ? authorPanel
+    : backgroundPanel;
+
+  const mobileBody = (
+    <div className="cp-mbody">
+      <div className="cp-mstage" ref={mobileStageRef}>
+        {isCar && active > 0 ? <button onClick={() => setActive(active - 1)} aria-label="Previous slide" style={mArrow('left')}>‹</button> : null}
+        {isCar && active < design.slides.length - 1 ? <button onClick={() => setActive(active + 1)} aria-label="Next slide" style={mArrow('right')}>›</button> : null}
+        {stageCanvas}
+        {isCar ? <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', font: "600 11px/1 'Space Grotesk'", color: 'var(--c-dim)', letterSpacing: '.08em' }}>{active + 1 + ' / ' + design.slides.length}</div> : null}
+      </div>
+      {filmstripBar}
+      <div className="cp-mtabs" role="tablist" aria-label="Editor panels">
+        {MOBILE_TABS.map((t) => {
+          const on = mobileTab === t.id;
+          return (
+            <button key={t.id} className="cp-mtab" data-on={on} role="tab" aria-selected={on} onClick={() => setMobileTab(t.id)}>{t.label}</button>
+          );
+        })}
+      </div>
+      <div className="cp-mpanel" role="tabpanel">{mobilePanel}</div>
+    </div>
+  );
+
   return (
     <div className="cp" data-ui={ui} style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--c-app)', color: 'var(--c-text)', overflow: 'hidden' }}>
       {/* top bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, height: 60, flex: '0 0 60px', padding: '0 20px', background: 'var(--c-bar)', borderBottom: '1px solid var(--c-line)' }}>
+      <div className="cp-topbar" style={{ display: 'flex', alignItems: 'center', gap: 16, height: 60, flex: '0 0 60px', padding: '0 20px', background: 'var(--c-bar)', borderBottom: '1px solid var(--c-line)' }}>
         <button onClick={() => navigate('/dashboard')} title="Back to dashboard" style={{ display: 'flex', alignItems: 'center', gap: 11, border: 'none', background: 'none', cursor: 'pointer' }}>
           <CardstockMark size={30} />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, textAlign: 'left' }}>
             <span style={{ font: '800 16px/1 Archivo', color: 'var(--c-text)' }}>Cardstock</span>
-            <span style={{ font: "600 9px/1.4 'Space Grotesk'", letterSpacing: '.22em', color: 'var(--c-dim)' }}>CARD &amp; CAROUSEL STUDIO</span>
+            <span className="cp-logosub" style={{ font: "600 9px/1.4 'Space Grotesk'", letterSpacing: '.22em', color: 'var(--c-dim)' }}>CARD &amp; CAROUSEL STUDIO</span>
           </div>
         </button>
         <input
@@ -287,129 +494,7 @@ export default function EditorPage() {
         </button>
       </div>
 
-      <div className="cp-body">
-        {/* templates */}
-        <aside className="cp-left" style={{ background: 'var(--c-panel)', borderRight: '1px solid var(--c-line)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <div style={{ padding: '16px 18px 12px', font: "700 11px/1 'Space Grotesk'", letterSpacing: '.16em', color: 'var(--c-dim)' }}>TEMPLATES</div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '0 14px 18px' }}>
-            <TemplatePicker
-              activeTemplate={a.template}
-              bg={colors.bg}
-              text={colors.text}
-              accent={colors.accent}
-              name={footerData.name}
-              handle={footerData.handle}
-              avatar={footerData.avatar ?? null}
-              designation={footerData.designation ?? null}
-              companyName={footerData.companyName ?? null}
-              companyLogo={footerData.companyLogo ?? null}
-              cvW={cv.w}
-              cvH={cv.h}
-              onPick={onPickTemplate}
-            />
-          </div>
-        </aside>
-
-        {/* stage */}
-        <main ref={stageAreaRef} className="cp-stage" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--c-stage)', position: 'relative' }}>
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: '32px 0' }}>
-            {isCar && active > 0 ? <button onClick={() => setActive(active - 1)} style={arrowStyle('left')}>‹</button> : null}
-            {isCar && active < design.slides.length - 1 ? <button onClick={() => setActive(active + 1)} style={arrowStyle('right')}>›</button> : null}
-            <div style={{ width: cv.w * scale, height: cv.h * scale, position: 'relative', animation: 'cp-fade .3s ease' }}>
-              <div style={{ width: cv.w, height: cv.h, transform: `scale(${scale})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, boxShadow: '0 30px 90px rgba(0,0,0,.35)' }}>
-                <SlideCanvas slide={resolveSlide(a)} colors={colors} footer={footerData} width={cv.w} height={cv.h} />
-              </div>
-            </div>
-            {isCar ? <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', font: "600 12px/1 'Space Grotesk'", color: 'var(--c-dim)', letterSpacing: '.08em' }}>{active + 1 + ' / ' + design.slides.length}</div> : null}
-          </div>
-
-          {isCar ? (
-            <div style={{ flex: '0 0 auto', borderTop: '1px solid var(--c-line)', background: 'var(--c-filmstrip)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div role="group" aria-label="Reorder or delete the current slide" style={{ display: 'flex', gap: 6, flex: 'none' }}>
-                <button onClick={() => move(active, active - 1)} disabled={active === 0} aria-label="Move slide earlier" title="Move slide earlier" style={filmCtrl(active === 0)}>‹</button>
-                <button onClick={() => move(active, active + 1)} disabled={active >= design.slides.length - 1} aria-label="Move slide later" title="Move slide later" style={filmCtrl(active >= design.slides.length - 1)}>›</button>
-                <button onClick={() => delSlide(active)} disabled={design.slides.length <= 1} aria-label="Delete current slide" title="Delete current slide" style={{ ...filmCtrl(design.slides.length <= 1), color: 'var(--c-danger)' }}>×</button>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflowX: 'auto', flex: 1, minWidth: 0 }}>
-                {design.slides.map((s, i) => {
-                  const on = i === active;
-                  return (
-                    <button key={i} type="button" draggable aria-label={`Slide ${i + 1}${on ? ' (current)' : ''}`} aria-current={on ? true : undefined} onClick={() => setActive(i)} onDragStart={() => setDragFrom(i)} onDragOver={(e) => e.preventDefault()} onDrop={() => dragFrom !== null && move(dragFrom, i)} style={{ position: 'relative', flex: 'none', cursor: 'grab', borderRadius: 7, padding: 3, background: on ? 'var(--c-accent)' : 'transparent', border: on ? 'none' : '1px solid var(--c-line2)' }}>
-                      {scaledCanvas(s, 64)}
-                      <span style={{ position: 'absolute', top: 1, left: 5, font: "700 9px/1 'Space Grotesk'", color: on ? 'var(--c-accent-ink)' : '#fff', textShadow: on ? 'none' : '0 1px 3px rgba(0,0,0,.8)' }}>{i + 1}</span>
-                    </button>
-                  );
-                })}
-                <button onClick={addSlide} disabled={design.slides.length >= MAX_SLIDES} aria-label="Add slide" title="Add slide" style={{ flex: 'none', width: 70, alignSelf: 'stretch', minHeight: 80, borderRadius: 7, border: '1.5px dashed var(--c-line2)', background: 'transparent', color: 'var(--c-dim)', cursor: design.slides.length >= MAX_SLIDES ? 'not-allowed' : 'pointer', font: '22px/1 Archivo', opacity: design.slides.length >= MAX_SLIDES ? 0.4 : 1 }}>+</button>
-              </div>
-            </div>
-          ) : null}
-        </main>
-
-        {/* inspector */}
-        <aside className="cp-right" style={{ background: 'var(--c-panel)', borderLeft: '1px solid var(--c-line)', overflowY: 'auto' }}>
-          <Section title={'CONTENT · ' + tpl.name}>
-            {tpl.fields.map((fld) => (
-              <Labeled key={fld.k} label={fld.l}>
-                <FieldInput field={fld} value={a.fields[fld.k]} onChange={(v) => updateField(fld.k, v)} />
-              </Labeled>
-            ))}
-          </Section>
-
-          <Section title="THEME">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 16 }}>
-              {PALETTES.map((p) => {
-                const on = design.paletteId === p.id && !design.customBg && !design.customText && !design.customAccent;
-                return (
-                  <button key={p.id} onClick={() => setPalette(p.id)} title={p.name} style={{ border: on ? '2px solid var(--c-accent)' : '1px solid var(--c-line2)', borderRadius: 9, padding: 0, cursor: 'pointer', overflow: 'hidden', height: 46, background: p.bg, position: 'relative' }}>
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', font: '800 16px/1 Archivo', color: p.text }}>Aa</div>
-                    <div style={{ position: 'absolute', right: 6, bottom: 6, width: 12, height: 12, borderRadius: '50%', background: p.accent }} />
-                  </button>
-                );
-              })}
-            </div>
-            <ColorRow label="Background" value={colors.bg} onChange={(v) => patch({ customBg: v })} />
-            <ColorRow label="Text" value={colors.text} onChange={(v) => patch({ customText: v })} />
-            <ColorRow label="Accent" value={colors.accent} onChange={(v) => patch({ customAccent: v })} />
-            <button onClick={() => patch({ customBg: null, customText: null, customAccent: null })} style={linkBtn}>Reset ↺</button>
-          </Section>
-
-          <Section title="AUTHOR">
-            <div style={{ font: "500 11px/1.5 'Space Grotesk'", color: 'var(--c-dim)', marginBottom: 12 }}>
-              {usingProfileAuthor ? 'Signed from your profile. Edit here to override just this design.' : 'Overridden for this design.'}
-            </div>
-            <Labeled label="Name">
-              <input type="text" value={footerData.name} placeholder="Your name" onChange={(e) => setAuthorOverride('name', e.target.value)} style={inputStyle} />
-            </Labeled>
-            <Labeled label="Handle">
-              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--c-input)', border: '1px solid var(--c-line2)', borderRadius: 9, padding: '0 12px' }}>
-                <span style={{ color: 'var(--c-dim)', font: "500 14px/1 'Space Grotesk'" }}>@</span>
-                <input type="text" value={footerData.handle} placeholder="yourhandle" onChange={(e) => setAuthorOverride('handle', e.target.value.replace(/^@/, ''))} style={{ flex: 1, background: 'none', border: 'none', color: 'var(--c-text)', font: "500 14px/1 'Space Grotesk'", padding: '10px 6px' }} />
-              </div>
-            </Labeled>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <label className="file-trigger" style={{ flex: 1 }}>
-                <span style={{ display: 'block', padding: '9px 0', textAlign: 'center', border: '1px dashed var(--c-line2)', borderRadius: 9, color: 'var(--c-dim2)', font: "600 12px/1 'Space Grotesk'", cursor: 'pointer' }}>Override photo</span>
-                <input type="file" accept="image/*" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const iid = await storeImage(f); if (iid) setDesign((d) => (d ? { ...d, authorOverride: { ...d.authorOverride, avatarImageId: iid } } : d)); } }} className="visually-hidden" />
-              </label>
-              {!usingProfileAuthor ? <button onClick={resetAuthor} style={{ ...linkBtn, flex: 'none' }}>Use profile</button> : null}
-            </div>
-          </Section>
-
-          <Section title="BACKGROUND IMAGE">
-            {a.bgImageId && imgUrls[a.bgImageId] ? <div style={{ height: 80, borderRadius: 10, backgroundImage: `url(${imgUrls[a.bgImageId]})`, backgroundSize: 'cover', backgroundPosition: 'center', marginBottom: 10, position: 'relative' }}><div style={{ position: 'absolute', inset: 0, background: 'var(--c-scrim)', borderRadius: 10 }} /></div> : null}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <label className="file-trigger" style={{ flex: 1 }}>
-                <span style={{ display: 'block', padding: '9px 0', textAlign: 'center', border: '1px dashed var(--c-line2)', borderRadius: 9, color: 'var(--c-dim2)', font: "600 12px/1 'Space Grotesk'", cursor: 'pointer' }}>{a.bgImageId ? 'Replace' : 'Upload image'}</span>
-                <input type="file" accept="image/*" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const iid = await storeImage(f); if (iid) setBg(iid, false); } }} className="visually-hidden" />
-              </label>
-              {a.bgImageId ? <button onClick={() => setBg(null, false)} style={{ flex: 'none', padding: '0 14px', border: '1px solid var(--c-line2)', borderRadius: 9, background: 'none', color: 'var(--c-dim2)', cursor: 'pointer', font: "600 12px/1 'Space Grotesk'" }}>Remove</button> : null}
-            </div>
-            {isCar && a.bgImageId ? <button onClick={() => setBg(a.bgImageId!, true)} style={{ marginTop: 8, width: '100%', padding: '8px 0', border: 'none', borderRadius: 9, background: 'var(--c-chip)', color: 'var(--c-dim2)', cursor: 'pointer', font: "600 11px/1 'Space Grotesk'" }}>Apply to all slides</button> : null}
-            <div style={{ marginTop: 10, font: "500 11px/1.4 'Space Grotesk'", color: 'var(--c-dim)' }}>A dark scrim is added automatically so text stays readable.</div>
-          </Section>
-        </aside>
-      </div>
+      {isMobile ? mobileBody : desktopBody}
 
       {/* offscreen export pool (full size, untransformed) */}
       <div aria-hidden="true" style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none', opacity: 0 }}>
@@ -434,6 +519,9 @@ const linkBtn: CSSProperties = { border: 'none', background: 'none', color: 'var
 const accentPill: CSSProperties = { border: 'none', cursor: 'pointer', font: "700 13px/1 'Space Grotesk'", padding: '12px 20px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)' };
 function arrowStyle(dir: 'left' | 'right'): CSSProperties {
   return { position: 'absolute', [dir]: 18, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', border: '1px solid var(--c-line2)', background: 'var(--c-panel)', color: 'var(--c-text)', cursor: 'pointer', font: '20px/1 Archivo', zIndex: 3, boxShadow: '0 6px 20px rgba(0,0,0,.12)' } as CSSProperties;
+}
+function mArrow(dir: 'left' | 'right'): CSSProperties {
+  return { position: 'absolute', [dir]: 4, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', border: '1px solid var(--c-line2)', background: 'color-mix(in srgb, var(--c-panel) 82%, transparent)', color: 'var(--c-text)', cursor: 'pointer', font: '20px/1 Archivo', zIndex: 3, boxShadow: '0 4px 14px rgba(0,0,0,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' } as CSSProperties;
 }
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
