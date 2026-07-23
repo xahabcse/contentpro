@@ -192,6 +192,16 @@ export default function EditorPage() {
   const activeSlide = (): Slide | null => (design ? design.slides[Math.min(active, design.slides.length - 1)] || design.slides[0] : null);
 
   function updateField(k: string, v: FieldValue) { patchSlides((s) => s.map((sl, i) => (i === active ? { ...sl, fields: { ...sl.fields, [k]: v } } : sl))); }
+  // Empty the example/placeholder text for the current slide so the user can
+  // start from a clean card in one tap (list fields -> [], text/area -> '').
+  function clearFields() {
+    patchSlides((s) => s.map((sl, i) => {
+      if (i !== active) return sl;
+      const cleared: Record<string, FieldValue> = {};
+      for (const fld of TEMPLATES[sl.template].fields) cleared[fld.k] = fld.t === 'list' ? [] : '';
+      return { ...sl, fields: cleared };
+    }));
+  }
   function setPalette(pid: string) { patch({ paletteId: pid, customBg: null, customText: null, customAccent: null }); }
   function setAuthorOverride(k: 'name' | 'handle', v: string) { setDesign((d) => (d ? { ...d, authorOverride: { ...d.authorOverride, [k]: v } } : d)); }
   function resetAuthor() { setDesign((d) => (d ? { ...d, authorOverride: undefined } : d)); }
@@ -323,7 +333,18 @@ export default function EditorPage() {
   );
 
   const contentPanel = (
-    <Section title={'CONTENT · ' + tpl.name}>
+    <Section
+      title={'CONTENT · ' + tpl.name}
+      action={
+        <button
+          onClick={clearFields}
+          title="Clear the example text so you can type your own"
+          style={{ border: '1px solid var(--c-line2)', background: 'var(--c-chip)', color: 'var(--c-dim2)', font: "600 10px/1 'Space Grotesk'", letterSpacing: '.04em', cursor: 'pointer', padding: '6px 10px', borderRadius: 7 }}
+        >
+          Clear ✕
+        </button>
+      }
+    >
       {tpl.fields.map((fld) => (
         <Labeled key={fld.k} label={fld.l}>
           <FieldInput field={fld} value={a.fields[fld.k]} onChange={(v) => updateField(fld.k, v)} />
@@ -523,10 +544,13 @@ function arrowStyle(dir: 'left' | 'right'): CSSProperties {
 function mArrow(dir: 'left' | 'right'): CSSProperties {
   return { position: 'absolute', [dir]: 4, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', border: '1px solid var(--c-line2)', background: 'color-mix(in srgb, var(--c-panel) 82%, transparent)', color: 'var(--c-text)', cursor: 'pointer', font: '20px/1 Archivo', zIndex: 3, boxShadow: '0 4px 14px rgba(0,0,0,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' } as CSSProperties;
 }
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div style={{ padding: '18px 18px', borderBottom: '1px solid var(--c-line)' }}>
-      <div style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.16em', color: 'var(--c-dim2)', marginBottom: 14 }}>{title}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14 }}>
+        <div style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.16em', color: 'var(--c-dim2)' }}>{title}</div>
+        {action}
+      </div>
       {children}
     </div>
   );
@@ -542,9 +566,9 @@ function Labeled({ label, children }: { label: string; children: React.ReactNode
 function FieldInput({ field, value, onChange }: { field: { k: string; l: string; t: 'text' | 'area' | 'list' }; value: FieldValue | undefined; onChange: (v: FieldValue) => void }) {
   if (field.t === 'area' || field.t === 'list') {
     const v = field.t === 'list' ? (Array.isArray(value) ? value : []).join('\n') : (typeof value === 'string' ? value : '');
-    return <textarea value={v} rows={field.t === 'list' ? 5 : 3} onChange={(e) => onChange(field.t === 'list' ? e.target.value.split('\n') : e.target.value)} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.4 }} />;
+    return <textarea value={v} rows={field.t === 'list' ? 5 : 3} placeholder={field.t === 'list' ? 'One item per line…' : field.l} onChange={(e) => onChange(field.t === 'list' ? e.target.value.split('\n') : e.target.value)} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.4 }} />;
   }
-  return <input type="text" value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} style={inputStyle} />;
+  return <input type="text" value={typeof value === 'string' ? value : ''} placeholder={field.l} onChange={(e) => onChange(e.target.value)} style={inputStyle} />;
 }
 function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const hex = /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000';
