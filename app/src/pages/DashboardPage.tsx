@@ -4,7 +4,7 @@ import AppShell from '@/components/layout/AppShell';
 import SlideCanvas from '@/components/editor/SlideCanvas';
 import { resolveColors } from '@/lib/palettes';
 import { canvasSize, type FooterData, type LocalDesign, type ResolvedSlide } from '@/lib/design-types';
-import { buildBackup, createDesign, deleteDesign, ensureSeeded, listDesigns, restoreBackup } from '@/lib/local-store';
+import { buildBackup, createDesign, deleteDesign, duplicateDesign, ensureSeeded, listDesigns, restoreBackup } from '@/lib/local-store';
 import { getImageUrl } from '@/lib/image-store';
 
 interface Profile { name?: string; handle?: string; photoUrl?: string | null; designation?: string; companyName?: string; companyLogoUrl?: string | null }
@@ -69,6 +69,15 @@ export default function DashboardPage() {
     if (!confirm('Delete this design? It is removed from this browser only.')) return;
     await deleteDesign(id);
     reload();
+  }
+  async function handleDuplicate(id: string) {
+    try {
+      const copy = await duplicateDesign(id);
+      reload();
+      if (copy) navigate('/designs/' + copy.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not duplicate the design.');
+    }
   }
   async function handleBackup() {
     try {
@@ -147,6 +156,7 @@ export default function DashboardPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-outline" style={{ width: 'auto', height: 32, padding: '0 10px', fontSize: 12, flex: 1 }} onClick={() => navigate('/designs/' + d.id)}>Open</button>
+                  <button className="btn btn-outline" style={{ width: 'auto', height: 32, padding: '0 10px', fontSize: 12 }} title="Make a copy" onClick={() => handleDuplicate(d.id)}>Duplicate</button>
                   <button className="btn btn-outline" style={{ width: 'auto', height: 32, padding: '0 10px', fontSize: 12, color: 'var(--danger)' }} onClick={() => handleDelete(d.id)}>Delete</button>
                 </div>
               </div>

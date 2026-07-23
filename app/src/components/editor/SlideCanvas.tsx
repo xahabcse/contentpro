@@ -176,11 +176,30 @@ function listHeading(c: Ctx, title: string, u: number, eyebrowText?: string): Re
   );
 }
 
+// Wrap any occurrence of the comma-separated `terms` in an accent highlight.
+// Case-insensitive; supports MULTIPLE words/phrases (e.g. "growth, focus").
+// Returns the plain string when there's nothing to highlight.
+function highlightNodes(text: string, rawTerms: string, c: Ctx, u: number): ReactNode {
+  const terms = (rawTerms || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!terms.length || !text) return text;
+  const re = new RegExp('(' + terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+  const lc = new Set(terms.map((t) => t.toLowerCase()));
+  return String(text)
+    .split(re)
+    .map((p, i) =>
+      p && lc.has(p.toLowerCase())
+        ? (
+          <span key={i} style={{ background: c.accent, color: c.bg, padding: `0 ${10 * u}px`, borderRadius: `${5 * u}px`, boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' } as CSSProperties}>{p}</span>
+        )
+        : <span key={i}>{p}</span>,
+    );
+}
+
 function r_quote(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
   const q = txt(f, 'quote');
   return frame(c, [
     <div key="m" style={{ font: `900 ${210 * u}px/.6 Archivo`, color: c.accent, height: 120 * u }}>{'“'}</div>,
-    <div key="q" style={{ font: `500 ${autofit(q, [[80, 62], [150, 54], [240, 45], [Infinity, 37]]) * u}px/1.16 Newsreader`, fontStyle: 'italic', letterSpacing: '-.01em', maxWidth: '96%', minHeight: 0, overflow: 'hidden' }}>{q}</div>,
+    <div key="q" style={{ font: `500 ${autofit(q, [[80, 62], [150, 54], [240, 45], [Infinity, 37]]) * u}px/1.16 Newsreader`, fontStyle: 'italic', letterSpacing: '-.01em', maxWidth: '96%', minHeight: 0, overflow: 'hidden' }}>{highlightNodes(q, txt(f, 'highlight'), c, u)}</div>,
     footer(c, fd, u),
   ], { bgImage: c.bgImage });
 }
@@ -214,7 +233,7 @@ function r_cover(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: numbe
   return frame(c, [
     eyebrow(c, txt(f, 'kicker'), u),
     <div key="hl" style={{ flex: 1, display: 'flex', alignItems: 'center', minHeight: 0, overflow: 'hidden' }}>
-      <div style={{ font: `900 ${autofit(hl, [[36, 100], [70, 84], [110, 68], [Infinity, 54]]) * u}px/.98 Archivo`, letterSpacing: '-.025em', maxWidth: '100%' }}>{hl}</div>
+      <div style={{ font: `900 ${autofit(hl, [[36, 100], [70, 84], [110, 68], [Infinity, 54]]) * u}px/.98 Archivo`, letterSpacing: '-.025em', maxWidth: '100%' }}>{highlightNodes(hl, txt(f, 'highlight'), c, u)}</div>
     </div>,
     <div key="fr" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20 * u }}>
       <div style={{ flex: 1, minWidth: 0 }}>{footer(c, fd, u, true)}</div>
@@ -241,7 +260,7 @@ function r_question(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: nu
     <div key="w" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0, overflow: 'hidden' }}>
       {eyebrow(c, txt(f, 'kicker'), u)}
       <div style={{ font: `800 ${autofit(q, [[45, 76], [85, 64], [140, 52], [Infinity, 44]]) * u}px/1.06 Archivo`, letterSpacing: '-.02em', marginTop: 24 * u }}>
-        {q}<span style={{ color: c.accent }}>{' ?'}</span>
+        {highlightNodes(q, txt(f, 'highlight'), c, u)}<span style={{ color: c.accent }}>{' ?'}</span>
       </div>
     </div>,
     footer(c, fd, u, true),
@@ -291,29 +310,19 @@ function r_cta(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number)
   const hl = txt(f, 'headline');
   return frame(c, [
     <div key="w" style={{ flex: 1, display: 'flex', alignItems: 'center', minHeight: 0, overflow: 'hidden' }}>
-      <div style={{ font: `900 ${autofit(hl, [[40, 84], [80, 70], [Infinity, 56]]) * u}px/1.02 Archivo`, letterSpacing: '-.025em' }}>{hl}</div>
+      <div style={{ font: `900 ${autofit(hl, [[40, 84], [80, 70], [Infinity, 56]]) * u}px/1.02 Archivo`, letterSpacing: '-.025em' }}>{highlightNodes(hl, txt(f, 'highlight'), c, u)}</div>
     </div>,
     <div key="btn" style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 14 * u, background: c.accent, color: c.bg, font: `800 ${32 * u}px/1 Archivo`, padding: `${26 * u}px ${40 * u}px`, borderRadius: 999, marginBottom: 12 * u }}>{txt(f, 'buttonText')}<Icon name="arrow" size={30 * u} color={c.bg} /></div>,
     footer(c, fd, u, true),
   ], { bgImage: c.bgImage });
 }
 function r_statement(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
-  const hw = (txt(f, 'highlight') || '').trim();
   const statement = txt(f, 'statement');
-  let parts: string[] = [statement];
-  if (hw) {
-    const re = new RegExp('(' + hw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'i');
-    parts = String(statement).split(re);
-  }
   const size = autofit(statement, [[45, 82], [90, 68], [150, 54], [Infinity, 44]]);
   return frame(c, [
     <div key="w" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, overflow: 'hidden' }}>
       <div style={{ font: `800 ${size * u}px/1.08 Archivo`, letterSpacing: '-.02em', textAlign: 'center' }}>
-        {parts.map((p, i) =>
-          hw && p.toLowerCase() === hw.toLowerCase()
-            ? <span key={i} style={{ background: c.accent, color: c.bg, padding: `0 ${12 * u}px`, boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' } as CSSProperties}>{p}</span>
-            : <span key={i}>{p}</span>,
-        )}
+        {highlightNodes(statement, txt(f, 'highlight'), c, u)}
       </div>
     </div>,
     <div key="f" style={{ alignSelf: 'center' }}>{footer(c, fd, u, true)}</div>,

@@ -19,7 +19,7 @@ export interface TemplateMeta {
 }
 
 export const TEMPLATES: Record<TemplateId, TemplateMeta> = {
-  quote: { id: 'quote', name: 'Quote', fields: [{ k: 'quote', l: 'Quote', t: 'area' }] },
+  quote: { id: 'quote', name: 'Quote', fields: [{ k: 'quote', l: 'Quote', t: 'area' }, { k: 'highlight', l: 'Highlight (comma-separated)', t: 'text' }] },
   stat: {
     id: 'stat',
     name: 'Big Stat',
@@ -43,6 +43,7 @@ export const TEMPLATES: Record<TemplateId, TemplateMeta> = {
     fields: [
       { k: 'kicker', l: 'Kicker', t: 'text' },
       { k: 'headline', l: 'Headline', t: 'area' },
+      { k: 'highlight', l: 'Highlight (comma-separated)', t: 'text' },
     ],
   },
   announce: {
@@ -61,6 +62,7 @@ export const TEMPLATES: Record<TemplateId, TemplateMeta> = {
     fields: [
       { k: 'kicker', l: 'Kicker', t: 'text' },
       { k: 'question', l: 'Question', t: 'area' },
+      { k: 'highlight', l: 'Highlight (comma-separated)', t: 'text' },
     ],
   },
   contrast: {
@@ -86,6 +88,7 @@ export const TEMPLATES: Record<TemplateId, TemplateMeta> = {
     name: 'Call to Action',
     fields: [
       { k: 'headline', l: 'Headline', t: 'area' },
+      { k: 'highlight', l: 'Highlight (comma-separated)', t: 'text' },
       { k: 'buttonText', l: 'Button', t: 'text' },
     ],
   },
@@ -94,7 +97,7 @@ export const TEMPLATES: Record<TemplateId, TemplateMeta> = {
     name: 'Statement',
     fields: [
       { k: 'statement', l: 'Statement', t: 'area' },
-      { k: 'highlight', l: 'Highlight word', t: 'text' },
+      { k: 'highlight', l: 'Highlight (comma-separated)', t: 'text' },
     ],
   },
   checklist: {
@@ -213,6 +216,7 @@ export const TEMPLATE_ORDER: TemplateId[] = [
 const DEFAULTS: Record<TemplateId, Record<string, FieldValue>> = {
   quote: {
     quote: 'The best way to future-proof your career is to build skills nobody can automate.',
+    highlight: 'future-proof',
   },
   stat: {
     label: 'By the numbers',
@@ -232,6 +236,7 @@ const DEFAULTS: Record<TemplateId, Record<string, FieldValue>> = {
   cover: {
     kicker: 'Carousel · swipe →',
     headline: 'How I landed 3 interviews from one LinkedIn post',
+    highlight: '3 interviews',
   },
   announce: {
     badge: 'NEW',

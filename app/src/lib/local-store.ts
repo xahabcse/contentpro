@@ -1,6 +1,6 @@
 import type { DesignType, LocalDesign, Slide, TemplateId } from './design-types';
 import { templateDefaults } from './templates';
-import { blobToDataUrl, dataUrlToBlob, deleteImage, getImageBlob, putImage } from './image-store';
+import { blobToDataUrl, dataUrlToBlob, deleteImage, getImageBlob, newImageId, putImage } from './image-store';
 
 // Browser-only design persistence: designs live in localStorage as lightweight
 // JSON (image binaries live in IndexedDB, referenced by id). No server round-trip.
@@ -88,6 +88,40 @@ export function createDesign(type: DesignType): LocalDesign {
   };
   saveDesign(design);
   return design;
+}
+
+// Duplicate a design as an INDEPENDENT copy. Referenced images are cloned to
+// new IndexedDB ids so deleting either design never affects the other.
+export async function duplicateDesign(id: string): Promise<LocalDesign | null> {
+  const src = getDesign(id);
+  if (!src) return null;
+  const seen = new Map<string, string>();
+  const cloneImg = async (imgId: string | null | undefined): Promise<string | null> => {
+    if (!imgId) return null;
+    const cached = seen.get(imgId);
+    if (cached) return cached;
+    const blob = await getImageBlob(imgId).catch(() => null);
+    if (!blob) return null;
+    const nid = newImageId();
+    await putImage(nid, blob).catch(() => {});
+    seen.set(imgId, nid);
+    return nid;
+  };
+  const slides: Slide[] = [];
+  for (const s of src.slides) slides.push({ ...s, bgImageId: await cloneImg(s.bgImageId) });
+  const avatar = await cloneImg(src.authorOverride?.avatarImageId);
+  const now = Date.now();
+  const copy: LocalDesign = {
+    ...src,
+    id: 'dsn_' + crypto.randomUUID(),
+    title: (src.title || 'Untitled') + ' (copy)',
+    slides,
+    authorOverride: src.authorOverride ? { ...src.authorOverride, avatarImageId: avatar ?? undefined } : undefined,
+    createdAt: now,
+    updatedAt: now,
+  };
+  saveDesign(copy);
+  return copy;
 }
 
 // Seed two ready example cards the first time (empty + not seeded before).
