@@ -513,11 +513,130 @@ function r_closing(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: num
   ], { bgImage: c.bgImage });
 }
 
+function r_poll(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const q = txt(f, 'question');
+  const row = (letter: string, text: string, accent: boolean): ReactNode => (
+    <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 28 * u, borderRadius: 20 * u, padding: `${30 * u}px ${38 * u}px`, background: accent ? c.accent : dim(c.text, 9), color: accent ? c.bg : c.text, border: accent ? 'none' : `${2 * u}px solid ${dim(c.text, 24)}` }}>
+      <div style={{ flex: 'none', width: 78 * u, height: 78 * u, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', font: `800 ${38 * u}px/1 Archivo`, background: accent ? c.bg : c.accent, color: accent ? c.accent : c.bg }}>{letter}</div>
+      <div style={{ font: `700 ${autofit(text, [[40, 42], [80, 34], [Infinity, 28]]) * u}px/1.14 Archivo`, letterSpacing: '-.01em', minWidth: 0 }}>{text}</div>
+    </div>
+  );
+  return frame(c, [
+    eyebrow(c, txt(f, 'kicker'), u),
+    <div key="q" style={{ font: `800 ${autofit(q, [[40, 64], [80, 52], [Infinity, 42]]) * u}px/1.08 Archivo`, letterSpacing: '-.02em', margin: `${24 * u}px 0 ${36 * u}px`, maxWidth: '96%' }}>{q}</div>,
+    <div key="g" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 18 * u, minHeight: 0 }}>
+      {row('A', txt(f, 'optionA'), false)}
+      <div style={{ alignSelf: 'center', font: `800 ${20 * u}px/1 'Space Grotesk'`, letterSpacing: '.24em', color: dim(c.text, 46) }}>OR</div>
+      {row('B', txt(f, 'optionB'), true)}
+    </div>,
+    footer(c, fd, u, true),
+  ], { pad: 80, bgImage: c.bgImage });
+}
+function r_takeaway(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const t = txt(f, 'takeaway');
+  return frame(c, [
+    <div key="w" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0, overflow: 'hidden' }}>
+      {eyebrow(c, txt(f, 'label'), u)}
+      <div style={{ display: 'flex', gap: 34 * u, marginTop: 38 * u, minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ flex: 'none', width: 8 * u, borderRadius: 999, background: c.accent, alignSelf: 'stretch' }} />
+        <div style={{ font: `800 ${autofit(t, [[45, 78], [90, 64], [150, 52], [Infinity, 42]]) * u}px/1.12 Archivo`, letterSpacing: '-.02em' }}>{highlightNodes(t, txt(f, 'highlight'), c, u)}</div>
+      </div>
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_stattrio(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const items = list(f, 'items');
+  return frame(c, [
+    eyebrow(c, txt(f, 'label'), u),
+    <div key="g" style={{ flex: 1, display: 'flex', alignItems: 'stretch', gap: 26 * u, marginTop: 40 * u, minHeight: 0, overflow: 'hidden' }}>
+      {items.map((it, i) => {
+        const parts = String(it).split(' — ');
+        const value = parts[0];
+        const lbl = parts.slice(1).join(' — ');
+        return (
+          <div key={i} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18 * u, borderRadius: 20 * u, padding: `${30 * u}px ${26 * u}px`, background: dim(c.text, 6), border: `${2 * u}px solid ${dim(c.text, 14)}` }}>
+            <div style={{ font: `900 ${autofit(value, [[3, 88], [5, 64], [Infinity, 48]]) * u}px/.9 Archivo`, letterSpacing: '-.03em', color: c.accent }}>{value}</div>
+            <div style={{ width: 42 * u, height: 4 * u, background: dim(c.accent, 55), borderRadius: 999 }} />
+            <div style={{ font: `600 ${autofit(lbl, [[30, 25], [Infinity, 20]]) * u}px/1.24 'Space Grotesk'`, color: dim(c.text, 80) }}>{lbl}</div>
+          </div>
+        );
+      })}
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_definition(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const term = txt(f, 'term');
+  const meaning = txt(f, 'meaning');
+  const pron = txt(f, 'pronunciation');
+  return frame(c, [
+    eyebrow(c, txt(f, 'label'), u),
+    <div key="w" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 24 * u, flexWrap: 'wrap' }}>
+        <div style={{ font: `900 ${autofit(term, [[12, 108], [20, 82], [Infinity, 62]]) * u}px/1 Archivo`, letterSpacing: '-.03em' }}>{term}</div>
+        {pron ? <div style={{ font: `400 ${34 * u}px/1 Newsreader`, fontStyle: 'italic', color: dim(c.text, 55) }}>{pron}</div> : null}
+      </div>
+      <div style={{ width: 90 * u, height: 5 * u, background: c.accent, borderRadius: 999, margin: `${30 * u}px 0` }} />
+      <div style={{ font: `500 ${autofit(meaning, [[90, 42], [170, 36], [Infinity, 30]]) * u}px/1.36 Newsreader`, color: dim(c.text, 88), maxWidth: '94%' }}>{meaning}</div>
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_protip(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const tip = txt(f, 'tip');
+  return frame(c, [
+    <div key="w" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18 * u, marginBottom: 34 * u }}>
+        <div style={{ width: 72 * u, height: 72 * u, borderRadius: 18 * u, background: c.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+          <Icon name="bolt" size={40 * u} color={c.bg} />
+        </div>
+        <div style={{ font: `800 ${22 * u}px/1 'Space Grotesk'`, letterSpacing: '.2em', textTransform: 'uppercase', color: c.accent }}>{txt(f, 'label') || 'Pro tip'}</div>
+      </div>
+      <div style={{ borderRadius: 24 * u, padding: `${44 * u}px ${48 * u}px`, background: dim(c.accent, 12), borderLeft: `${8 * u}px solid ${c.accent}`, minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ font: `700 ${autofit(tip, [[70, 48], [140, 40], [220, 34], [Infinity, 28]]) * u}px/1.26 Archivo`, letterSpacing: '-.01em', color: c.text }}>{highlightNodes(tip, txt(f, 'highlight'), c, u)}</div>
+      </div>
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_roadmap(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const items = list(f, 'items');
+  return frame(c, [
+    listHeading(c, txt(f, 'title'), u, 'Roadmap'),
+    <div key="l" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {items.map((it, i) => {
+        const parts = String(it).split(' — ');
+        const nm = parts[0];
+        const desc = parts.slice(1).join(' — ');
+        const last = i === items.length - 1;
+        return (
+          <div key={i} style={{ display: 'flex', gap: 28 * u, alignItems: 'stretch' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 'none', width: 96 * u }}>
+              <div style={{ width: 96 * u, height: 96 * u, borderRadius: 22 * u, background: c.accent, color: c.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+                <span style={{ font: `600 ${13 * u}px/1 'Space Grotesk'`, letterSpacing: '.14em', textTransform: 'uppercase', opacity: 0.85 }}>Phase</span>
+                <span style={{ font: `900 ${40 * u}px/1 Archivo`, marginTop: 4 * u }}>{i + 1}</span>
+              </div>
+              {!last ? <div style={{ width: 4 * u, flex: 1, background: dim(c.accent, 40), minHeight: 18 * u }} /> : null}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 * u, paddingTop: 12 * u, paddingBottom: last ? 0 : 30 * u, minWidth: 0 }}>
+              <span style={{ font: `800 ${autofit(nm, [[24, 38], [Infinity, 30]]) * u}px/1.08 Archivo`, color: c.text }}>{nm}</span>
+              {desc ? <span style={{ font: `500 ${autofit(desc, [[60, 25], [Infinity, 21]]) * u}px/1.3 'Space Grotesk'`, color: dim(c.text, 66) }}>{desc}</span> : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+
 const RENDERERS: Record<string, (c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) => ReactNode> = {
   quote: r_quote, stat: r_stat, tips: r_tips, cover: r_cover, announce: r_announce,
   question: r_question, contrast: r_contrast, framework: r_framework, cta: r_cta, statement: r_statement,
   checklist: r_checklist, timeline: r_timeline, testimonial: r_testimonial, agenda: r_agenda,
   comparison: r_comparison, myth: r_myth, divider: r_divider, bio: r_bio, bignum: r_bignum, closing: r_closing,
+  poll: r_poll, takeaway: r_takeaway, stattrio: r_stattrio, definition: r_definition, protip: r_protip, roadmap: r_roadmap,
 };
 
 const SlideCanvas = forwardRef<HTMLDivElement, SlideCanvasProps>(({ slide, colors, footer: fd, width, height }, ref) => {

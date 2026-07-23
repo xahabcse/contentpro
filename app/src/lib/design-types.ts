@@ -24,7 +24,13 @@ export type TemplateId =
   | 'divider'
   | 'bio'
   | 'bignum'
-  | 'closing';
+  | 'closing'
+  | 'poll'
+  | 'takeaway'
+  | 'stattrio'
+  | 'definition'
+  | 'protip'
+  | 'roadmap';
 
 export type FieldValue = string | string[];
 

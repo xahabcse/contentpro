@@ -188,20 +188,80 @@ export const TEMPLATES: Record<TemplateId, TemplateMeta> = {
       { k: 'cta', l: 'CTA line', t: 'text' },
     ],
   },
+  poll: {
+    id: 'poll',
+    name: 'Poll / This-or-That',
+    fields: [
+      { k: 'kicker', l: 'Kicker', t: 'text' },
+      { k: 'question', l: 'Question', t: 'area' },
+      { k: 'optionA', l: 'Option A', t: 'area' },
+      { k: 'optionB', l: 'Option B', t: 'area' },
+    ],
+  },
+  takeaway: {
+    id: 'takeaway',
+    name: 'Key Takeaway / TL;DR',
+    fields: [
+      { k: 'label', l: 'Eyebrow', t: 'text' },
+      { k: 'takeaway', l: 'Takeaway', t: 'area' },
+      { k: 'highlight', l: 'Highlight (comma-separated)', t: 'text' },
+    ],
+  },
+  stattrio: {
+    id: 'stattrio',
+    name: 'Stat Trio',
+    fields: [
+      { k: 'label', l: 'Eyebrow', t: 'text' },
+      { k: 'items', l: 'Stats — "Value — Label"', t: 'list' },
+    ],
+  },
+  definition: {
+    id: 'definition',
+    name: 'Definition',
+    fields: [
+      { k: 'label', l: 'Eyebrow', t: 'text' },
+      { k: 'term', l: 'Term', t: 'text' },
+      { k: 'pronunciation', l: 'Pronunciation (optional)', t: 'text' },
+      { k: 'meaning', l: 'Meaning', t: 'area' },
+    ],
+  },
+  protip: {
+    id: 'protip',
+    name: 'Pro Tip / Callout',
+    fields: [
+      { k: 'label', l: 'Eyebrow', t: 'text' },
+      { k: 'tip', l: 'Tip', t: 'area' },
+      { k: 'highlight', l: 'Highlight (comma-separated)', t: 'text' },
+    ],
+  },
+  roadmap: {
+    id: 'roadmap',
+    name: 'Roadmap / Phases',
+    fields: [
+      { k: 'title', l: 'Title', t: 'area' },
+      { k: 'items', l: 'Phases — "Name — desc"', t: 'list' },
+    ],
+  },
 };
 
 export const TEMPLATE_ORDER: TemplateId[] = [
   'cover',
   'quote',
   'statement',
+  'takeaway',
   'question',
+  'poll',
   'announce',
   'divider',
+  'definition',
   'stat',
   'bignum',
+  'stattrio',
   'tips',
+  'protip',
   'checklist',
   'framework',
+  'roadmap',
   'timeline',
   'agenda',
   'comparison',
@@ -334,6 +394,43 @@ const DEFAULTS: Record<TemplateId, Record<string, FieldValue>> = {
     title: 'Thanks for reading',
     subtitle: 'If one idea here stuck with you, save it for later and pass it on.',
     cta: 'Follow for a post like this every week →',
+  },
+  poll: {
+    kicker: 'Poll · you decide',
+    question: 'Which matters more early in your career?',
+    optionA: 'Learning fast at a scrappy startup',
+    optionB: 'A strong brand name on your résumé',
+  },
+  takeaway: {
+    label: 'TL;DR',
+    takeaway:
+      'Consistency beats intensity — three honest posts a week will outgrow one viral post a year.',
+    highlight: 'Consistency',
+  },
+  stattrio: {
+    label: 'By the numbers',
+    items: ['3× — profile views', '48% — reply rate', '12 — weeks to offer'],
+  },
+  definition: {
+    label: 'Definition',
+    term: 'Personal brand',
+    pronunciation: '/ˈpərs(ə)nəl brand/ · noun',
+    meaning:
+      'The reputation that arrives before you do — what people say about your work when you are not in the room.',
+  },
+  protip: {
+    label: 'Pro tip',
+    tip: 'Comment on ten posts before you publish your own — you warm up the same audience that later sees your post.',
+    highlight: 'ten posts',
+  },
+  roadmap: {
+    title: 'Your first 90 days on LinkedIn',
+    items: [
+      'Set up — Fix the headline, photo and about section',
+      'Engage — Comment daily and reply to every response',
+      'Publish — Ship one real post a week',
+      'Compound — Double down on what actually landed',
+    ],
   },
 };
 
