@@ -149,28 +149,47 @@ function eyebrow(c: Ctx, text: string, u: number): ReactNode {
   );
 }
 
-// Two-part footer: author lockup (left) + company lockup (right).
+// Strip a trailing company reference off a free-text designation so the footer
+// never prints the company twice (e.g. "Software Engineer at OnnoRokom" beside a
+// separate "OnnoRokom" company lockup). Returns the role portion only.
+function roleOnly(designation: string, companyName?: string | null): string {
+  let role = (designation || '').trim();
+  const cn = (companyName || '').trim();
+  if (role && cn) {
+    const idx = role.toLowerCase().lastIndexOf(cn.toLowerCase());
+    if (idx >= 0) role = role.slice(0, idx).replace(/\s*(?:\bat\b|\bwith\b|@|\||·|—|–|,|-)\s*$/i, '').trim();
+  }
+  return role;
+}
+
+// Two-part footer: author lockup (left) + single company lockup (right).
+// Refined "business-card" signature -- Name + role on the left, company shown
+// exactly once on the right. De-duplicated, tighter, quieter divider.
 function footer(c: Ctx, fd: FooterData, u: number, compact?: boolean): ReactNode {
-  const size = (compact ? 52 : 60) * u;
+  const size = (compact ? 50 : 56) * u;
   const avatar = fd.avatar
-    ? <img src={fd.avatar} alt="" crossOrigin="anonymous" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />
+    ? <img src={fd.avatar} alt="" crossOrigin="anonymous" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none', boxShadow: `0 0 0 ${1.5 * u}px ${dim(c.text, 14)}` }} />
     : <PersonIcon size={size} c={c} />;
   const name = fd.name || 'Your name';
+  const role = roleOnly(fd.designation || '', fd.companyName);
+  // Second line: the role if we have one, otherwise fall back to the @handle so
+  // the lockup still carries an attribution line.
+  const subline = role || '@' + (fd.handle || 'yourhandle');
   const hasCompany = !!(fd.companyName || fd.companyLogo);
+  const clip: CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
   return (
-    <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 * u, paddingTop: 30 * u, borderTop: `${2 * u}px solid ${dim(c.text, 16)}` }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 * u, minWidth: 0 }}>
+    <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 * u, paddingTop: 26 * u, borderTop: `${1 * u}px solid ${dim(c.text, 13)}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 15 * u, minWidth: 0 }}>
         {avatar}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 * u, minWidth: 0, fontFamily: "'Space Grotesk',sans-serif" }}>
-          <span style={{ font: `700 ${22 * c.uF}px/1.15 'Space Grotesk'`, color: c.text }}>{name}</span>
-          <span style={{ font: `500 ${15 * c.uF}px/1.2 'Space Grotesk'`, color: dim(c.text, 60) }}>@{fd.handle || 'yourhandle'}</span>
-          {fd.designation ? <span style={{ font: `500 ${14 * c.uF}px/1.2 'Space Grotesk'`, color: dim(c.text, 52) }}>{fd.designation}</span> : null}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 * u, minWidth: 0, fontFamily: "'Space Grotesk',sans-serif" }}>
+          <span style={{ ...clip, font: `700 ${21 * c.uF}px/1.15 'Space Grotesk'`, letterSpacing: '-.01em', color: c.text }}>{name}</span>
+          <span style={{ ...clip, font: `500 ${14 * c.uF}px/1.2 'Space Grotesk'`, color: dim(c.text, 56) }}>{subline}</span>
         </div>
       </div>
       {hasCompany ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 * u, flex: 'none' }}>
-          {fd.companyLogo ? <img src={fd.companyLogo} alt="" crossOrigin="anonymous" style={{ width: (compact ? 40 : 46) * u, height: (compact ? 40 : 46) * u, borderRadius: 10 * u, objectFit: 'contain', background: '#FFFFFF', padding: 5 * u }} /> : null}
-          {fd.companyName ? <span style={{ font: `600 ${16 * c.uF}px/1.2 'Space Grotesk'`, color: dim(c.text, 82), maxWidth: 260 * u }}>{fd.companyName}</span> : null}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11 * u, flex: 'none', maxWidth: 300 * u }}>
+          {fd.companyLogo ? <img src={fd.companyLogo} alt="" crossOrigin="anonymous" style={{ width: (compact ? 34 : 38) * u, height: (compact ? 34 : 38) * u, borderRadius: 9 * u, objectFit: 'contain', background: '#FFFFFF', padding: 5 * u, flex: 'none' }} /> : null}
+          {fd.companyName ? <span style={{ ...clip, font: `600 ${14.5 * c.uF}px/1.2 'Space Grotesk'`, color: dim(c.text, 72), maxWidth: 210 * u }}>{fd.companyName}</span> : null}
         </div>
       ) : null}
     </div>
