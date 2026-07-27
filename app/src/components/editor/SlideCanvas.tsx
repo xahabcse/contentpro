@@ -268,10 +268,15 @@ function r_tips(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number
 }
 function r_cover(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
   const hl = txt(f, 'headline');
+  // Adaptive weight/leading: a short hook stays punchy (heavier, tight); a long
+  // headline (autofit shrank it) gets lighter + more line gap so it reads as
+  // clean text instead of a dense black wall.
+  const hlSize = autofit(hl, [[36, 100], [70, 84], [110, 68], [Infinity, 54]]);
+  const hlLong = hlSize <= 68;
   return frame(c, [
     eyebrow(c, txt(f, 'kicker'), u),
     <div key="hl" style={{ flex: 1, display: 'flex', alignItems: 'center', minHeight: 0, overflow: 'hidden' }}>
-      <div style={{ font: `900 ${autofit(hl, [[36, 100], [70, 84], [110, 68], [Infinity, 54]]) * c.uH}px/.98 Archivo`, letterSpacing: '-.025em', maxWidth: '100%' }}>{highlightNodes(hl, txt(f, 'highlight'), c, u)}</div>
+      <div style={{ font: `${hlLong ? 700 : 800} ${hlSize * c.uH}px/${hlLong ? 1.12 : 1.04} Archivo`, letterSpacing: hlLong ? '-.012em' : '-.022em', maxWidth: '100%' }}>{highlightNodes(hl, txt(f, 'highlight'), c, u)}</div>
     </div>,
     <div key="fr" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20 * u }}>
       <div style={{ flex: 1, minWidth: 0 }}>{footer(c, fd, u, true)}</div>
