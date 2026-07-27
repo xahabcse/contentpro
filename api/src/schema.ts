@@ -36,3 +36,29 @@ export type UserRecord = Omit<UserDocument, "_id"> & { _id: string };
 
 export type NewUserInput = Omit<UserDocument, "_id">;
 export type UserUpdateInput = Partial<Omit<UserDocument, "_id">>;
+
+// ---------------------------------------------------------------------------
+// auth_events collection. Best-effort audit trail of auth-flow events
+// (signup/login/reset/verify), surfaced read-only through the admin API.
+// ---------------------------------------------------------------------------
+
+export type AuthEventType =
+  | "signup"
+  | "login"
+  | "login_failed"
+  | "reset_request"
+  | "reset_complete"
+  | "email_verified";
+
+export interface AuthEventDocument {
+  _id?: ObjectId;
+  /** epoch milliseconds (Date.now()) */
+  ts: number;
+  type: AuthEventType;
+  email: string | null;
+  ip: string | null;
+  detail: string | null;
+}
+
+export type NewAuthEventInput = Omit<AuthEventDocument, "_id">;
+export type AuthEventRecord = Omit<AuthEventDocument, "_id">;

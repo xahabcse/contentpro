@@ -4,6 +4,7 @@ import { secureHeaders } from "hono/secure-headers";
 import type { AppEnv } from "./env";
 import authRoutes from "./routes/auth";
 import profileRoutes from "./routes/profile";
+import adminRoutes from "./routes/admin";
 
 const app = new Hono<AppEnv>();
 
@@ -38,6 +39,7 @@ app.use(
 
 app.route("/api/auth", authRoutes);
 app.route("/api/profile", profileRoutes);
+app.route("/api/admin", adminRoutes);
 
 app.get("/", (c) => c.json({ ok: true, service: "contentpro-api" }));
 

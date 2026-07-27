@@ -9,6 +9,7 @@ import { signProfileImageUrls } from "../lib/cloudinary";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../lib/resend";
 import { verifyTurnstileToken } from "../lib/turnstile";
 import { authRequired, SESSION_COOKIE_NAME } from "../middleware/auth-required";
+import { logAuthEvent } from "../lib/auth-events";
 import { checkAndRecordRateLimit } from "../middleware/rate-limit";
 import type { NewUserInput } from "../schema";
 
@@ -117,6 +118,7 @@ auth.post("/signup", jsonValidator(signupSchema), async (c) => {
   const token = await signActionToken(userId, normalizedEmail, "email_verification", 0, c.env.JWT_SECRET);
   await sendVerificationEmail(normalizedEmail, token, resendConfig(c.env));
 
+  c.executionCtx.waitUntil(logAuthEvent(c, { type: "signup", email: normalizedEmail }));
   return c.json({ message: "Account created. Check your email to verify it." }, 201);
 });
 
@@ -152,11 +154,13 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
     // Burn equivalent CPU so response timing doesn't reveal that the account is
     // missing (account enumeration). Always fails.
     await verifyPasswordDummy(password);
+    c.executionCtx.waitUntil(logAuthEvent(c, { type: "login_failed", email: normalizedEmail }));
     return c.json({ error: "INVALID_CREDENTIALS" }, 401);
   }
 
   const valid = await verifyPassword(password, user.passwordHash, user.passwordSalt, user.passwordIterations);
   if (!valid) {
+    c.executionCtx.waitUntil(logAuthEvent(c, { type: "login_failed", email: normalizedEmail }));
     return c.json({ error: "INVALID_CREDENTIALS" }, 401);
   }
 
@@ -186,6 +190,7 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
     maxAge: SESSION_COOKIE_MAX_AGE,
   });
 
+  c.executionCtx.waitUntil(logAuthEvent(c, { type: "login", email: user.email }));
   return c.json({ id: user._id, email: user.email, emailVerified: user.emailVerified });
 });
 
@@ -228,6 +233,7 @@ auth.post("/verify-email", jsonValidator(verifyEmailSchema), async (c) => {
   }
 
   await stub.updateUser(user._id, { emailVerified: true, updatedAt: new Date() });
+  c.executionCtx.waitUntil(logAuthEvent(c, { type: "email_verified", email: user.email }));
   return c.json({ message: "Email verified. Please log in again." });
 });
 
@@ -282,6 +288,9 @@ auth.post("/forgot-password", jsonValidator(emailOnlySchema), async (c) => {
     c.executionCtx.waitUntil(sendPasswordResetEmail(normalizedEmail, token, resendConfig(c.env)));
   }
 
+  // Logged for the attempted email regardless of account existence -- the audit
+  // trail records the request, but the response stays generic (no enumeration).
+  c.executionCtx.waitUntil(logAuthEvent(c, { type: "reset_request", email: normalizedEmail }));
   // Generic response regardless of account existence -- no email enumeration (spec 5.4).
   return c.json({ message: "If an account with that email exists, we've sent password reset instructions." });
 });
@@ -325,6 +334,7 @@ auth.post("/reset-password", jsonValidator(resetPasswordSchema), async (c) => {
     updatedAt: new Date(),
   });
 
+  c.executionCtx.waitUntil(logAuthEvent(c, { type: "reset_complete", email: user.email }));
   return c.json({ message: "Password reset. Please log in with your new password." });
 });
 

@@ -26,6 +26,11 @@ export interface Vars {
   /** Cloud name + API key are not secret (same as protfolio) -- plain vars. */
   CLOUDINARY_CLOUD_NAME: string;
   CLOUDINARY_API_KEY: string;
+  /**
+   * Comma-separated allowlist of admin email addresses. Not a credential --
+   * access still requires logging in as that account -- so a plain var is fine.
+   */
+  ADMIN_EMAILS?: string;
 }
 
 export type Env = Bindings & Secrets & Vars;

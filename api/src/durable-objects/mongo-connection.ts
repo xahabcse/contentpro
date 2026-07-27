@@ -1,7 +1,15 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Collection, Db, MongoClient } from "mongodb";
 import type { Env } from "../env";
-import type { NewUserInput, UserDocument, UserRecord, UserUpdateInput } from "../schema";
+import type {
+  AuthEventDocument,
+  AuthEventRecord,
+  NewAuthEventInput,
+  NewUserInput,
+  UserDocument,
+  UserRecord,
+  UserUpdateInput,
+} from "../schema";
 
 const DATABASE_NAME = "contentpro";
 // One retry after tearing down a dead connection -- covers Atlas-side connection
@@ -207,6 +215,47 @@ export class MongoConnectionDO extends DurableObject<Env> {
     const _id = await this.oid(id);
     await this.withDb(async (db) => {
       await this.users(db).updateOne({ _id }, { $set: update });
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // admin: user listing + deletion
+  // ---------------------------------------------------------------------
+
+  async listAllUsers(): Promise<UserRecord[]> {
+    return this.withDb(async (db) => {
+      const docs = await this.users(db).find({}).sort({ createdAt: -1 }).toArray();
+      return docs.map(toUserRecord);
+    });
+  }
+
+  async deleteUserById(id: string): Promise<boolean> {
+    const _id = await this.oid(id);
+    return this.withDb(async (db) => {
+      const result = await this.users(db).deleteOne({ _id });
+      return result.deletedCount === 1;
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // auth_events (best-effort audit trail; read-only via the admin API)
+  // ---------------------------------------------------------------------
+
+  async insertAuthEvent(event: NewAuthEventInput): Promise<void> {
+    await this.withDb(async (db) => {
+      await db.collection<AuthEventDocument>("auth_events").insertOne(event);
+    });
+  }
+
+  async listAuthEvents(limit: number): Promise<AuthEventRecord[]> {
+    return this.withDb(async (db) => {
+      const docs = await db
+        .collection<AuthEventDocument>("auth_events")
+        .find({})
+        .sort({ ts: -1 })
+        .limit(limit)
+        .toArray();
+      return docs.map(({ _id, ...rest }) => rest);
     });
   }
 

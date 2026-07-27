@@ -18,6 +18,11 @@ RESEND_FROM_EMAIL = "Cardstock <noreply@xahabcse.me>"
 CLOUDINARY_CLOUD_NAME = "drwezeylt"
 CLOUDINARY_API_KEY = "115224732881292"
 
+# Admin allowlist (comma-separated). Not a credential -- access still requires
+# logging in as one of these accounts; this just flags which sessions may reach
+# the /api/admin/* routes.
+ADMIN_EMAILS = "sujoncep@gmail.com"
+
 # KV namespace binding -- resend-verification / forgot-password rate-limit
 # tracking (spec sections 5.3/5.4).
 [[kv_namespaces]]
