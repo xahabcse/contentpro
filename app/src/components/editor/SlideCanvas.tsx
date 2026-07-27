@@ -204,9 +204,11 @@ function footer(c: Ctx, fd: FooterData, u: number, compact?: boolean): ReactNode
         <>
           {/* vertical divider marking author | company as separate sections */}
           <div aria-hidden style={{ flex: 'none', width: Math.max(1, 1.5 * u), height: 44 * u, borderRadius: 999, background: dim(c.text, 20) }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 11 * u, flex: 'none', maxWidth: 300 * u }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11 * u, flex: '0 1 auto', minWidth: 0, maxWidth: 380 * c.uF }}>
             {fd.companyLogo ? <img src={fd.companyLogo} alt="" crossOrigin="anonymous" style={{ width: (compact ? 34 : 38) * u, height: (compact ? 34 : 38) * u, borderRadius: 9 * u, objectFit: 'contain', background: '#FFFFFF', padding: 5 * u, flex: 'none' }} /> : null}
-            {fd.companyName ? <span style={{ ...clip, font: `600 ${14.5 * c.uF}px/1.2 'Space Grotesk'`, color: dim(c.text, 72), maxWidth: 210 * u }}>{fd.companyName}</span> : null}
+            {/* maxWidth scales with the footer size (uF) so enlarging the footer
+                grows the box too, instead of clipping the name to "Company Li…" */}
+            {fd.companyName ? <span style={{ ...clip, font: `600 ${14.5 * c.uF}px/1.2 'Space Grotesk'`, color: dim(c.text, 72), maxWidth: 320 * c.uF }}>{fd.companyName}</span> : null}
           </div>
         </>
       ) : null}
