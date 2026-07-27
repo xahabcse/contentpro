@@ -97,75 +97,107 @@ export default function DashboardPage() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not restore that file.'); }
   }
 
-  const imageCount = designs.filter((d) => d.type === 'card').length;
-  const pdfCount = designs.filter((d) => d.type === 'carousel').length;
+  const cardCount = designs.filter((d) => d.type === 'card').length;
+  const carouselCount = designs.filter((d) => d.type === 'carousel').length;
+  const countLine = designs.length
+    ? [cardCount ? `${cardCount} card${cardCount === 1 ? '' : 's'}` : '', carouselCount ? `${carouselCount} carousel${carouselCount === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')
+    : '';
 
   return (
     <AppShell title="Your designs">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
-        <div className="card-surface" style={{ padding: 16 }}>
-          <div style={{ fontSize: 24, fontWeight: 800 }}>{imageCount}</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Cards</div>
-        </div>
-        <div className="card-surface" style={{ padding: 16 }}>
-          <div style={{ fontSize: 24, fontWeight: 800 }}>{pdfCount}</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Carousels</div>
-        </div>
-      </div>
-
       {error && <p className="error-text" role="alert" style={{ marginBottom: 12 }}>{error}</p>}
       {note && <p className="pill pill-brand" role="status" style={{ marginBottom: 12 }}>{note}</p>}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-        <button className="btn btn-primary" onClick={() => handleCreate('card')}>+ New Single Card</button>
-        <button className="btn btn-outline" onClick={() => handleCreate('carousel')}>+ New Carousel</button>
+      {/* create actions */}
+      <div className="dash-create">
+        <button className="dash-tile dash-tile-primary" onClick={() => handleCreate('card')}>
+          <span className="dash-tile-ic" style={{ background: 'rgba(27,22,14,0.12)' }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" /><path d="M7.5 15.5l3-3.5 2.3 2.5L16 11" /></svg>
+          </span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', font: '800 17px/1.1 var(--font-display)', color: 'var(--ink)' }}>New card</span>
+            <span style={{ display: 'block', marginTop: 3, font: '500 12px/1.3 var(--font-ui)', color: 'rgba(27,22,14,0.62)' }}>Single square post · 1080×1080</span>
+          </span>
+        </button>
+        <button className="dash-tile" onClick={() => handleCreate('carousel')}>
+          <span className="dash-tile-ic" style={{ background: 'var(--surface)', border: '1px solid var(--line)' }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="7.5" y="4.5" width="13" height="15" rx="2.5" /><path d="M4.5 7v10" opacity="0.5" /><path d="M2 9v6" opacity="0.28" /></svg>
+          </span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', font: '800 17px/1.1 var(--font-display)', color: 'var(--ink)' }}>New carousel</span>
+            <span style={{ display: 'block', marginTop: 3, font: '500 12px/1.3 var(--font-ui)', color: 'var(--muted)' }}>Multi-slide swipe deck · up to 15</span>
+          </span>
+        </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-        <button className="btn btn-outline" style={{ width: 'auto', height: 40, padding: '0 16px', fontSize: 13 }} onClick={handleBackup}>⭳ Back up designs</button>
-        <button className="btn btn-outline" style={{ width: 'auto', height: 40, padding: '0 16px', fontSize: 13 }} onClick={() => restoreInput.current?.click()}>⭱ Restore</button>
-        <input ref={restoreInput} type="file" accept="application/json" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRestore(f); e.currentTarget.value = ''; }} />
+      {/* saved-designs header + toolbar */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 6 }}>
+        <div>
+          <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0, fontFamily: 'var(--font-display)' }}>Saved designs</h2>
+          {countLine ? <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 3 }}>{countLine}</div> : null}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="dash-ghost" onClick={handleBackup} title="Download a JSON backup of all designs">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12" /><path d="M7 11l5 5 5-5" /><path d="M4 20h16" /></svg>
+            Back up
+          </button>
+          <button className="dash-ghost" onClick={() => restoreInput.current?.click()} title="Restore designs from a backup file">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21V9" /><path d="M7 13l5-5 5 5" /><path d="M4 4h16" /></svg>
+            Restore
+          </button>
+          <input ref={restoreInput} type="file" accept="application/json" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRestore(f); e.currentTarget.value = ''; }} />
+        </div>
       </div>
-      <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 24 }}>
-        Designs are saved <strong>in this browser only</strong> — they don't sync across devices. Back up to keep or move them.
+      <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 20px' }}>
+        Saved <strong>in this browser only</strong> — they don't sync across devices. Back up to keep or move them.
       </p>
 
-      <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Saved designs</h2>
-      {!designs.length && <p style={{ color: 'var(--muted)', fontSize: 14 }}>No designs yet — create your first one above.</p>}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 190px)', gap: 14, justifyContent: 'flex-start' }}>
-        {designs.map((d) => {
-          const cv = canvasSize(d.type);
-          const colors = resolveColors(d.paletteId, { bg: d.customBg, text: d.customText, accent: d.customAccent });
-          const first = d.slides[0];
-          const slide: ResolvedSlide = { template: first.template, fields: first.fields, bgImage: first.bgImageId ? bgUrls[first.bgImageId] ?? null : null };
-          const THUMB_W = 190;
-          return (
-            <div key={d.id} className="card-surface" style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', width: THUMB_W }}>
-              <button onClick={() => navigate('/designs/' + d.id)} style={{ border: 'none', padding: 0, cursor: 'pointer', background: '#000', display: 'block' }}>
-                <div style={{ width: THUMB_W, height: THUMB_W * (cv.h / cv.w), position: 'relative', overflow: 'hidden' }}>
-                  <div style={{ width: cv.w, height: cv.h, transform: `scale(${THUMB_W / cv.w})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-                    <SlideCanvas slide={slide} colors={colors} footer={footerData} width={cv.w} height={cv.h} />
+      {!designs.length ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center', padding: '52px 24px', border: '1.5px dashed var(--line-2)', borderRadius: 18, color: 'var(--muted)' }}>
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" /><path d="M8 14l2.5-3 2 2.2L15 10l1.5 1.8" /></svg>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>No designs yet</div>
+          <div style={{ fontSize: 13.5, maxWidth: 320 }}>Create your first card or carousel above — it takes about a minute.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 208px)', gap: 16, justifyContent: 'flex-start' }}>
+          {designs.map((d) => {
+            const cv = canvasSize(d.type);
+            const colors = resolveColors(d.paletteId, { bg: d.customBg, text: d.customText, accent: d.customAccent });
+            const first = d.slides[0];
+            const slide: ResolvedSlide = { template: first.template, fields: first.fields, bgImage: first.bgImageId ? bgUrls[first.bgImageId] ?? null : null };
+            const THUMB_W = 208;
+            return (
+              <div key={d.id} className="dash-card">
+                <button className="dash-thumb" onClick={() => navigate('/designs/' + d.id)} aria-label={`Open ${d.title || 'Untitled'}`}>
+                  <span className="dash-badge">{d.type === 'card' ? 'Card' : `Deck · ${d.slides.length}`}</span>
+                  <div style={{ width: THUMB_W, height: THUMB_W * (cv.h / cv.w), position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ width: cv.w, height: cv.h, transform: `scale(${THUMB_W / cv.w})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+                      <SlideCanvas slide={slide} colors={colors} footer={footerData} width={cv.w} height={cv.h} />
+                    </div>
                   </div>
-                </div>
-              </button>
-              <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title || 'Untitled'}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{d.type === 'card' ? 'Card' : `Carousel · ${d.slides.length}`} · {new Date(d.updatedAt).toLocaleDateString()}</div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <button className="btn btn-outline" style={{ width: '100%', height: 32, padding: '0 10px', fontSize: 12 }} onClick={() => navigate('/designs/' + d.id)}>Open</button>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn btn-outline" style={{ width: 'auto', height: 32, padding: '0 10px', fontSize: 12, flex: 1 }} title="Make a copy" onClick={() => handleDuplicate(d.id)}>Duplicate</button>
-                    <button className="btn btn-outline" style={{ width: 'auto', height: 32, padding: '0 10px', fontSize: 12, flex: 1, color: 'var(--danger)' }} onClick={() => handleDelete(d.id)}>Delete</button>
+                  <span className="dash-thumb-overlay">Open ↗</span>
+                </button>
+                <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title || 'Untitled'}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{new Date(d.updatedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 7 }}>
+                    <button className="dash-act" title="Make a copy" onClick={() => handleDuplicate(d.id)}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>
+                      Duplicate
+                    </button>
+                    <button className="dash-act dash-act-danger" title="Delete this design" onClick={() => handleDelete(d.id)}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /></svg>
+                      Delete
+                    </button>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </AppShell>
   );
 }
