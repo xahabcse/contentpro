@@ -64,6 +64,16 @@ function autofit(text: string, buckets: Array<[number, number]>): number {
   return buckets[buckets.length - 1][1];
 }
 
+// Adaptive display-heading style: punchy (heavier, tighter) for a short/large
+// headline, lighter + more line-gap when it's long (autofit shrank it) so long
+// copy never reads as a dense heavy block. `hi` = the template's top bucket px.
+function headType(size: number, hi: number): { w: number; lh: number; ls: string } {
+  const r = hi > 0 ? size / hi : 1;
+  if (r >= 0.82) return { w: 800, lh: 1.03, ls: '-.022em' };
+  if (r >= 0.58) return { w: 800, lh: 1.07, ls: '-.016em' };
+  return { w: 700, lh: 1.12, ls: '-.01em' };
+}
+
 // Parse a leading percentage from a stat string ("68%", "up 68% YoY") for the
 // bar/ring fill. Returns null when there's no percent to derive a fill from.
 function parsePct(s: string): number | null {
@@ -298,7 +308,9 @@ function r_announce(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: nu
   ], { bgImage: c.bgImage });
 }
 function r_question(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
-  const q = txt(f, 'question');
+  // Drop any trailing '?' the user typed so the accent mark we append never
+  // doubles up ("... year? ?").
+  const q = txt(f, 'question').replace(/[\s?]+$/, '');
   return frame(c, [
     <div key="w" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0, overflow: 'hidden' }}>
       {eyebrow(c, txt(f, 'kicker'), u)}
@@ -351,9 +363,11 @@ function r_framework(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: n
 }
 function r_cta(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
   const hl = txt(f, 'headline');
+  const s = autofit(hl, [[40, 84], [80, 70], [Infinity, 56]]);
+  const ht = headType(s, 84);
   return frame(c, [
     <div key="w" style={{ flex: 1, display: 'flex', alignItems: 'center', minHeight: 0, overflow: 'hidden' }}>
-      <div style={{ font: `900 ${autofit(hl, [[40, 84], [80, 70], [Infinity, 56]]) * c.uH}px/1.02 Archivo`, letterSpacing: '-.025em' }}>{highlightNodes(hl, txt(f, 'highlight'), c, u)}</div>
+      <div style={{ font: `${ht.w} ${s * c.uH}px/${ht.lh} Archivo`, letterSpacing: ht.ls }}>{highlightNodes(hl, txt(f, 'highlight'), c, u)}</div>
     </div>,
     <div key="btn" style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 14 * u, background: c.accent, color: c.bg, font: `800 ${32 * c.uB}px/1 Archivo`, padding: `${26 * u}px ${40 * u}px`, borderRadius: 999, marginBottom: 12 * u }}>{txt(f, 'buttonText')}<Icon name="arrow" size={30 * u} color={c.bg} /></div>,
     footer(c, fd, u, true),
@@ -495,12 +509,14 @@ function r_myth(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number
 function r_divider(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
   const title = txt(f, 'title');
   const idx = txt(f, 'index');
+  const ts = autofit(title, [[30, 96], [60, 78], [Infinity, 62]]);
+  const tt = headType(ts, 96);
   return frame(c, [
     <div key="mk" style={{ position: 'absolute', top: 0, right: 0 }}><Icon name="plus" size={40 * u} color={dim(c.accent, 70)} /></div>,
     <div key="w" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0, overflow: 'hidden' }}>
       {idx ? <div style={{ font: `900 ${120 * c.uH}px/.9 Archivo`, color: dim(c.accent, 90), letterSpacing: '-.04em' }}>{idx}</div> : null}
       <div style={{ width: 90 * u, height: 5 * u, background: c.accent, borderRadius: 999, margin: `${28 * u}px 0` }} />
-      <div style={{ font: `900 ${autofit(title, [[30, 96], [60, 78], [Infinity, 62]]) * c.uH}px/1 Archivo`, letterSpacing: '-.03em' }}>{title}</div>
+      <div style={{ font: `${tt.w} ${ts * c.uH}px/${tt.lh} Archivo`, letterSpacing: tt.ls }}>{title}</div>
       {txt(f, 'subtitle') ? <div style={{ font: `500 ${30 * c.uB}px/1.3 'Space Grotesk'`, color: dim(c.text, 66), marginTop: 24 * u, maxWidth: '80%' }}>{txt(f, 'subtitle')}</div> : null}
     </div>,
     footer(c, fd, u, true),
@@ -545,10 +561,12 @@ function r_bignum(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: numb
 }
 function r_closing(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
   const title = txt(f, 'title');
+  const ts = autofit(title, [[30, 90], [60, 74], [Infinity, 58]]);
+  const tt = headType(ts, 90);
   return frame(c, [
     <div key="w" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: 0, overflow: 'hidden' }}>
       <Icon name="star" size={56 * u} color={c.accent} />
-      <div style={{ font: `900 ${autofit(title, [[30, 90], [60, 74], [Infinity, 58]]) * c.uH}px/1.02 Archivo`, letterSpacing: '-.02em', marginTop: 28 * u }}>{title}</div>
+      <div style={{ font: `${tt.w} ${ts * c.uH}px/${tt.lh} Archivo`, letterSpacing: tt.ls, marginTop: 28 * u }}>{title}</div>
       {txt(f, 'subtitle') ? <div style={{ font: `500 ${32 * c.uB}px/1.3 'Space Grotesk'`, color: dim(c.text, 72), marginTop: 24 * u, maxWidth: '78%' }}>{txt(f, 'subtitle')}</div> : null}
       {txt(f, 'cta') ? <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 * u, background: c.accent, color: c.bg, font: `800 ${28 * c.uB}px/1 'Space Grotesk'`, padding: `${22 * u}px ${36 * u}px`, borderRadius: 999, marginTop: 40 * u }}>{txt(f, 'cta')}</div> : null}
     </div>,
@@ -592,13 +610,13 @@ function r_stattrio(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: nu
   const items = list(f, 'items');
   return frame(c, [
     eyebrow(c, txt(f, 'label'), u),
-    <div key="g" style={{ flex: 1, display: 'flex', alignItems: 'stretch', gap: 26 * u, marginTop: 40 * u, minHeight: 0, overflow: 'hidden' }}>
+    <div key="g" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 24 * u, marginTop: 40 * u, minHeight: 0, overflow: 'hidden' }}>
       {items.map((it, i) => {
         const parts = String(it).split(' — ');
         const value = parts[0];
         const lbl = parts.slice(1).join(' — ');
         return (
-          <div key={i} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18 * u, borderRadius: 20 * u, padding: `${30 * u}px ${26 * u}px`, background: dim(c.text, 6), border: `${2 * u}px solid ${dim(c.text, 14)}` }}>
+          <div key={i} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 * u, borderRadius: 20 * u, padding: `${40 * u}px ${28 * u}px`, background: dim(c.text, 6), border: `${2 * u}px solid ${dim(c.text, 14)}` }}>
             <div style={{ font: `900 ${autofit(value, [[3, 88], [5, 64], [Infinity, 48]]) * c.uH}px/.9 Archivo`, letterSpacing: '-.03em', color: c.accent }}>{value}</div>
             <div style={{ width: 42 * u, height: 4 * u, background: dim(c.accent, 55), borderRadius: 999 }} />
             <div style={{ font: `600 ${autofit(lbl, [[30, 25], [Infinity, 20]]) * c.uB}px/1.24 'Space Grotesk'`, color: dim(c.text, 80) }}>{lbl}</div>
@@ -613,11 +631,13 @@ function r_definition(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: 
   const term = txt(f, 'term');
   const meaning = txt(f, 'meaning');
   const pron = txt(f, 'pronunciation');
+  const ts = autofit(term, [[12, 108], [20, 82], [Infinity, 62]]);
+  const tt = headType(ts, 108);
   return frame(c, [
     eyebrow(c, txt(f, 'label'), u),
     <div key="w" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 24 * u, flexWrap: 'wrap' }}>
-        <div style={{ font: `900 ${autofit(term, [[12, 108], [20, 82], [Infinity, 62]]) * c.uH}px/1 Archivo`, letterSpacing: '-.03em' }}>{term}</div>
+        <div style={{ font: `${tt.w} ${ts * c.uH}px/${tt.lh} Archivo`, letterSpacing: tt.ls }}>{term}</div>
         {pron ? <div style={{ font: `400 ${34 * c.uB}px/1 Newsreader`, fontStyle: 'italic', color: dim(c.text, 55) }}>{pron}</div> : null}
       </div>
       <div style={{ width: 90 * u, height: 5 * u, background: c.accent, borderRadius: 999, margin: `${30 * u}px 0` }} />
