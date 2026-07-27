@@ -54,13 +54,37 @@ export default function LandingPage() {
   function scrollSlider(dir: 1 | -1) {
     const el = sliderRef.current;
     if (!el) return;
-    el.scrollBy({ left: dir * Math.max(320, el.clientWidth * 0.8), behavior: 'smooth' });
+    const step = el.scrollWidth / Math.max(1, el.children.length);
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
   }
+
+  // Auto-advance the template rack one card at a time; loop at the end. Pauses
+  // while the pointer is over it so a browsing visitor keeps control.
+  useEffect(() => {
+    const el = sliderRef.current;
+    if (!el) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let paused = false;
+    const enter = () => { paused = true; };
+    const leave = () => { paused = false; };
+    el.addEventListener('pointerenter', enter);
+    el.addEventListener('pointerleave', leave);
+    const id = window.setInterval(() => {
+      if (paused) return;
+      const step = el.scrollWidth / Math.max(1, el.children.length);
+      if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 12) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: step, behavior: 'smooth' });
+      }
+    }, 2600);
+    return () => { window.clearInterval(id); el.removeEventListener('pointerenter', enter); el.removeEventListener('pointerleave', leave); };
+  }, []);
 
   const cta = user ? { to: '/dashboard', label: 'Open your dashboard' } : { to: '/signup', label: 'Start for free' };
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)', color: 'var(--ink)', overflowX: 'clip' }}>
+    <div style={{ position: 'relative', minHeight: '100vh', background: 'radial-gradient(1000px 520px at 82% -12%, rgba(242,183,5,0.16), transparent 60%), radial-gradient(760px 520px at 4% 4%, rgba(27,22,14,0.055), transparent 55%), linear-gradient(180deg, #f6f0e2 0%, #efe8d8 38%)', color: 'var(--ink)', overflowX: 'clip' }}>
       <div className="lp-grain" />
 
       {/* ---- nav ---- */}

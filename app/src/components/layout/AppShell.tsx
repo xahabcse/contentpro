@@ -62,6 +62,7 @@ export default function AppShell({ title, children }: AppShellProps) {
 
           {/* desktop inline nav */}
           <nav className="app-nav-inline">
+            <Link to="/" style={inlineLinkStyle}>Home</Link>
             <Link to="/dashboard" style={inlineLinkStyle}>Dashboard</Link>
             <Link to="/settings/profile" style={inlineLinkStyle}>Profile &amp; Company</Link>
             <Link to="/about" style={inlineLinkStyle}>About</Link>
@@ -105,6 +106,7 @@ export default function AppShell({ title, children }: AppShellProps) {
               gap: 4,
             }}
           >
+            <Link to="/" onClick={() => setMenuOpen(false)} style={navLinkStyle}>Home</Link>
             <Link to="/dashboard" onClick={() => setMenuOpen(false)} style={navLinkStyle}>Dashboard</Link>
             <Link to="/settings/profile" onClick={() => setMenuOpen(false)} style={navLinkStyle}>Profile &amp; Company Settings</Link>
             <Link to="/about" onClick={() => setMenuOpen(false)} style={navLinkStyle}>About</Link>
