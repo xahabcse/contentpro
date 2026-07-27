@@ -315,7 +315,7 @@ function r_question(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: nu
     <div key="w" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0, overflow: 'hidden' }}>
       {eyebrow(c, txt(f, 'kicker'), u)}
       <div style={{ font: `800 ${autofit(q, [[45, 76], [85, 64], [140, 52], [Infinity, 44]]) * c.uH}px/1.06 Archivo`, letterSpacing: '-.02em', marginTop: 24 * u }}>
-        {highlightNodes(q, txt(f, 'highlight'), c, u)}<span style={{ color: c.accent }}>{' ?'}</span>
+        {highlightNodes(q, txt(f, 'highlight'), c, u)}<span style={{ color: c.accent }}>{' ?'}</span>
       </div>
     </div>,
     footer(c, fd, u, true),
