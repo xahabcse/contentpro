@@ -131,8 +131,12 @@ function frame(c: Ctx, children: ReactNode, opts: { pad?: number; bgImage?: stri
     layers.push(<img key="img" src={opts.bgImage} alt="" crossOrigin="anonymous" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />);
     layers.push(<div key="scrim" style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg, ${dim(c.bg, 55)} 0%, ${dim(c.bg, 88)} 100%)` }} />);
   }
+  // Tighter horizontal margins than vertical so the content gets more usable
+  // width (less dead side-space) while keeping comfortable top/bottom breathing.
+  const padY = opts.pad != null ? opts.pad : 96;
+  const padX = opts.pad != null ? Math.round(opts.pad * 0.82) : 74;
   return (
-    <div style={{ position: 'relative', width: c.w, height: c.h, background: c.bg, color: c.text, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: opts.pad != null ? opts.pad : 96, fontFamily: 'Archivo, sans-serif', boxSizing: 'border-box' }}>
+    <div style={{ position: 'relative', width: c.w, height: c.h, background: c.bg, color: c.text, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: `${padY}px ${padX}px`, fontFamily: 'Archivo, sans-serif', boxSizing: 'border-box' }}>
       {layers}
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>{children}</div>
     </div>
@@ -178,7 +182,7 @@ function footer(c: Ctx, fd: FooterData, u: number, compact?: boolean): ReactNode
   const hasCompany = !!(fd.companyName || fd.companyLogo);
   const clip: CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
   return (
-    <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 * u, paddingTop: 26 * u, borderTop: `${1 * u}px solid ${dim(c.text, 13)}` }}>
+    <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 * u, paddingTop: 26 * u }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 15 * u, minWidth: 0 }}>
         {avatar}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 * u, minWidth: 0, fontFamily: "'Space Grotesk',sans-serif" }}>
@@ -187,10 +191,14 @@ function footer(c: Ctx, fd: FooterData, u: number, compact?: boolean): ReactNode
         </div>
       </div>
       {hasCompany ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11 * u, flex: 'none', maxWidth: 300 * u }}>
-          {fd.companyLogo ? <img src={fd.companyLogo} alt="" crossOrigin="anonymous" style={{ width: (compact ? 34 : 38) * u, height: (compact ? 34 : 38) * u, borderRadius: 9 * u, objectFit: 'contain', background: '#FFFFFF', padding: 5 * u, flex: 'none' }} /> : null}
-          {fd.companyName ? <span style={{ ...clip, font: `600 ${14.5 * c.uF}px/1.2 'Space Grotesk'`, color: dim(c.text, 72), maxWidth: 210 * u }}>{fd.companyName}</span> : null}
-        </div>
+        <>
+          {/* vertical divider marking author | company as separate sections */}
+          <div aria-hidden style={{ flex: 'none', width: Math.max(1, 1.5 * u), height: 44 * u, borderRadius: 999, background: dim(c.text, 20) }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11 * u, flex: 'none', maxWidth: 300 * u }}>
+            {fd.companyLogo ? <img src={fd.companyLogo} alt="" crossOrigin="anonymous" style={{ width: (compact ? 34 : 38) * u, height: (compact ? 34 : 38) * u, borderRadius: 9 * u, objectFit: 'contain', background: '#FFFFFF', padding: 5 * u, flex: 'none' }} /> : null}
+            {fd.companyName ? <span style={{ ...clip, font: `600 ${14.5 * c.uF}px/1.2 'Space Grotesk'`, color: dim(c.text, 72), maxWidth: 210 * u }}>{fd.companyName}</span> : null}
+          </div>
+        </>
       ) : null}
     </div>
   );
