@@ -415,6 +415,11 @@ h3 {
 .cp-right {
   width: 392px;
   flex: 0 0 392px;
+  /* This panel is the scroll container (overflow-y:auto). It MUST be positioned
+     so its absolutely-positioned descendants (palette swatches, etc.) are
+     clipped by it and don't extend the document's scroll height -- otherwise
+     the whole editor page scrolls instead of just this panel. */
+  position: relative;
 }
 /* On mid-size desktops keep the side panels from crowding the canvas out. */
 @media (max-width: 1180px) and (min-width: 901px) {
