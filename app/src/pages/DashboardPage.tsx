@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [bgUrls, setBgUrls] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<LocalDesign | null>(null);
   const restoreInput = useRef<HTMLInputElement>(null);
 
   function reload() { setDesigns(listDesigns()); }
@@ -41,6 +42,14 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [designs]);
 
+  // Esc closes the delete confirmation modal.
+  useEffect(() => {
+    if (!pendingDelete) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPendingDelete(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [pendingDelete]);
+
   const footerData: FooterData = {
     name: profile.name ?? '',
     handle: profile.handle ?? '',
@@ -65,9 +74,11 @@ export default function DashboardPage() {
       setError(e instanceof Error ? e.message : 'Could not create the design.');
     }
   }
-  async function handleDelete(id: string) {
-    if (!confirm('Delete this design? It is removed from this browser only.')) return;
-    await deleteDesign(id);
+  async function confirmDelete() {
+    const target = pendingDelete;
+    if (!target) return;
+    setPendingDelete(null);
+    await deleteDesign(target.id);
     reload();
   }
   async function handleDuplicate(id: string) {
@@ -187,7 +198,7 @@ export default function DashboardPage() {
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>
                       Duplicate
                     </button>
-                    <button className="dash-act dash-act-danger" title="Delete this design" onClick={() => handleDelete(d.id)}>
+                    <button className="dash-act dash-act-danger" title="Delete this design" onClick={() => setPendingDelete(d)}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /></svg>
                       Delete
                     </button>
@@ -196,6 +207,35 @@ export default function DashboardPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {pendingDelete && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="del-title"
+          onClick={() => setPendingDelete(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(27,22,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'dash-fade .15s ease' }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 400, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 18, padding: 24, boxShadow: '0 30px 80px rgba(27,22,14,0.3)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <span style={{ width: 40, height: 40, borderRadius: 11, flex: 'none', background: 'rgba(225,64,43,0.12)', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /></svg>
+              </span>
+              <h3 id="del-title" style={{ margin: 0, fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-display)' }}>Delete this design?</h3>
+            </div>
+            <p style={{ margin: '0 0 20px', fontSize: 14, lineHeight: 1.5, color: 'var(--muted)' }}>
+              <strong style={{ color: 'var(--ink)' }}>{pendingDelete.title || 'Untitled'}</strong> will be permanently removed from this browser. This can't be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline" style={{ width: 'auto', height: 42, padding: '0 18px', fontSize: 14 }} onClick={() => setPendingDelete(null)}>Cancel</button>
+              <button className="btn" style={{ width: 'auto', height: 42, padding: '0 20px', fontSize: 14, background: 'var(--danger)', color: '#fff' }} onClick={confirmDelete} autoFocus>Delete</button>
+            </div>
+          </div>
         </div>
       )}
     </AppShell>

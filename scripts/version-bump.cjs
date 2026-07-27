@@ -51,7 +51,12 @@ function classify(messages) {
   const real = messages.filter((m) => !/^chore\(release\):/i.test(m));
   if (real.length === 0) return 'none';
   const isMajor = real.some((m) => /^[a-z]+(\([^)]*\))?!:/i.test(m) || /BREAKING[ -]CHANGE/.test(m));
-  return isMajor ? 'major' : 'minor';
+  if (isMajor) return 'major';
+  // Only a real feature (`feat:`) bumps the minor version. Fixes, docs, chores,
+  // refactors etc. don't move it -- keeps the version meaningful instead of
+  // ticking up on every small change.
+  const isFeat = real.some((m) => /^feat(\([^)]*\))?!?:/i.test(m));
+  return isFeat ? 'minor' : 'none';
 }
 
 function nextVersion(current, kind) {
