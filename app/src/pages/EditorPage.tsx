@@ -205,7 +205,11 @@ export default function EditorPage() {
   function setPalette(pid: string) { patch({ paletteId: pid, customBg: null, customText: null, customAccent: null }); }
   // Clamp the global text-size multiplier to a safe range so it can never blow
   // the layout apart or shrink copy into illegibility.
-  function setTextScale(v: number) { patch({ textScale: Math.max(0.7, Math.min(1.4, Math.round(v * 100) / 100)) }); }
+  const clampScale = (v: number) => Math.max(0.7, Math.min(1.4, Math.round(v * 100) / 100));
+  function setTextScale(v: number) { patch({ textScale: clampScale(v) }); }
+  // Functional delta so rapid successive taps compound correctly (each reads the
+  // live value, not a stale render-time closure).
+  function bumpTextScale(delta: number) { setDesign((d) => (d ? { ...d, textScale: clampScale((d.textScale ?? 1) + delta) } : d)); }
   function setAuthorOverride(k: 'name' | 'handle', v: string) { setDesign((d) => (d ? { ...d, authorOverride: { ...d.authorOverride, [k]: v } } : d)); }
   function resetAuthor() { setDesign((d) => (d ? { ...d, authorOverride: undefined } : d)); }
   function addSlide() {
@@ -360,9 +364,9 @@ export default function EditorPage() {
           <span style={{ font: "700 12px/1 'Space Grotesk'", color: 'var(--c-dim2)' }}>{Math.round(textScale * 100)}%</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => setTextScale(textScale - 0.05)} disabled={textScale <= 0.7} aria-label="Decrease text size" style={txtStepBtn(textScale <= 0.7)}>A−</button>
+          <button onClick={() => bumpTextScale(-0.05)} disabled={textScale <= 0.7} aria-label="Decrease text size" style={txtStepBtn(textScale <= 0.7)}>A−</button>
           <input type="range" min={0.7} max={1.4} step={0.05} value={textScale} onChange={(e) => setTextScale(parseFloat(e.target.value))} aria-label="Text size" style={{ flex: 1, accentColor: 'var(--c-accent)', cursor: 'pointer' }} />
-          <button onClick={() => setTextScale(textScale + 0.05)} disabled={textScale >= 1.4} aria-label="Increase text size" style={txtStepBtn(textScale >= 1.4)}>A+</button>
+          <button onClick={() => bumpTextScale(0.05)} disabled={textScale >= 1.4} aria-label="Increase text size" style={txtStepBtn(textScale >= 1.4)}>A+</button>
           {Math.abs(textScale - 1) > 0.001 ? <button onClick={() => setTextScale(1)} style={linkBtn} title="Reset to 100%">Reset</button> : null}
         </div>
         <div style={{ marginTop: 8, font: "500 11px/1.4 'Space Grotesk'", color: 'var(--c-dim)' }}>Scales all text on {isCar ? 'every slide' : 'this card'}.</div>
@@ -534,8 +538,11 @@ export default function EditorPage() {
 
       {isMobile ? mobileBody : desktopBody}
 
-      {/* offscreen export pool (full size, untransformed) */}
-      <div aria-hidden="true" style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none', opacity: 0 }}>
+      {/* offscreen export pool (full size, untransformed). Zero-sized +
+          overflow:hidden so the full-size slide nodes it holds never add to the
+          document's scrollable height (html2canvas renders each node directly,
+          so the clipping here doesn't affect the export). */}
+      <div aria-hidden="true" style={{ position: 'fixed', left: -99999, top: 0, width: 0, height: 0, overflow: 'hidden', pointerEvents: 'none', opacity: 0 }}>
         {design.slides.map((s, i) => (
           <div key={i} ref={(n) => { exportRefs.current[i] = n; }}>
             <SlideCanvas slide={resolveSlide(s)} colors={colors} footer={footerData} width={cv.w} height={cv.h} textScale={textScale} />
