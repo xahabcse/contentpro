@@ -133,13 +133,13 @@ export default function DashboardPage() {
       <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Saved designs</h2>
       {!designs.length && <p style={{ color: 'var(--muted)', fontSize: 14 }}>No designs yet — create your first one above.</p>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 172px)', gap: 14, justifyContent: 'flex-start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 190px)', gap: 14, justifyContent: 'flex-start' }}>
         {designs.map((d) => {
           const cv = canvasSize(d.type);
           const colors = resolveColors(d.paletteId, { bg: d.customBg, text: d.customText, accent: d.customAccent });
           const first = d.slides[0];
           const slide: ResolvedSlide = { template: first.template, fields: first.fields, bgImage: first.bgImageId ? bgUrls[first.bgImageId] ?? null : null };
-          const THUMB_W = 172;
+          const THUMB_W = 190;
           return (
             <div key={d.id} className="card-surface" style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', width: THUMB_W }}>
               <button onClick={() => navigate('/designs/' + d.id)} style={{ border: 'none', padding: 0, cursor: 'pointer', background: '#000', display: 'block' }}>
@@ -154,10 +154,12 @@ export default function DashboardPage() {
                   <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title || 'Untitled'}</div>
                   <div style={{ fontSize: 11, color: 'var(--muted)' }}>{d.type === 'card' ? 'Card' : `Carousel · ${d.slides.length}`} · {new Date(d.updatedAt).toLocaleDateString()}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-outline" style={{ width: 'auto', height: 32, padding: '0 10px', fontSize: 12, flex: 1 }} onClick={() => navigate('/designs/' + d.id)}>Open</button>
-                  <button className="btn btn-outline" style={{ width: 'auto', height: 32, padding: '0 10px', fontSize: 12 }} title="Make a copy" onClick={() => handleDuplicate(d.id)}>Duplicate</button>
-                  <button className="btn btn-outline" style={{ width: 'auto', height: 32, padding: '0 10px', fontSize: 12, color: 'var(--danger)' }} onClick={() => handleDelete(d.id)}>Delete</button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <button className="btn btn-outline" style={{ width: '100%', height: 32, padding: '0 10px', fontSize: 12 }} onClick={() => navigate('/designs/' + d.id)}>Open</button>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button className="btn btn-outline" style={{ width: 'auto', height: 32, padding: '0 10px', fontSize: 12, flex: 1 }} title="Make a copy" onClick={() => handleDuplicate(d.id)}>Duplicate</button>
+                    <button className="btn btn-outline" style={{ width: 'auto', height: 32, padding: '0 10px', fontSize: 12, flex: 1, color: 'var(--danger)' }} onClick={() => handleDelete(d.id)}>Delete</button>
+                  </div>
                 </div>
               </div>
             </div>

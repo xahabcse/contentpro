@@ -57,8 +57,10 @@ export interface LocalDesign {
   customBg?: string | null;
   customText?: string | null;
   customAccent?: string | null;
-  /** Global text-size multiplier applied to every slide (1 = default). */
-  textScale?: number;
+  /** Independent text-size multipliers (1 = default), applied to every slide. */
+  headingScale?: number;
+  bodyScale?: number;
+  footerScale?: number;
   authorOverride?: AuthorOverride;
   slides: Slide[];
   createdAt: number;

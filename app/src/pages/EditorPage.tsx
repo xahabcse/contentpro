@@ -203,13 +203,13 @@ export default function EditorPage() {
     }));
   }
   function setPalette(pid: string) { patch({ paletteId: pid, customBg: null, customText: null, customAccent: null }); }
-  // Clamp the global text-size multiplier to a safe range so it can never blow
-  // the layout apart or shrink copy into illegibility.
+  // Clamp a text-size multiplier to a safe range so it can never blow the
+  // layout apart or shrink copy into illegibility.
   const clampScale = (v: number) => Math.max(0.7, Math.min(1.4, Math.round(v * 100) / 100));
-  function setTextScale(v: number) { patch({ textScale: clampScale(v) }); }
+  type ScaleKey = 'headingScale' | 'bodyScale' | 'footerScale';
   // Functional delta so rapid successive taps compound correctly (each reads the
   // live value, not a stale render-time closure).
-  function bumpTextScale(delta: number) { setDesign((d) => (d ? { ...d, textScale: clampScale((d.textScale ?? 1) + delta) } : d)); }
+  function bumpScale(key: ScaleKey, delta: number) { setDesign((d) => (d ? { ...d, [key]: clampScale((d[key] ?? 1) + delta) } : d)); }
   function setAuthorOverride(k: 'name' | 'handle', v: string) { setDesign((d) => (d ? { ...d, authorOverride: { ...d.authorOverride, [k]: v } } : d)); }
   function resetAuthor() { setDesign((d) => (d ? { ...d, authorOverride: undefined } : d)); }
   function addSlide() {
@@ -304,11 +304,13 @@ export default function EditorPage() {
   const isCar = design.type === 'carousel';
   const usingProfileAuthor = !design.authorOverride?.name && !design.authorOverride?.handle && !design.authorOverride?.avatarImageId;
 
-  const textScale = design.textScale ?? 1;
+  const headingScale = design.headingScale ?? 1;
+  const bodyScale = design.bodyScale ?? 1;
+  const footerScale = design.footerScale ?? 1;
   const scaledCanvas = (slide: Slide, target: number) => (
     <div style={{ width: target, aspectRatio: cv.w + '/' + cv.h, borderRadius: 5, overflow: 'hidden', position: 'relative', background: '#000' }}>
       <div style={{ width: cv.w, height: cv.h, transform: `scale(${target / cv.w})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-        <SlideCanvas slide={resolveSlide(slide)} colors={colors} footer={footerData} width={cv.w} height={cv.h} textScale={textScale} />
+        <SlideCanvas slide={resolveSlide(slide)} colors={colors} footer={footerData} width={cv.w} height={cv.h} headingScale={headingScale} bodyScale={bodyScale} footerScale={footerScale} />
       </div>
     </div>
   );
@@ -317,7 +319,7 @@ export default function EditorPage() {
   const stageCanvas = (
     <div style={{ width: cv.w * scale, height: cv.h * scale, position: 'relative', animation: 'cp-fade .3s ease' }}>
       <div style={{ width: cv.w, height: cv.h, transform: `scale(${scale})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, boxShadow: '0 30px 90px rgba(0,0,0,.35)' }}>
-        <SlideCanvas slide={resolveSlide(a)} colors={colors} footer={footerData} width={cv.w} height={cv.h} textScale={textScale} />
+        <SlideCanvas slide={resolveSlide(a)} colors={colors} footer={footerData} width={cv.w} height={cv.h} headingScale={headingScale} bodyScale={bodyScale} footerScale={footerScale} />
       </div>
     </div>
   );
@@ -359,17 +361,21 @@ export default function EditorPage() {
         </Labeled>
       ))}
       <div style={{ marginTop: 4, paddingTop: 14, borderTop: '1px dashed var(--c-line2)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <span style={{ font: "600 10px/1 'Space Grotesk'", letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-dim)' }}>Text size</span>
-          <span style={{ font: "700 12px/1 'Space Grotesk'", color: 'var(--c-dim2)' }}>{Math.round(textScale * 100)}%</span>
+          {(headingScale !== 1 || bodyScale !== 1 || footerScale !== 1)
+            ? <button onClick={() => patch({ headingScale: 1, bodyScale: 1, footerScale: 1 })} style={linkBtn} title="Reset all to 100%">Reset all ↺</button>
+            : null}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => bumpTextScale(-0.05)} disabled={textScale <= 0.7} aria-label="Decrease text size" style={txtStepBtn(textScale <= 0.7)}>A−</button>
-          <input type="range" min={0.7} max={1.4} step={0.05} value={textScale} onChange={(e) => setTextScale(parseFloat(e.target.value))} aria-label="Text size" style={{ flex: 1, accentColor: 'var(--c-accent)', cursor: 'pointer' }} />
-          <button onClick={() => bumpTextScale(0.05)} disabled={textScale >= 1.4} aria-label="Increase text size" style={txtStepBtn(textScale >= 1.4)}>A+</button>
-          {Math.abs(textScale - 1) > 0.001 ? <button onClick={() => setTextScale(1)} style={linkBtn} title="Reset to 100%">Reset</button> : null}
-        </div>
-        <div style={{ marginTop: 8, font: "500 11px/1.4 'Space Grotesk'", color: 'var(--c-dim)' }}>Scales all text on {isCar ? 'every slide' : 'this card'}.</div>
+        {([['headingScale', 'Heading', headingScale], ['bodyScale', 'Body', bodyScale], ['footerScale', 'Footer', footerScale]] as [ScaleKey, string, number][]).map(([key, label, val]) => (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <span style={{ width: 58, flex: 'none', font: "600 12px/1 'Space Grotesk'", color: 'var(--c-dim2)' }}>{label}</span>
+            <button onClick={() => bumpScale(key, -0.05)} disabled={val <= 0.7} aria-label={`Decrease ${label} size`} style={txtStepBtn(val <= 0.7)}>A−</button>
+            <span style={{ flex: 1, textAlign: 'center', font: "700 12px/1 'Space Grotesk'", color: 'var(--c-dim2)' }}>{Math.round(val * 100)}%</span>
+            <button onClick={() => bumpScale(key, 0.05)} disabled={val >= 1.4} aria-label={`Increase ${label} size`} style={txtStepBtn(val >= 1.4)}>A+</button>
+          </div>
+        ))}
+        <div style={{ marginTop: 6, font: "500 11px/1.4 'Space Grotesk'", color: 'var(--c-dim)' }}>Heading, body and footer scale independently.</div>
       </div>
     </Section>
   );
@@ -545,7 +551,7 @@ export default function EditorPage() {
       <div aria-hidden="true" style={{ position: 'fixed', left: -99999, top: 0, width: 0, height: 0, overflow: 'hidden', pointerEvents: 'none', opacity: 0 }}>
         {design.slides.map((s, i) => (
           <div key={i} ref={(n) => { exportRefs.current[i] = n; }}>
-            <SlideCanvas slide={resolveSlide(s)} colors={colors} footer={footerData} width={cv.w} height={cv.h} textScale={textScale} />
+            <SlideCanvas slide={resolveSlide(s)} colors={colors} footer={footerData} width={cv.w} height={cv.h} headingScale={headingScale} bodyScale={bodyScale} footerScale={footerScale} />
           </div>
         ))}
       </div>
