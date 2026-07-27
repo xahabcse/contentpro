@@ -409,13 +409,59 @@ h3 {
   min-height: 0;
 }
 .cp-left {
-  width: 232px;
-  flex: 0 0 232px;
+  width: 288px;
+  flex: 0 0 288px;
 }
 .cp-right {
-  width: 322px;
-  flex: 0 0 322px;
+  width: 392px;
+  flex: 0 0 392px;
 }
+/* On mid-size desktops keep the side panels from crowding the canvas out. */
+@media (max-width: 1180px) and (min-width: 901px) {
+  .cp-left {
+    width: 248px;
+    flex: 0 0 248px;
+  }
+  .cp-right {
+    width: 340px;
+    flex: 0 0 340px;
+  }
+}
+/* ---- app top-bar nav (dashboard / settings / about pages) ----
+   Desktop: inline links in the bar. Mobile (<=720px): hamburger + dropdown. */
+.app-burger {
+  display: none;
+}
+.app-nav-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.app-avatar-mobile {
+  display: none;
+}
+.app-nav-drop {
+  display: none;
+}
+.app-nav-inline a:hover,
+.app-nav-inline button:hover {
+  background: var(--card-2, rgba(0, 0, 0, 0.05));
+}
+@media (max-width: 720px) {
+  .app-burger {
+    display: flex;
+  }
+  .app-nav-inline {
+    display: none;
+  }
+  .app-avatar-mobile {
+    display: flex;
+  }
+  .app-nav-drop {
+    display: flex;
+  }
+}
+
 /* top-bar status text is secondary -- drop it before it can crowd the title
    input + actions on narrow screens. */
 @media (max-width: 640px) {

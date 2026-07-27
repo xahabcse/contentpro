@@ -203,6 +203,9 @@ export default function EditorPage() {
     }));
   }
   function setPalette(pid: string) { patch({ paletteId: pid, customBg: null, customText: null, customAccent: null }); }
+  // Clamp the global text-size multiplier to a safe range so it can never blow
+  // the layout apart or shrink copy into illegibility.
+  function setTextScale(v: number) { patch({ textScale: Math.max(0.7, Math.min(1.4, Math.round(v * 100) / 100)) }); }
   function setAuthorOverride(k: 'name' | 'handle', v: string) { setDesign((d) => (d ? { ...d, authorOverride: { ...d.authorOverride, [k]: v } } : d)); }
   function resetAuthor() { setDesign((d) => (d ? { ...d, authorOverride: undefined } : d)); }
   function addSlide() {
@@ -297,10 +300,11 @@ export default function EditorPage() {
   const isCar = design.type === 'carousel';
   const usingProfileAuthor = !design.authorOverride?.name && !design.authorOverride?.handle && !design.authorOverride?.avatarImageId;
 
+  const textScale = design.textScale ?? 1;
   const scaledCanvas = (slide: Slide, target: number) => (
     <div style={{ width: target, aspectRatio: cv.w + '/' + cv.h, borderRadius: 5, overflow: 'hidden', position: 'relative', background: '#000' }}>
       <div style={{ width: cv.w, height: cv.h, transform: `scale(${target / cv.w})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-        <SlideCanvas slide={resolveSlide(slide)} colors={colors} footer={footerData} width={cv.w} height={cv.h} />
+        <SlideCanvas slide={resolveSlide(slide)} colors={colors} footer={footerData} width={cv.w} height={cv.h} textScale={textScale} />
       </div>
     </div>
   );
@@ -309,7 +313,7 @@ export default function EditorPage() {
   const stageCanvas = (
     <div style={{ width: cv.w * scale, height: cv.h * scale, position: 'relative', animation: 'cp-fade .3s ease' }}>
       <div style={{ width: cv.w, height: cv.h, transform: `scale(${scale})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, boxShadow: '0 30px 90px rgba(0,0,0,.35)' }}>
-        <SlideCanvas slide={resolveSlide(a)} colors={colors} footer={footerData} width={cv.w} height={cv.h} />
+        <SlideCanvas slide={resolveSlide(a)} colors={colors} footer={footerData} width={cv.w} height={cv.h} textScale={textScale} />
       </div>
     </div>
   );
@@ -350,6 +354,19 @@ export default function EditorPage() {
           <FieldInput field={fld} value={a.fields[fld.k]} onChange={(v) => updateField(fld.k, v)} />
         </Labeled>
       ))}
+      <div style={{ marginTop: 4, paddingTop: 14, borderTop: '1px dashed var(--c-line2)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ font: "600 10px/1 'Space Grotesk'", letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-dim)' }}>Text size</span>
+          <span style={{ font: "700 12px/1 'Space Grotesk'", color: 'var(--c-dim2)' }}>{Math.round(textScale * 100)}%</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => setTextScale(textScale - 0.05)} disabled={textScale <= 0.7} aria-label="Decrease text size" style={txtStepBtn(textScale <= 0.7)}>A−</button>
+          <input type="range" min={0.7} max={1.4} step={0.05} value={textScale} onChange={(e) => setTextScale(parseFloat(e.target.value))} aria-label="Text size" style={{ flex: 1, accentColor: 'var(--c-accent)', cursor: 'pointer' }} />
+          <button onClick={() => setTextScale(textScale + 0.05)} disabled={textScale >= 1.4} aria-label="Increase text size" style={txtStepBtn(textScale >= 1.4)}>A+</button>
+          {Math.abs(textScale - 1) > 0.001 ? <button onClick={() => setTextScale(1)} style={linkBtn} title="Reset to 100%">Reset</button> : null}
+        </div>
+        <div style={{ marginTop: 8, font: "500 11px/1.4 'Space Grotesk'", color: 'var(--c-dim)' }}>Scales all text on {isCar ? 'every slide' : 'this card'}.</div>
+      </div>
     </Section>
   );
 
@@ -489,7 +506,7 @@ export default function EditorPage() {
   );
 
   return (
-    <div className="cp" data-ui={ui} style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--c-app)', color: 'var(--c-text)', overflow: 'hidden' }}>
+    <div className="cp" data-ui={ui} style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--c-app)', color: 'var(--c-text)', overflow: 'hidden' }}>
       {/* top bar */}
       <div className="cp-topbar" style={{ display: 'flex', alignItems: 'center', gap: 16, height: 60, flex: '0 0 60px', padding: '0 20px', background: 'var(--c-bar)', borderBottom: '1px solid var(--c-line)' }}>
         <button onClick={() => navigate('/dashboard')} title="Back to dashboard" style={{ display: 'flex', alignItems: 'center', gap: 11, border: 'none', background: 'none', cursor: 'pointer' }}>
@@ -521,7 +538,7 @@ export default function EditorPage() {
       <div aria-hidden="true" style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none', opacity: 0 }}>
         {design.slides.map((s, i) => (
           <div key={i} ref={(n) => { exportRefs.current[i] = n; }}>
-            <SlideCanvas slide={resolveSlide(s)} colors={colors} footer={footerData} width={cv.w} height={cv.h} />
+            <SlideCanvas slide={resolveSlide(s)} colors={colors} footer={footerData} width={cv.w} height={cv.h} textScale={textScale} />
           </div>
         ))}
       </div>
@@ -537,6 +554,9 @@ function filmCtrl(disabled: boolean): CSSProperties {
   return { width: 40, height: 40, flex: 'none', borderRadius: 9, border: '1px solid var(--c-line2)', background: 'var(--c-chip)', color: 'var(--c-text)', cursor: disabled ? 'not-allowed' : 'pointer', font: '20px/1 Archivo', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.4 : 1 };
 }
 const linkBtn: CSSProperties = { border: 'none', background: 'none', color: 'var(--c-dim)', font: "600 11px/1 'Space Grotesk'", cursor: 'pointer', padding: 0, marginTop: 4 };
+function txtStepBtn(disabled: boolean): CSSProperties {
+  return { flex: 'none', width: 40, height: 34, borderRadius: 8, border: '1px solid var(--c-line2)', background: 'var(--c-chip)', color: 'var(--c-text)', cursor: disabled ? 'not-allowed' : 'pointer', font: "700 13px/1 'Space Grotesk'", opacity: disabled ? 0.4 : 1 };
+}
 const accentPill: CSSProperties = { border: 'none', cursor: 'pointer', font: "700 13px/1 'Space Grotesk'", padding: '12px 20px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)' };
 function arrowStyle(dir: 'left' | 'right'): CSSProperties {
   return { position: 'absolute', [dir]: 18, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', border: '1px solid var(--c-line2)', background: 'var(--c-panel)', color: 'var(--c-text)', cursor: 'pointer', font: '20px/1 Archivo', zIndex: 3, boxShadow: '0 6px 20px rgba(0,0,0,.12)' } as CSSProperties;

@@ -21,6 +21,10 @@ interface SlideCanvasProps {
   footer: FooterData;
   width: number;
   height: number;
+  /** Global text-size multiplier (1 = default). Scales every font + inner
+   *  spacing via the `u` unit while the fixed frame padding stays constant, so
+   *  text grows/shrinks within stable margins. */
+  textScale?: number;
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -639,10 +643,10 @@ const RENDERERS: Record<string, (c: Ctx, f: Record<string, FieldValue>, fd: Foot
   poll: r_poll, takeaway: r_takeaway, stattrio: r_stattrio, definition: r_definition, protip: r_protip, roadmap: r_roadmap,
 };
 
-const SlideCanvas = forwardRef<HTMLDivElement, SlideCanvasProps>(({ slide, colors, footer: fd, width, height }, ref) => {
+const SlideCanvas = forwardRef<HTMLDivElement, SlideCanvasProps>(({ slide, colors, footer: fd, width, height, textScale }, ref) => {
   const useImg = !!slide.bgImage;
   const c: Ctx = { w: width, h: height, bg: colors.bg, text: useImg ? '#FFFFFF' : colors.text, accent: colors.accent, bgImage: slide.bgImage };
-  const u = height / 1080;
+  const u = (height / 1080) * (textScale && textScale > 0 ? textScale : 1);
   const render = RENDERERS[slide.template] ?? r_quote;
   return <div ref={ref}>{render(c, slide.fields, fd, u)}</div>;
 });

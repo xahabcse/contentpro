@@ -47,10 +47,11 @@ export default function AppShell({ title, children }: AppShellProps) {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
+              className="app-burger"
               aria-label="Menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((v) => !v)}
-              style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, color: 'var(--ink)' }}
+              style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 10, color: 'var(--ink)' }}
             >
               ☰
             </button>
@@ -59,14 +60,29 @@ export default function AppShell({ title, children }: AppShellProps) {
             </Link>
           </div>
 
+          {/* desktop inline nav */}
+          <nav className="app-nav-inline">
+            <Link to="/dashboard" style={inlineLinkStyle}>Dashboard</Link>
+            <Link to="/settings/profile" style={inlineLinkStyle}>Profile &amp; Company</Link>
+            <Link to="/about" style={inlineLinkStyle}>About</Link>
+            <button onClick={handleLogout} style={{ ...inlineLinkStyle, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>Log out</button>
+            <div
+              style={{ width: 34, height: 34, borderRadius: 9999, background: 'var(--brand)', color: 'var(--brand-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flex: 'none' }}
+              title={user?.email}
+            >
+              {user?.email?.[0]?.toUpperCase() ?? '?'}
+            </div>
+          </nav>
+
+          {/* mobile avatar (inline nav is hidden here) */}
           <div
+            className="app-avatar-mobile"
             style={{
               width: 34,
               height: 34,
               borderRadius: 9999,
               background: 'var(--brand)',
               color: 'var(--brand-ink)',
-              display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 700,
@@ -80,11 +96,11 @@ export default function AppShell({ title, children }: AppShellProps) {
 
         {menuOpen && (
           <nav
+            className="app-nav-drop"
             style={{
               maxWidth: 960,
               margin: '0 auto',
               padding: '0 16px 12px 16px',
-              display: 'flex',
               flexDirection: 'column',
               gap: 4,
             }}
@@ -121,4 +137,17 @@ const navLinkStyle = {
   fontWeight: 600,
   color: 'var(--ink)',
   textDecoration: 'none',
+};
+
+const inlineLinkStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  height: 38,
+  padding: '0 10px',
+  borderRadius: 9,
+  fontSize: 14,
+  fontWeight: 600,
+  color: 'var(--ink)',
+  textDecoration: 'none',
+  whiteSpace: 'nowrap' as const,
 };
