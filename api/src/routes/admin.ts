@@ -3,6 +3,7 @@ import type { AppEnv, Env } from "../env";
 import { isAdminEmail } from "../lib/admin";
 import { authRequired } from "../middleware/auth-required";
 import { adminRequired } from "../middleware/admin-required";
+import { logAuthEvent } from "../lib/auth-events";
 
 const admin = new Hono<AppEnv>();
 
@@ -19,7 +20,10 @@ admin.use("*", authRequired);
 // for the current session without a separate error path.
 admin.get("/me", async (c) => {
   const user = await mongoStub(c.env).findUserById(c.get("userId"));
-  return c.json({ isAdmin: !!user && isAdminEmail(c.env, user.email) });
+  // Mirrors adminRequired exactly (including its emailVerified condition) so
+  // the UI never advertises an admin surface the API would then 403.
+  const isAdmin = !!user && c.get("emailVerified") && isAdminEmail(c.env, user.email);
+  return c.json({ isAdmin });
 });
 
 admin.get("/users", adminRequired, async (c) => {
@@ -48,6 +52,17 @@ admin.delete("/users/:id", adminRequired, async (c) => {
     return c.json({ error: "CANNOT_DELETE_ADMIN" }, 400);
   }
   await stub.deleteUserById(target._id);
+  // Account deletion is the most destructive operation this API exposes -- it
+  // belongs in the same audit trail that already records logins and resets, so
+  // a compromised admin session leaves a record. `email` is the deleted
+  // account; `detail` names the acting admin.
+  c.executionCtx.waitUntil(
+    logAuthEvent(c, {
+      type: "admin_delete_user",
+      email: target.email,
+      detail: `deleted by admin userId ${c.get("userId")}`,
+    }),
+  );
   return c.json({ ok: true });
 });
 

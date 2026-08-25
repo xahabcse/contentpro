@@ -53,10 +53,23 @@ const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days, matches jwt.ts's ses
 const GENERIC_RATE_LIMITED_MESSAGE =
   "If an account with that email exists, we've sent instructions. Please wait before requesting again.";
 
+// Shared, LENGTH-BOUNDED field schemas. `z.string().email()` on its own has no
+// upper bound, and these values are not merely stored:
+//   - the email becomes part of a Durable Object storage key
+//     (`rl:login-email:<email>`, hard 2 KiB limit -> an oversized address turns
+//     a throttle check into an unhandled 500), and is persisted verbatim into
+//     an auth_events audit document on every failed login;
+//   - the token fields are HMAC-verified (verify-email has no throttle at all)
+//     or forwarded to Turnstile's siteverify endpoint.
+// 254 is the RFC 5321 maximum for a full address; real Turnstile responses and
+// our own action JWTs are well under 4 KiB.
+const emailField = z.string().max(254).email();
+const opaqueTokenField = z.string().min(1).max(4096);
+
 const signupSchema = z.object({
-  email: z.string().email(),
+  email: emailField,
   password: z.string().min(8).max(200),
-  turnstileToken: z.string().min(1),
+  turnstileToken: opaqueTokenField,
 });
 
 // Signup open to anyone (spec 5.5) -- Turnstile is the only bot defense here.
@@ -98,6 +111,7 @@ auth.post("/signup", jsonValidator(signupSchema), async (c) => {
     passwordIterations: iterations,
     emailVerified: false,
     tokenVersion: 0,
+    sessionVersion: 0,
     createdAt: now,
     updatedAt: now,
     profile: {},
@@ -123,8 +137,8 @@ auth.post("/signup", jsonValidator(signupSchema), async (c) => {
 });
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: emailField,
+  password: z.string().min(1).max(200),
 });
 
 // Issues a session JWT regardless of emailVerified status (spec 4.1/5.3) --
@@ -181,7 +195,7 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
     stub.resetRateLimit(`login-ip:${ip}`),
   ]);
 
-  const token = await signSessionToken(user._id, user.emailVerified, user.tokenVersion, c.env.JWT_SECRET);
+  const token = await signSessionToken(user._id, user.emailVerified, user.sessionVersion ?? 0, c.env.JWT_SECRET);
   setCookie(c, SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: true,
@@ -216,7 +230,7 @@ auth.post("/logout", async (c) => {
   return c.json({ message: "Logged out." });
 });
 
-const verifyEmailSchema = z.object({ token: z.string().min(1) });
+const verifyEmailSchema = z.object({ token: opaqueTokenField });
 
 auth.post("/verify-email", jsonValidator(verifyEmailSchema), async (c) => {
   const { token } = c.req.valid("json");
@@ -237,7 +251,7 @@ auth.post("/verify-email", jsonValidator(verifyEmailSchema), async (c) => {
   return c.json({ message: "Email verified. Please log in again." });
 });
 
-const emailOnlySchema = z.object({ email: z.string().email() });
+const emailOnlySchema = z.object({ email: emailField });
 
 auth.post("/resend-verification", jsonValidator(emailOnlySchema), async (c) => {
   const { email } = c.req.valid("json");
@@ -296,7 +310,7 @@ auth.post("/forgot-password", jsonValidator(emailOnlySchema), async (c) => {
 });
 
 const resetPasswordSchema = z.object({
-  token: z.string().min(1),
+  token: opaqueTokenField,
   password: z.string().min(8).max(200),
 });
 
@@ -331,6 +345,10 @@ auth.post("/reset-password", jsonValidator(resetPasswordSchema), async (c) => {
     // Increment again -- invalidates the reset token itself and any other
     // outstanding verification/reset links (spec 5.4).
     tokenVersion: user.tokenVersion + 1,
+    // Separate counter, bumped only here: revokes every live session cookie on
+    // a completed password reset (the point of session revocation) without
+    // exposing that power to the unauthenticated forgot-password route.
+    sessionVersion: (user.sessionVersion ?? 0) + 1,
     updatedAt: new Date(),
   });
 

@@ -26,6 +26,15 @@ export interface UserDocument {
   emailVerified: boolean;
   /** incremented to invalidate all outstanding email-verification/password-reset JWTs */
   tokenVersion: number;
+  /**
+   * Incremented ONLY on a successful password reset, to revoke live session
+   * cookies. Deliberately NOT the same counter as `tokenVersion`: that one is
+   * bumped by the UNAUTHENTICATED /forgot-password and /resend-verification
+   * routes, so using it as the session gate let anyone who merely knew a
+   * victim's email address force-log-out that account on demand. Optional
+   * because documents predating this field exist -- treat missing as 0.
+   */
+  sessionVersion?: number;
   createdAt: Date;
   updatedAt: Date;
   profile: UserProfile;
@@ -48,7 +57,8 @@ export type AuthEventType =
   | "login_failed"
   | "reset_request"
   | "reset_complete"
-  | "email_verified";
+  | "email_verified"
+  | "admin_delete_user";
 
 export interface AuthEventDocument {
   _id?: ObjectId;

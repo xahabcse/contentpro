@@ -12,7 +12,7 @@ export interface SessionTokenPayload {
   sub: string; // userId
   type: "session"; // domain separation from action tokens (both signed with JWT_SECRET)
   emailVerified: boolean;
-  v: number; // tokenVersion at issuance -- checked against the DB in authRequired for revocation
+  v: number; // sessionVersion at issuance -- checked against the DB in authRequired for revocation
   iat: number;
   exp: number;
 }
@@ -113,10 +113,13 @@ async function verifyJwt<T extends { exp: number }>(token: string, secret: strin
   return payload;
 }
 
+// `sessionVersion` (NOT tokenVersion) -- see schema.ts. Only a password reset
+// bumps it, so the unauthenticated forgot-password / resend-verification routes
+// can no longer invalidate a victim's live sessions.
 export async function signSessionToken(
   userId: string,
   emailVerified: boolean,
-  tokenVersion: number,
+  sessionVersion: number,
   secret: string,
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -124,7 +127,7 @@ export async function signSessionToken(
     sub: userId,
     type: "session",
     emailVerified,
-    v: tokenVersion,
+    v: sessionVersion,
     iat: now,
     exp: now + SESSION_TTL_SECONDS,
   };

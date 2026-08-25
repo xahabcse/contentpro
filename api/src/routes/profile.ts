@@ -27,6 +27,14 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5MB
 // Modest per-user upload throttle so a verified account can't churn unlimited
 // 5MB objects into Cloudinary storage. Best-effort (see rate-limit.ts caveat).
 const UPLOAD_MAX_PER_HOUR = 20;
+// Multipart framing (boundary lines + part headers) around a MAX_UPLOAD_BYTES
+// payload -- slack for the Content-Length precheck below.
+const MULTIPART_OVERHEAD_BYTES = 8 * 1024;
+// PUT /api/profile is a Mongo read+write, and EVERY Mongo access in this Worker
+// is serialized through the one global MongoConnectionDO -- so an authenticated
+// account spamming profile writes degrades auth for everyone, not just itself.
+// Generous enough that no human editing a profile will ever see it.
+const PROFILE_WRITE_MAX_PER_HOUR = 60;
 
 // Magic-byte (content) validation -- `file.type` from the multipart part is
 // client-controlled, so the MIME allow-list alone is spoofable. Sniff the
@@ -70,8 +78,18 @@ const updateProfileSchema = z.object({
 });
 
 profile.put("/", jsonValidator(updateProfileSchema), async (c) => {
-  const updates = c.req.valid("json");
   const userId = c.get("userId");
+
+  const rate = await checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "profile-write", userId, {
+    cooldownSeconds: 0,
+    maxAttempts: PROFILE_WRITE_MAX_PER_HOUR,
+    windowSeconds: 60 * 60,
+  });
+  if (!rate.allowed) {
+    return c.json({ error: "RATE_LIMITED", retryAfterSeconds: rate.retryAfterSeconds }, 429);
+  }
+
+  const updates = c.req.valid("json");
   const stub = mongoStub(c.env);
 
   const user = await stub.findUserById(userId);
@@ -98,6 +116,17 @@ async function handleImageUpload(
   });
   if (!rate.allowed) {
     return c.json({ error: "RATE_LIMITED", retryAfterSeconds: rate.retryAfterSeconds }, 429);
+  }
+
+  // Reject oversized bodies BEFORE c.req.formData(), which buffers the whole
+  // request into memory -- the file.size check further down only runs once that
+  // has already happened, so on its own it does nothing to stop a multi-hundred
+  // -MB body from being materialized. Content-Length can be absent on a chunked
+  // request, hence this is a cheap first line of defence layered on top of the
+  // file.size check, not a replacement for it.
+  const declaredLength = Number(c.req.header("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES + MULTIPART_OVERHEAD_BYTES) {
+    return c.json({ error: "FILE_TOO_LARGE" }, 400);
   }
 
   const form = await c.req.formData();
