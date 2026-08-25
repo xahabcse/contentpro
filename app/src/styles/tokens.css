@@ -475,6 +475,130 @@ h3 {
   scroll-snap-align: start;
 }
 
+/* ---- interactive landing & about components ---- */
+.lp-sandbox {
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: 24px;
+  box-shadow: 0 24px 64px -12px rgba(27, 22, 14, 0.12);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  background: transparent;
+  color: var(--muted-2);
+}
+.lp-tab-btn:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+.lp-tab-btn[data-active="true"] {
+  background: var(--ink);
+  color: var(--brand);
+  border-color: var(--ink);
+  box-shadow: 0 4px 14px rgba(27, 22, 14, 0.18);
+}
+
+.lp-palette-chip {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  flex: none;
+}
+.lp-palette-chip:hover {
+  transform: scale(1.15);
+}
+.lp-palette-chip[data-active="true"] {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 2px var(--ink), 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.lp-accordion-btn {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 22px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(17px, 2.5vw, 21px);
+  letter-spacing: -0.01em;
+  transition: color 0.15s ease;
+}
+.lp-accordion-btn:hover {
+  color: var(--brand-strong, #b58000);
+}
+.lp-accordion-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  transition: transform 0.25s ease, background 0.2s ease;
+}
+.lp-accordion-btn[aria-expanded="true"] .lp-accordion-icon {
+  transform: rotate(180deg);
+  background: var(--ink);
+  color: var(--brand);
+  border-color: var(--ink);
+}
+
+.lp-feature-card {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 28px;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+.lp-feature-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--line-2);
+  box-shadow: 0 20px 48px -8px rgba(27, 22, 14, 0.14);
+}
+
+.lp-glow-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(242, 183, 5, 0.18);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1px solid rgba(242, 183, 5, 0.4);
+}
+
+
 /* ---- editor shell theme (.cp), ported from ContentPro.dc.html ---- */
 
 .cp {
