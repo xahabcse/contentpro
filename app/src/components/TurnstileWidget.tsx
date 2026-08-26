@@ -14,6 +14,7 @@ declare global {
         },
       ) => string;
       remove: (widgetId: string) => void;
+      reset: (widgetId: string) => void;
     };
   }
 }
@@ -24,24 +25,38 @@ const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | u
 // §5.5) once its script has loaded -- the script tag is async, so poll
 // briefly for window.turnstile rather than assuming it's ready on mount.
 // Shared by SignupPage and LoginPage.
-export default function TurnstileWidget({ token, onToken }: { token: string; onToken: (token: string) => void }) {
+export default function TurnstileWidget({
+  token,
+  onToken,
+  resetSignal,
+}: {
+  token: string;
+  onToken: (token: string) => void;
+  /**
+   * Bump this (e.g. a counter incremented on every failed submit) to force a
+   * fresh token. Turnstile tokens are single-use -- once a submit consumes
+   * one (success OR failure), the same token fails TURNSTILE_FAILED on a
+   * retry unless the widget is explicitly reset.
+   */
+  resetSignal?: number;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Keeps the effect mount-once (matching the widget's own lifecycle) while
   // still calling the latest callback, since an inline arrow prop would
   // otherwise change identity on every parent render.
   const onTokenRef = useRef(onToken);
   onTokenRef.current = onToken;
+  const widgetIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY || !containerRef.current) return;
 
-    let widgetId: string | null = null;
     let cancelled = false;
 
     const tryRender = () => {
       if (cancelled) return;
       if (window.turnstile && containerRef.current) {
-        widgetId = window.turnstile.render(containerRef.current, {
+        widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (t) => onTokenRef.current(t),
           'expired-callback': () => onTokenRef.current(''),
@@ -56,9 +71,19 @@ export default function TurnstileWidget({ token, onToken }: { token: string; onT
 
     return () => {
       cancelled = true;
-      if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
+      if (widgetIdRef.current && window.turnstile) window.turnstile.remove(widgetIdRef.current);
     };
   }, []);
+
+  // Only fires when the parent deliberately bumps resetSignal after a failed
+  // submit -- the mount-time invocation (widgetIdRef still null, since
+  // rendering above happens asynchronously) is a harmless no-op.
+  useEffect(() => {
+    if (resetSignal === undefined) return;
+    if (widgetIdRef.current && window.turnstile) {
+      window.turnstile.reset(widgetIdRef.current);
+    }
+  }, [resetSignal]);
 
   if (TURNSTILE_SITE_KEY) {
     return <div ref={containerRef} data-testid="turnstile-placeholder" />;

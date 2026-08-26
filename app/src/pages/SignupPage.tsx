@@ -11,6 +11,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
@@ -25,6 +26,11 @@ export default function SignupPage() {
       });
       if (!res.ok) {
         toast.error(await readApiError(res, "We couldn't create your account. Please try again."));
+        // Turnstile tokens are single-use -- the one just submitted is now
+        // dead regardless of why signup failed, so a retry with it would
+        // fail closed on TURNSTILE_FAILED even with correct credentials.
+        setTurnstileToken('');
+        setTurnstileResetKey((k) => k + 1);
         return;
       }
       // The toast survives the route change -- it confirms the account landed
@@ -69,7 +75,7 @@ export default function SignupPage() {
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <TurnstileWidget token={turnstileToken} onToken={setTurnstileToken} />
+          <TurnstileWidget token={turnstileToken} onToken={setTurnstileToken} resetSignal={turnstileResetKey} />
         </div>
 
         <button type="submit" className="btn btn-primary" disabled={submitting || !turnstileToken}>
