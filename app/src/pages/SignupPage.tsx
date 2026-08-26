@@ -12,6 +12,7 @@ declare global {
           callback: (token: string) => void;
           'expired-callback'?: () => void;
           'error-callback'?: () => void;
+          size?: 'normal' | 'flexible' | 'compact';
         },
       ) => string;
       remove: (widgetId: string) => void;
@@ -47,6 +48,7 @@ export default function SignupPage() {
           callback: (token) => setTurnstileToken(token),
           'expired-callback': () => setTurnstileToken(''),
           'error-callback': () => setTurnstileToken(''),
+          size: 'flexible',
         });
       } else {
         setTimeout(tryRender, 100);
