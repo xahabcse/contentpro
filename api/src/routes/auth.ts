@@ -139,6 +139,7 @@ auth.post("/signup", jsonValidator(signupSchema), async (c) => {
 const loginSchema = z.object({
   email: emailField,
   password: z.string().min(1).max(200),
+  turnstileToken: opaqueTokenField,
 });
 
 // Issues a session JWT regardless of emailVerified status (spec 4.1/5.3) --
@@ -146,7 +147,7 @@ const loginSchema = z.object({
 // Notice screen, but server-side enforcement is emailVerifiedRequired on the
 // Profile routes, not this decision.
 auth.post("/login", jsonValidator(loginSchema), async (c) => {
-  const { email, password } = c.req.valid("json");
+  const { email, password, turnstileToken } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
   const ip = clientIp(c);
   const stub = mongoStub(c.env);
@@ -161,6 +162,15 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
   if (!emailRate.allowed || !ipRate.allowed) {
     const retryAfterSeconds = Math.max(emailRate.retryAfterSeconds ?? 0, ipRate.retryAfterSeconds ?? 0);
     return c.json({ error: "RATE_LIMITED", retryAfterSeconds }, 429);
+  }
+
+  const turnstileOk = await verifyTurnstileToken(
+    turnstileToken,
+    c.env.TURNSTILE_SECRET_KEY,
+    c.req.header("cf-connecting-ip"),
+  );
+  if (!turnstileOk) {
+    return c.json({ error: "TURNSTILE_FAILED" }, 400);
   }
 
   const user = await stub.findUserByEmail(normalizedEmail);

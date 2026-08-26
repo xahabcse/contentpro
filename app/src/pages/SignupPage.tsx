@@ -1,26 +1,7 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthShell from '@/components/layout/AuthShell';
-
-declare global {
-  interface Window {
-    turnstile?: {
-      render: (
-        container: HTMLElement,
-        options: {
-          sitekey: string;
-          callback: (token: string) => void;
-          'expired-callback'?: () => void;
-          'error-callback'?: () => void;
-          size?: 'normal' | 'flexible' | 'compact';
-        },
-      ) => string;
-      remove: (widgetId: string) => void;
-    };
-  }
-}
-
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+import TurnstileWidget from '@/components/TurnstileWidget';
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -29,38 +10,6 @@ export default function SignupPage() {
   const [turnstileToken, setTurnstileToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const turnstileContainerRef = useRef<HTMLDivElement>(null);
-
-  // Renders the real Cloudflare Turnstile widget (docs/contentpro-spec.md
-  // §5.5) once its script has loaded -- the script tag is async, so poll
-  // briefly for window.turnstile rather than assuming it's ready on mount.
-  useEffect(() => {
-    if (!TURNSTILE_SITE_KEY || !turnstileContainerRef.current) return;
-
-    let widgetId: string | null = null;
-    let cancelled = false;
-
-    const tryRender = () => {
-      if (cancelled) return;
-      if (window.turnstile && turnstileContainerRef.current) {
-        widgetId = window.turnstile.render(turnstileContainerRef.current, {
-          sitekey: TURNSTILE_SITE_KEY,
-          callback: (token) => setTurnstileToken(token),
-          'expired-callback': () => setTurnstileToken(''),
-          'error-callback': () => setTurnstileToken(''),
-          size: 'flexible',
-        });
-      } else {
-        setTimeout(tryRender, 100);
-      }
-    };
-    tryRender();
-
-    return () => {
-      cancelled = true;
-      if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
-    };
-  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -115,28 +64,8 @@ export default function SignupPage() {
           />
         </div>
 
-        {/* Turnstile widget mount point (docs/contentpro-spec.md §5.5). */}
-        <div style={{ marginBottom: 16 }} data-testid="turnstile-placeholder">
-          {TURNSTILE_SITE_KEY ? (
-            <div ref={turnstileContainerRef} />
-          ) : import.meta.env.DEV ? (
-            // Dev-only bypass -- import.meta.env.DEV is statically false in a
-            // production build, so this branch is dead-code-eliminated and can
-            // never render for real users.
-            <div>
-              <p className="error-text" style={{ marginBottom: 6 }}>Turnstile site key not configured (dev).</p>
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{ height: 36, fontSize: 13 }}
-                onClick={() => setTurnstileToken('dev-bypass-token')}
-              >
-                {turnstileToken ? 'Dev bypass active ✓' : 'Simulate Turnstile success (dev only)'}
-              </button>
-            </div>
-          ) : (
-            <p className="error-text" role="alert">Signups are temporarily unavailable. Please try again later.</p>
-          )}
+        <div style={{ marginBottom: 16 }}>
+          <TurnstileWidget token={turnstileToken} onToken={setTurnstileToken} />
         </div>
 
         {error && <p className="error-text" role="alert" style={{ marginBottom: 16 }}>{error}</p>}

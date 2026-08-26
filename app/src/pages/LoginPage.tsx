@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthShell from '@/components/layout/AuthShell';
+import TurnstileWidget from '@/components/TurnstileWidget';
 import { useAuth } from '@/lib/auth';
 
 export default function LoginPage() {
@@ -8,6 +9,7 @@ export default function LoginPage() {
   const { refresh } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -20,7 +22,7 @@ export default function LoginPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, turnstileToken }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -71,9 +73,13 @@ export default function LoginPage() {
           <Link to="/forgot-password" style={{ fontSize: 13, color: 'var(--muted)' }}>Forgot password?</Link>
         </p>
 
+        <div style={{ marginBottom: 16 }}>
+          <TurnstileWidget token={turnstileToken} onToken={setTurnstileToken} />
+        </div>
+
         {error && <p className="error-text" role="alert" style={{ marginBottom: 16 }}>{error}</p>}
 
-        <button type="submit" className="btn btn-primary" disabled={submitting}>
+        <button type="submit" className="btn btn-primary" disabled={submitting || !turnstileToken}>
           {submitting ? 'Logging in…' : 'Log in'}
         </button>
       </form>
