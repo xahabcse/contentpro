@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import AuthShell from '@/components/layout/AuthShell';
 import { useAuth } from '@/lib/auth';
+import { NETWORK_ERROR_MESSAGE, readApiError } from '@/lib/errorMessages';
+import { useToast } from '@/lib/toast';
 
 type VerifyState = 'verifying' | 'verified' | 'failed';
 
@@ -24,8 +26,9 @@ function VerifyTokenScreen({ token }: { token: string }) {
         });
         if (cancelled) return;
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          setError(body.error || 'This verification link is invalid or expired.');
+          // Stays a full-screen state rather than a toast -- this IS the
+          // screen's outcome, and it has to survive longer than 4 seconds.
+          setError(await readApiError(res, 'This verification link is invalid or has expired.'));
           setState('failed');
           return;
         }
@@ -78,8 +81,7 @@ export default function VerifyEmailNoticePage() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [cooldown, setCooldown] = useState(false);
 
   // After signup the user has no session yet, so useAuth().user is null --
@@ -88,20 +90,25 @@ export default function VerifyEmailNoticePage() {
   const email = user?.email ?? stateEmail ?? '';
 
   async function resend() {
-    setError(null);
     setCooldown(true);
     try {
-      await fetch('/api/auth/resend-verification', {
+      const res = await fetch('/api/auth/resend-verification', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      // Always show the same generic success message -- the API itself
-      // never reveals whether the account exists (spec §5.3).
-      setSent(true);
+      if (!res.ok) {
+        // Only ever a throttle or a malformed address here -- the API returns
+        // the same 200 whether or not the account exists (spec §5.3), so this
+        // branch can't leak account existence.
+        toast.error(await readApiError(res, "We couldn't resend that email. Please try again shortly."));
+        return;
+      }
+      // Always the same generic confirmation, for the same reason.
+      toast.success('Verification email sent. Check your inbox.');
     } catch {
-      setError('Something went wrong. Try again in a moment.');
+      toast.error(NETWORK_ERROR_MESSAGE);
     } finally {
       // Server enforces the real ~60s cooldown/rate-limit; this just avoids
       // spamming the button client-side.
@@ -125,13 +132,8 @@ export default function VerifyEmailNoticePage() {
         again to continue — you'll be redirected to your dashboard once verified.
       </p>
 
-      {sent && (
-        <p className="pill pill-brand" role="status" style={{ marginBottom: 16 }}>Verification email sent.</p>
-      )}
-      {error && <p className="error-text" role="alert" style={{ marginBottom: 16 }}>{error}</p>}
-
       <button className="btn btn-primary" onClick={resend} disabled={cooldown} style={{ marginBottom: 12 }}>
-        {cooldown ? 'Sent — wait a bit before resending' : 'Resend verification email'}
+        {cooldown ? 'Please wait before resending' : 'Resend verification email'}
       </button>
       <button className="btn btn-outline" onClick={handleLogout}>Log out</button>
     </AuthShell>

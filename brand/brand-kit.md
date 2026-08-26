@@ -30,7 +30,9 @@ App chrome (auth, dashboard, profile settings) is always light; source of truth 
 | `--muted-2` | `#5E5844` | Tertiary/smallest text (~5.6:1) |
 | `--brand` | `#F2B705` | Amber accent — primary CTA, focus rings, active states |
 | `--brand-ink` | `#1B160E` | Text on amber |
+| `--brand-strong` | `#B58000` | Deeper amber for icons/text on cream where `--brand` itself is too light (~3.2:1 on `--bar`) |
 | `--danger` | `#E1402B` | Destructive actions (delete) |
+| `--success` | `#12784A` | Positive/confirmation status (~5.1:1 on `--bar`) |
 | `--line` | `rgba(27,22,14,.12)` | Hairline dividers |
 | `--input` | `#FFFFFF` | Form field background |
 

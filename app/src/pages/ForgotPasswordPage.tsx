@@ -1,8 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import AuthShell from '@/components/layout/AuthShell';
+import { NETWORK_ERROR_MESSAGE } from '@/lib/errorMessages';
+import { useToast } from '@/lib/toast';
 
 export default function ForgotPasswordPage() {
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -16,10 +19,15 @@ export default function ForgotPasswordPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-    } finally {
-      // Always show the generic "check your email" response regardless of
-      // outcome -- never reveal whether the account exists (spec §5.4).
+      // Show the generic "check your email" response for ANY response status
+      // -- never branch on it, that would reveal whether the account exists
+      // (spec §5.4).
       setSent(true);
+    } catch {
+      // A request that never left the browser is not an enumeration signal,
+      // and claiming "check your email" here would be a lie.
+      toast.error(NETWORK_ERROR_MESSAGE);
+    } finally {
       setSubmitting(false);
     }
   }

@@ -3,19 +3,20 @@ import { Link, useNavigate } from 'react-router-dom';
 import AuthShell from '@/components/layout/AuthShell';
 import TurnstileWidget from '@/components/TurnstileWidget';
 import { useAuth } from '@/lib/auth';
+import { NETWORK_ERROR_MESSAGE, readApiError } from '@/lib/errorMessages';
+import { useToast } from '@/lib/toast';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { refresh } = useAuth();
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
     setSubmitting(true);
     try {
       const res = await fetch('/api/auth/login', {
@@ -25,16 +26,21 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password, turnstileToken }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || 'Invalid email or password');
+        toast.error(await readApiError(res, 'Invalid email or password.'));
+        return;
       }
-      const me = await res.json();
+      const me = (await res.json()) as { emailVerified?: boolean };
       await refresh();
       // Server-side middleware is the real gate (spec §5.3) -- this is just
       // a UX convenience so an unverified user lands on the right screen.
-      navigate(me.emailVerified ? '/dashboard' : '/verify-email');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      if (me.emailVerified) {
+        navigate('/dashboard');
+      } else {
+        toast.info('Verify your email address to finish setting up your account.');
+        navigate('/verify-email');
+      }
+    } catch {
+      toast.error(NETWORK_ERROR_MESSAGE);
     } finally {
       setSubmitting(false);
     }
@@ -76,8 +82,6 @@ export default function LoginPage() {
         <div style={{ marginBottom: 16 }}>
           <TurnstileWidget token={turnstileToken} onToken={setTurnstileToken} />
         </div>
-
-        {error && <p className="error-text" role="alert" style={{ marginBottom: 16 }}>{error}</p>}
 
         <button type="submit" className="btn btn-primary" disabled={submitting || !turnstileToken}>
           {submitting ? 'Logging in…' : 'Log in'}

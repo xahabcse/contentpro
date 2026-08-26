@@ -8,6 +8,7 @@ import { TEMPLATE_ORDER, TEMPLATES, templateDefaults } from '@/lib/templates';
 import { exportCardAsPng, exportCarouselAsPdf, downloadBlob } from '@/lib/export';
 import { getDesign, saveDesign, storagePressure } from '@/lib/local-store';
 import { getImageUrl, newImageId, putImage } from '@/lib/image-store';
+import { useToast } from '@/lib/toast';
 
 const MAX_SLIDES = 15;
 
@@ -44,6 +45,7 @@ interface Profile {
 export default function EditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [loaded, setLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -53,7 +55,6 @@ export default function EditorPage() {
   const [active, setActive] = useState(0);
   const [ui, setUi] = useState<'light' | 'dark'>('light');
   const [exporting, setExporting] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [scale, setScale] = useState(0.35);
   const [mobileTab, setMobileTab] = useState<MobileTab>('content');
@@ -63,13 +64,16 @@ export default function EditorPage() {
   const mobileStageRef = useRef<HTMLDivElement>(null);
   const exportRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dirty = useRef(false);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // latest design/active kept in refs so unmount + stable callbacks can read
-  // them without re-subscribing.
+  // them without re-subscribing. Written after commit (not during render):
+  // every reader -- the unload/unmount flush and the memoised template picker
+  // -- runs after paint, so the committed value is always the current one.
   const designRef = useRef<LocalDesign | null>(null);
   const activeRef = useRef(0);
-  designRef.current = design;
-  activeRef.current = active;
+  useEffect(() => {
+    designRef.current = design;
+    activeRef.current = active;
+  });
 
   // stable so the memoised TemplatePicker doesn't re-render on every keystroke
   const onPickTemplate = useCallback((tid: TemplateId) => {
@@ -114,11 +118,11 @@ export default function EditorPage() {
     if (!loaded || !design) return;
     if (!dirty.current) { dirty.current = true; return; }
     const t = setTimeout(() => {
-      storagePressure().then((p) => { if (p && p.ratio > 0.85) showToast('Your browser storage is getting full — back up and remove old designs.'); });
+      storagePressure().then((p) => { if (p && p.ratio > 0.85) toast.info('Your browser storage is getting full — back up and remove old designs.'); });
       try {
         saveDesign(design);
       } catch (e) {
-        showToast(e instanceof Error ? e.message : "Couldn't save your design.");
+        toast.error(e instanceof Error ? e.message : "Couldn't save your design.");
       }
     }, 700);
     return () => clearTimeout(t);
@@ -181,11 +185,6 @@ export default function EditorPage() {
   }, [measure, loaded]);
 
   // ---- helpers ----
-  function showToast(msg: string) {
-    setToast(msg);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 2800);
-  }
   function patch(p: Partial<LocalDesign>) { setDesign((d) => (d ? { ...d, ...p } : d)); }
   function patchSlides(fn: (slides: Slide[]) => Slide[]) { setDesign((d) => (d ? { ...d, slides: fn(d.slides) } : d)); }
 
@@ -241,14 +240,14 @@ export default function EditorPage() {
     try {
       await putImage(iid, file);
     } catch {
-      showToast("Couldn't save that image — your browser storage may be full.");
+      toast.error("Couldn't save that image — your browser storage may be full.");
       return null;
     }
     try {
       const url = await getImageUrl(iid);
       if (url) setImgUrls((prev) => ({ ...prev, [iid]: url }));
     } catch {
-      showToast("Saved the image, but couldn't show a preview.");
+      toast.info("Saved the image, but couldn't show a preview.");
     }
     return iid;
   }
@@ -274,14 +273,14 @@ export default function EditorPage() {
       if (design.type === 'card') {
         const blob = await exportCardAsPng(nodes[0], cv.w, cv.h);
         downloadBlob(blob, `${base}-${stamp}.png`);
-        showToast('PNG downloaded ✓');
+        toast.success('PNG downloaded.');
       } else {
         const blob = await exportCarouselAsPdf(nodes, cv.w, cv.h);
         downloadBlob(blob, `${base}-${stamp}.pdf`);
-        showToast('PDF · ' + design.slides.length + ' slides downloaded ✓');
+        toast.success(`PDF downloaded — ${design.slides.length} slide${design.slides.length === 1 ? '' : 's'}.`);
       }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Export failed. If you use a profile photo or company logo, try re-uploading it, then export again.');
+      toast.error(err instanceof Error ? err.message : 'Export failed. If you use a profile photo or company logo, try re-uploading it, then export again.');
     }
     setExporting(false);
   }
@@ -555,8 +554,6 @@ export default function EditorPage() {
           </div>
         ))}
       </div>
-
-      {toast ? <div role="status" aria-live="polite" style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--c-text)', color: 'var(--c-app)', font: "700 13px/1 'Space Grotesk'", padding: '13px 22px', borderRadius: 12, boxShadow: '0 20px 50px rgba(0,0,0,.35)', zIndex: 50, animation: 'cp-fade .3s ease', maxWidth: 360, textAlign: 'center', lineHeight: 1.4 }}>{toast}</div> : null}
     </div>
   );
 }

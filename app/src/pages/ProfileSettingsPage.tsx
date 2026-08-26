@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/lib/auth';
+import { NETWORK_ERROR_MESSAGE, readApiError } from '@/lib/errorMessages';
+import { useToast } from '@/lib/toast';
 
 interface ProfileData {
   name: string;
@@ -15,10 +17,9 @@ const EMPTY: ProfileData = { name: '', designation: '', companyName: '', handle:
 
 export default function ProfileSettingsPage() {
   const { refresh } = useAuth();
+  const toast = useToast();
   const [profile, setProfile] = useState<ProfileData>(EMPTY);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/profile', { credentials: 'include' })
@@ -30,8 +31,6 @@ export default function ProfileSettingsPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setError(null);
-    setSaved(false);
     try {
       const res = await fetch('/api/profile', {
         method: 'PUT',
@@ -44,23 +43,38 @@ export default function ProfileSettingsPage() {
           handle: profile.handle,
         }),
       });
-      if (!res.ok) throw new Error('Could not save profile');
+      if (!res.ok) {
+        toast.error(await readApiError(res, "We couldn't save your profile. Please try again."));
+        return;
+      }
       await refresh();
-      setSaved(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save profile');
+      toast.success('Profile saved.');
+    } catch {
+      toast.error(NETWORK_ERROR_MESSAGE);
     } finally {
       setSaving(false);
     }
   }
 
   async function handleFileUpload(kind: 'photo' | 'logo', file: File) {
+    const label = kind === 'photo' ? 'Profile photo' : 'Company logo';
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch(`/api/profile/${kind}`, { method: 'POST', credentials: 'include', body: form });
-    if (res.ok) {
-      const { url } = await res.json();
+    try {
+      const res = await fetch(`/api/profile/${kind}`, { method: 'POST', credentials: 'include', body: form });
+      if (!res.ok) {
+        toast.error(await readApiError(res, `We couldn't upload that ${label.toLowerCase()}. Please try again.`));
+        return;
+      }
+      const { url } = (await res.json()) as { url?: string };
+      if (!url) {
+        toast.info(`${label} uploaded, but we couldn't load a preview. Reload the page to check it.`);
+        return;
+      }
       setProfile((p) => ({ ...p, ...(kind === 'photo' ? { photoUrl: url } : { companyLogoUrl: url }) }));
+      toast.success(`${label} updated.`);
+    } catch {
+      toast.error(NETWORK_ERROR_MESSAGE);
     }
   }
 
@@ -124,9 +138,6 @@ export default function ProfileSettingsPage() {
             <input id="handle" className="input" placeholder="@yourhandle" value={profile.handle} onChange={(e) => setProfile((p) => ({ ...p, handle: e.target.value }))} required />
           </div>
         </section>
-
-        {error && <p className="error-text" role="alert">{error}</p>}
-        {saved && <p className="pill pill-brand" role="status" style={{ alignSelf: 'flex-start' }}>Saved.</p>}
 
         <button type="submit" className="btn btn-primary" disabled={saving}>
           {saving ? 'Saving…' : 'Save profile'}

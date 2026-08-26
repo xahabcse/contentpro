@@ -1,5 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { NETWORK_ERROR_MESSAGE, readApiError } from '@/lib/errorMessages';
+import { useToast } from '@/lib/toast';
 
 interface AdminUser {
   id: string;
@@ -62,6 +64,7 @@ function eventBadgeClass(type: string): string {
 
 export default function AdminPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [gate, setGate] = useState<Gate>('checking');
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -137,6 +140,9 @@ export default function AdminPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [pendingDelete]);
 
+  // The outcome of this action is a toast, not the row banner -- the modal
+  // closes on its way out, so banner text would appear detached from the thing
+  // that caused it. The banner stays for load failures only.
   async function confirmDelete() {
     const target = pendingDelete;
     if (!target) return;
@@ -145,16 +151,15 @@ export default function AdminPage() {
     try {
       const r = await fetch('/api/admin/users/' + encodeURIComponent(target.id), { method: 'DELETE', credentials: 'include' });
       if (!r.ok) {
-        let code = '';
-        try { const body = (await r.json()) as { error?: string }; code = body.error ?? ''; } catch { /* ignore */ }
-        setRowError(code === 'CANNOT_DELETE_ADMIN' ? 'That account is an admin and cannot be deleted.' : 'Could not delete that user.');
+        toast.error(await readApiError(r, 'Could not delete that user.'));
         setPendingDelete(null);
         return;
       }
       setPendingDelete(null);
       await loadUsers();
+      toast.success(`Deleted ${target.email}.`);
     } catch {
-      setRowError('Could not delete that user.');
+      toast.error(NETWORK_ERROR_MESSAGE);
       setPendingDelete(null);
     } finally {
       setDeleting(false);

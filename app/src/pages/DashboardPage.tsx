@@ -6,16 +6,16 @@ import { resolveColors } from '@/lib/palettes';
 import { canvasSize, type FooterData, type LocalDesign, type ResolvedSlide } from '@/lib/design-types';
 import { buildBackup, createDesign, deleteDesign, duplicateDesign, ensureSeeded, listDesigns, restoreBackup } from '@/lib/local-store';
 import { getImageUrl } from '@/lib/image-store';
+import { useToast } from '@/lib/toast';
 
 interface Profile { name?: string; handle?: string; photoUrl?: string | null; designation?: string; companyName?: string; companyLogoUrl?: string | null }
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [designs, setDesigns] = useState<LocalDesign[]>([]);
   const [profile, setProfile] = useState<Profile>({});
   const [bgUrls, setBgUrls] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<LocalDesign | null>(null);
   const restoreInput = useRef<HTMLInputElement>(null);
 
@@ -61,9 +61,11 @@ export default function DashboardPage() {
 
   function handleCreate(type: 'card' | 'carousel') {
     // A design signs itself from the profile footer -- send users with an
-    // incomplete profile to fill it in first (spec §6).
+    // incomplete profile to fill it in first (spec §6). A toast, not inline
+    // text: this component unmounts on the very next line, so page-local
+    // feedback would never be seen.
     if (!profile.name || !profile.handle) {
-      setError('Add your name and handle in Profile settings before creating your first design.');
+      toast.info('Add your name and handle here first — your designs are signed with them.');
       navigate('/settings/profile');
       return;
     }
@@ -71,23 +73,33 @@ export default function DashboardPage() {
       const d = createDesign(type);
       navigate('/designs/' + d.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not create the design.');
+      toast.error(e instanceof Error ? e.message : 'Could not create the design.');
     }
   }
   async function confirmDelete() {
     const target = pendingDelete;
     if (!target) return;
     setPendingDelete(null);
-    await deleteDesign(target.id);
-    reload();
+    try {
+      await deleteDesign(target.id);
+      reload();
+      toast.success(`Deleted “${target.title || 'Untitled'}”.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not delete that design.');
+    }
   }
   async function handleDuplicate(id: string) {
     try {
       const copy = await duplicateDesign(id);
       reload();
-      if (copy) navigate('/designs/' + copy.id);
+      if (copy) {
+        toast.success('Copy created — opening it now.');
+        navigate('/designs/' + copy.id);
+      } else {
+        toast.error("That design is no longer in this browser, so it couldn't be copied.");
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not duplicate the design.');
+      toast.error(e instanceof Error ? e.message : 'Could not duplicate the design.');
     }
   }
   async function handleBackup() {
@@ -97,15 +109,15 @@ export default function DashboardPage() {
       const a = document.createElement('a');
       a.href = url; a.download = 'contentpro-designs-backup.json'; a.click();
       URL.revokeObjectURL(url);
-      setNote('Backup downloaded.');
-    } catch { setError('Could not build a backup.'); }
+      toast.success('Backup downloaded.');
+    } catch { toast.error('Could not build a backup.'); }
   }
   async function handleRestore(file: File) {
     try {
       const n = await restoreBackup(file);
       reload();
-      setNote(`Restored ${n} design${n === 1 ? '' : 's'}.`);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not restore that file.'); }
+      toast.success(`Restored ${n} design${n === 1 ? '' : 's'}.`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not restore that file.'); }
   }
 
   const cardCount = designs.filter((d) => d.type === 'card').length;
@@ -116,9 +128,6 @@ export default function DashboardPage() {
 
   return (
     <AppShell title="Your designs">
-      {error && <p className="error-text" role="alert" style={{ marginBottom: 12 }}>{error}</p>}
-      {note && <p className="pill pill-brand" role="status" style={{ marginBottom: 12 }}>{note}</p>}
-
       {/* create actions */}
       <div className="dash-create">
         <button className="dash-tile dash-tile-primary" onClick={() => handleCreate('card')}>

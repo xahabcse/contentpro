@@ -2,18 +2,19 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthShell from '@/components/layout/AuthShell';
 import TurnstileWidget from '@/components/TurnstileWidget';
+import { NETWORK_ERROR_MESSAGE, readApiError } from '@/lib/errorMessages';
+import { useToast } from '@/lib/toast';
 
 export default function SignupPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
     setSubmitting(true);
     try {
       const res = await fetch('/api/auth/signup', {
@@ -23,12 +24,15 @@ export default function SignupPage() {
         body: JSON.stringify({ email, password, turnstileToken }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || 'Signup failed');
+        toast.error(await readApiError(res, "We couldn't create your account. Please try again."));
+        return;
       }
+      // The toast survives the route change -- it confirms the account landed
+      // before the verify-email screen explains the next step.
+      toast.success('Account created. Check your email for the verification link.');
       navigate('/verify-email', { state: { email } });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Signup failed');
+    } catch {
+      toast.error(NETWORK_ERROR_MESSAGE);
     } finally {
       setSubmitting(false);
     }
@@ -67,8 +71,6 @@ export default function SignupPage() {
         <div style={{ marginBottom: 16 }}>
           <TurnstileWidget token={turnstileToken} onToken={setTurnstileToken} />
         </div>
-
-        {error && <p className="error-text" role="alert" style={{ marginBottom: 16 }}>{error}</p>}
 
         <button type="submit" className="btn btn-primary" disabled={submitting || !turnstileToken}>
           {submitting ? 'Creating account…' : 'Create account'}
