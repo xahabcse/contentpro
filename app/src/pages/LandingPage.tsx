@@ -903,7 +903,8 @@ export default function LandingPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <CardstockLogo size={24} wordSize={16} color="var(--ink)" />
             <span style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted)', letterSpacing: '.04em' }}>
-              © 2026 Cardstock — In-Browser Card &amp; Carousel Studio
+              © 2026 Cardstock — In-Browser Card &amp; Carousel Studio · A product of{' '}
+              <a href="https://www.xahabcse.me/" target="_blank" rel="noopener noreferrer" className="lp-underline" style={{ color: 'var(--muted)' }}>xahabcse.me</a>
               <span style={{ marginLeft: 8, opacity: 0.75 }}>v{versionData.version}</span>
             </span>
           </div>

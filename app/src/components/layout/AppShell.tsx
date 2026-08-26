@@ -123,7 +123,10 @@ export default function AppShell({ title, children }: AppShellProps) {
       </main>
 
       <footer style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px 40px 16px' }}>
-        <span style={{ fontSize: 12, color: 'var(--muted)', opacity: 0.8 }}>Cardstock v{versionData.version}</span>
+        <span style={{ fontSize: 12, color: 'var(--muted)', opacity: 0.8 }}>
+          Cardstock v{versionData.version} · © 2026{' '}
+          <a href="https://www.xahabcse.me/" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>xahabcse.me</a>
+        </span>
       </footer>
     </div>
   );

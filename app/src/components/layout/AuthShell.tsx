@@ -13,6 +13,7 @@ export default function AuthShell({ title, subtitle, children }: AuthShellProps)
   return (
     <div
       style={{
+        position: 'relative',
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
@@ -30,6 +31,13 @@ export default function AuthShell({ title, subtitle, children }: AuthShellProps)
         )}
         {children}
       </div>
+
+      <footer style={{ position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center' }}>
+        <span style={{ fontSize: 12, color: 'var(--muted)', opacity: 0.8 }}>
+          © 2026{' '}
+          <a href="https://www.xahabcse.me/" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>xahabcse.me</a>
+        </span>
+      </footer>
     </div>
   );
 }
