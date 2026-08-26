@@ -38,7 +38,7 @@ id = "85a0e6dd9be04224a6bb088f6a16667c"
 [[d1_databases]]
 binding = "DB"
 database_name = "contentpro-db"
-database_id = "PLACEHOLDER-run-wrangler-d1-create-and-fill-this-in"
+database_id = "fb2fe8f2-b144-41d9-aceb-497bdedbcbf3"
 
 # -----------------------------------------------------------------------------
 # Workers Route -- the frontend (app/) calls the API via relative /api/*
