@@ -2,13 +2,15 @@ import { jsonValidator } from "../lib/validation";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
-import type { AppEnv, Env } from "../env";
+import type { AppEnv } from "../env";
 import { isUploadedFile } from "../lib/http";
 import {
-  signCloudinaryUrlOrOriginal,
-  signProfileImageUrls,
-  uploadToCloudinary,
-} from "../lib/cloudinary";
+  profileImageKey,
+  profileImageRoute,
+  toProfileResponse,
+  uploadToR2,
+  type ProfileImageField,
+} from "../lib/storage";
 import { findUserById, updateUser } from "../lib/db";
 import { authRequired } from "../middleware/auth-required";
 import { emailVerifiedRequired } from "../middleware/email-verified-required";
@@ -21,7 +23,7 @@ profile.use("*", authRequired, emailVerifiedRequired);
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5MB
 // Modest per-user upload throttle so a verified account can't churn unlimited
-// 5MB objects into Cloudinary storage. Best-effort (see rate-limit.ts caveat).
+// 5MB objects into R2 storage. Best-effort (see rate-limit.ts caveat).
 const UPLOAD_MAX_PER_HOUR = 20;
 // Multipart framing (boundary lines + part headers) around a MAX_UPLOAD_BYTES
 // payload -- slack for the Content-Length precheck below.
@@ -35,7 +37,7 @@ const PROFILE_WRITE_MAX_PER_HOUR = 60;
 // Magic-byte (content) validation -- `file.type` from the multipart part is
 // client-controlled, so the MIME allow-list alone is spoofable. Sniff the
 // leading bytes to confirm the payload really is one of the accepted image
-// formats before it reaches Cloudinary.
+// formats before it reaches R2.
 function sniffImageType(bytes: Uint8Array): "image/png" | "image/jpeg" | "image/webp" | null {
   if (bytes.length >= 8 &&
     bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 &&
@@ -53,16 +55,12 @@ function sniffImageType(bytes: Uint8Array): "image/png" | "image/jpeg" | "image/
   return null;
 }
 
-async function signedProfile(env: Env, profile: UserProfile) {
-  return signProfileImageUrls(profile, env.CLOUDINARY_API_SECRET, env.CLOUDINARY_CLOUD_NAME);
-}
-
 // Flat shape -- matches app/src/pages/ProfileSettingsPage.tsx's
 // `.then(setProfile)` (no `{ profile }` wrapper).
 profile.get("/", async (c) => {
   const user = await findUserById(c.env.DB, c.get("userId"));
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
-  return c.json(await signedProfile(c.env, user.profile));
+  return c.json(toProfileResponse(user.profile));
 });
 
 const updateProfileSchema = z.object({
@@ -91,16 +89,10 @@ profile.put("/", jsonValidator(updateProfileSchema), async (c) => {
 
   const nextProfile: UserProfile = { ...user.profile, ...updates };
   await updateUser(c.env.DB, userId, { profile: nextProfile, updatedAt: new Date() });
-  return c.json(await signedProfile(c.env, nextProfile));
+  return c.json(toProfileResponse(nextProfile));
 });
 
-type ProfileImageField = "photoUrl" | "companyLogoUrl";
-
-async function handleImageUpload(
-  c: Context<AppEnv>,
-  field: ProfileImageField,
-  cloudinaryFolder: string,
-): Promise<Response> {
+async function handleImageUpload(c: Context<AppEnv>, field: ProfileImageField): Promise<Response> {
   const userId = c.get("userId");
 
   const rate = await checkAndRecordRateLimit(c.env.RATE_LIMIT_KV, "profile-upload", userId, {
@@ -137,7 +129,7 @@ async function handleImageUpload(
 
   // Confirm the bytes actually match a permitted image format (magic bytes),
   // not just the client-supplied Content-Type. Blob.arrayBuffer() is
-  // re-readable, so `file` can still be streamed to Cloudinary afterward. The
+  // re-readable, so `file` can still be streamed to R2 afterward. The
   // `as Blob` cast sidesteps the workers-types FormData#get union (see
   // lib/http.ts) that otherwise collapses `.slice` to String.prototype.slice.
   const head = new Uint8Array(await (file as unknown as Blob).slice(0, 12).arrayBuffer());
@@ -149,33 +141,41 @@ async function handleImageUpload(
   const user = await findUserById(c.env.DB, userId);
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
 
-  const url = await uploadToCloudinary(c.env, file, `${cloudinaryFolder}/${userId}`);
+  const key = profileImageKey(field, userId);
+  await uploadToR2(c.env.PROFILE_IMAGES, key, file);
 
-  const nextProfile: UserProfile = { ...user.profile, [field]: url };
+  // The R2 key is what gets stored; clients only ever see the route below.
+  const nextProfile: UserProfile = { ...user.profile, [field]: key };
   await updateUser(c.env.DB, userId, { profile: nextProfile, updatedAt: new Date() });
 
   // Top-level `url` -- matches ProfileSettingsPage.tsx's `const { url } = await res.json()`.
-  const signed = await signCloudinaryUrlOrOriginal(url, c.env.CLOUDINARY_API_SECRET, c.env.CLOUDINARY_CLOUD_NAME);
-  return c.json({ url: signed, profile: await signedProfile(c.env, nextProfile) });
+  return c.json({ url: profileImageRoute(field), profile: toProfileResponse(nextProfile) });
 }
 
-profile.post("/photo", (c) => handleImageUpload(c, "photoUrl", "contentpro/profiles/photo"));
-profile.post("/logo", (c) => handleImageUpload(c, "companyLogoUrl", "contentpro/profiles/logo"));
+profile.post("/photo", (c) => handleImageUpload(c, "photoUrl"));
+profile.post("/logo", (c) => handleImageUpload(c, "companyLogoUrl"));
 
-// Inline display only (used as the editor footer's <img> source) -- redirects
-// to a signed Cloudinary delivery URL after an ownership check, rather than
-// streaming bytes through the Worker (see lib/cloudinary.ts for the access
-// model this relies on).
-async function handleImageRedirect(c: Context<AppEnv>, field: ProfileImageField): Promise<Response> {
+// Inline display only (the profile form's preview and the editor footer's <img>
+// source). Bytes are streamed straight out of the private R2 bucket after an
+// ownership check -- the bucket is never public and no object URL is exposed.
+async function handleImageServe(c: Context<AppEnv>, field: ProfileImageField): Promise<Response> {
   const user = await findUserById(c.env.DB, c.get("userId"));
-  const url = user?.profile[field];
-  if (!user || !url) return c.json({ error: "NOT_FOUND" }, 404);
+  const key = user?.profile[field];
+  if (!key) return c.json({ error: "NOT_FOUND" }, 404);
 
-  const signed = await signCloudinaryUrlOrOriginal(url, c.env.CLOUDINARY_API_SECRET, c.env.CLOUDINARY_CLOUD_NAME);
-  return c.redirect(signed, 302);
+  const object = await c.env.PROFILE_IMAGES.get(key);
+  if (!object) return c.json({ error: "NOT_FOUND" }, 404);
+
+  return new Response(object.body, {
+    headers: {
+      "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream",
+      "Cache-Control": "private, max-age=300",
+      ETag: object.httpEtag,
+    },
+  });
 }
 
-profile.get("/photo", (c) => handleImageRedirect(c, "photoUrl"));
-profile.get("/logo", (c) => handleImageRedirect(c, "companyLogoUrl"));
+profile.get("/photo", (c) => handleImageServe(c, "photoUrl"));
+profile.get("/logo", (c) => handleImageServe(c, "companyLogoUrl"));
 
 export default profile;

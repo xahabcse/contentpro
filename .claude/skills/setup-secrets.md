@@ -19,7 +19,7 @@ This doc covers *how* to set each secret and *what it's for* — you provide the
 | Pages project | `contentpro` |
 | Worker name | `contentpro-api` |
 | Database | **Cloudflare D1**, database `contentpro-db` — no secret involved, just a `wrangler.toml` `[[d1_databases]]` binding (`DB`); see Part 4 below for provisioning |
-| R2 bucket | `contentpro-files` (private — profile photos, company logos, exported PNG/PDF; no secret involved, just a `wrangler.toml` binding) |
+| R2 bucket | `contentpro-profile-images` (private — profile photo + company logo only; binding `PROFILE_IMAGES`; no secret involved, just a `wrangler.toml` binding — see Part 5 below for provisioning) |
 | KV namespace | `RATE_LIMIT_KV` (resend/reset rate-limit tracking; also a binding, not a secret) |
 
 > **Prerequisite:** the Worker's `wrangler.toml` needs a `[[d1_databases]]` block with a real `database_id` (see Part 4) and the `RateLimitDO` Durable Object's `[[migrations]]` entries in place before first deploy. Unlike the project's old Mongo-based setup, D1 needs no `nodejs_compat_v2`/`node:net`-style compatibility flag to function — it's queried through a plain Workers binding, not a network driver.
@@ -56,20 +56,16 @@ printf '<resend_api_key>' | \
 printf '<turnstile_secret_key>' | \
   CLOUDFLARE_API_TOKEN=<token> CLOUDFLARE_ACCOUNT_ID=<account_id> \
   npx wrangler secret put TURNSTILE_SECRET_KEY --name contentpro-api
-
-# CLOUDINARY_API_SECRET (from Cloudinary dashboard → Settings → API Keys — CLOUDINARY_CLOUD_NAME
-# and CLOUDINARY_API_KEY are NOT secret by Cloudinary's own design and are plain [vars] in wrangler.toml instead)
-printf '<cloudinary_api_secret>' | \
-  CLOUDFLARE_API_TOKEN=<token> CLOUDFLARE_ACCOUNT_ID=<account_id> \
-  npx wrangler secret put CLOUDINARY_API_SECRET --name contentpro-api
 ```
+
+There is no Cloudinary secret to set — profile photo / company logo storage is Cloudflare R2 (private bucket, binding `PROFILE_IMAGES`), which needs zero secrets/credentials, just a one-time bucket creation + `wrangler.toml` binding. See Part 5 below.
 
 ### Verify secrets are set
 
 ```bash
 CLOUDFLARE_API_TOKEN=<token> CLOUDFLARE_ACCOUNT_ID=<account_id> \
   npx wrangler secret list --name contentpro-api
-# Should show: JWT_SECRET, RESEND_API_KEY, TURNSTILE_SECRET_KEY, CLOUDINARY_API_SECRET
+# Should show: JWT_SECRET, RESEND_API_KEY, TURNSTILE_SECRET_KEY
 ```
 
 ### Diagnose BOM issue
@@ -132,6 +128,16 @@ Unlike the project's old MongoDB Atlas setup, this is **not** a secret at all �
 3. `npx wrangler d1 migrations apply contentpro-db --remote` — applies the schema in `api/migrations/0001_init.sql` (`users`, `auth_events`) to the real remote database. This is a live-database mutation; confirm before running it against production.
 4. Do **not** run `api/seed.sql` against `--remote` — it's a local-only demo-account fixture, applied only via `wrangler d1 execute contentpro-db --local --file=./seed.sql` for local dev.
 
+## Part 5 — Cloudflare R2 Setup (profile photo + company logo)
+
+Like D1, this is **not** a secret at all — profile photo and company logo storage is a private R2 bucket, reached via a plain `wrangler.toml` `[[r2_buckets]]` binding (`PROFILE_IMAGES`), never a credential. R2's local emulation under `wrangler dev` needs zero setup, so this only matters for the real remote account. Run once, from `api/`:
+
+1. `npx wrangler r2 bucket create contentpro-profile-images` — creates the private bucket on the real Cloudflare account. There is no public-access toggle to enable — it stays private by default, which is what this project relies on.
+2. Confirm `api/wrangler.toml` has a matching `[[r2_buckets]]` block: `binding = "PROFILE_IMAGES"`, `bucket_name = "contentpro-profile-images"`.
+3. That's it — no signing keys, no delivery-URL configuration, nothing else to provision. `GET /api/profile/photo` and `GET /api/profile/logo` stream the object bytes straight back through the Worker after an ownership check; there is no public URL and no presigned/signed URL of any kind for this bucket.
+
+**Historical note:** this project briefly ran profile photo/company logo storage through Cloudinary as an interim workaround, back when R2 bucket creation was blocked on a manual one-time dashboard step. That's resolved — Cloudinary has been removed from the codebase entirely (no `CLOUDINARY_*` secrets/vars, no signing code), and storage is back to R2 as originally designed.
+
 ## Troubleshooting
 
 | Error | Cause | Fix |
@@ -141,6 +147,7 @@ Unlike the project's old MongoDB Atlas setup, this is **not** a secret at all �
 | Turnstile siteverify returns `invalid-input-secret` | Wrong or BOM'd `TURNSTILE_SECRET_KEY`, or it's paired with a different widget's site key | Re-set with `printf`; confirm the site key and secret key came from the same Turnstile widget |
 | Turnstile widget never renders on the signup page | `VITE_TURNSTILE_SITE_KEY` missing at build time | Set the GitHub secret and re-run the deploy — Vite bakes this in at build time, so a rebuild is required, not just a Worker restart |
 | Resend emails not sending / API returns 401 | Wrong or BOM'd `RESEND_API_KEY` | Re-set with `printf`; verify the key in the Resend dashboard |
+| Profile photo/company logo upload or fetch fails referencing R2 | `[[r2_buckets]]` binding (`PROFILE_IMAGES`) missing or misnamed in `api/wrangler.toml`, or the bucket was never created on this account | Run `npx wrangler r2 bucket create contentpro-profile-images` (Part 5) and confirm the binding name matches |
 | `Authentication error [code: 10000]` on wrangler commands | Wrong Cloudflare account targeted | Set `CLOUDFLARE_ACCOUNT_ID` explicitly before the command |
 | CI deploy fails with 401 | Wrong or expired `CLOUDFLARE_API_TOKEN` | Rotate the token in the Cloudflare dashboard, update the GitHub secret |
 | All sessions/verification/reset links suddenly invalid after a deploy | `JWT_SECRET` was regenerated or overwritten | Treat `JWT_SECRET` as write-once per environment — rotating it invalidates every outstanding session, email-verification, and password-reset token |

@@ -16,7 +16,7 @@ This repo also contains a **legacy Claude-driven pipeline** (`templates/`, `scri
 
 ## Quick start (Docker)
 
-Run the whole stack — frontend and the Cloudflare Worker API (via `wrangler dev`, with its built-in local D1 SQLite emulation) — locally with one command. **No Cloudflare account, Resend, or Cloudinary needed.** Requires only Docker.
+Run the whole stack — frontend and the Cloudflare Worker API (via `wrangler dev`, with its built-in local D1 SQLite + R2 emulation) — locally with one command. **No Cloudflare account or Resend needed.** Requires only Docker.
 
 ```bash
 git clone https://github.com/xahabcse/contentpro.git
@@ -32,7 +32,7 @@ Then open **http://localhost:8080** and log in with the seeded demo account:
 
 That's it — you can design cards & carousels, switch templates/palettes, upload backgrounds, and export PNG/PDF entirely offline. Stop with `docker compose down` (add `-v` to also wipe the local database).
 
-**What's optional:** e-mail verification (Resend) and profile-photo / logo uploads (Cloudinary) are off by default — the demo account is already verified, and footers fall back to a placeholder avatar. To enable them, copy `.env.example` to `.env` and add your keys. Turnstile uses Cloudflare's public **test keys** (always pass) unless you supply real ones.
+**What's optional:** e-mail verification (Resend) is off by default — the demo account is already verified. Profile-photo / company-logo uploads go straight to `wrangler dev`'s local R2 emulation, which needs zero credentials, so that feature just works locally out of the box (footers fall back to a placeholder avatar until you upload one). To enable email verification, copy `.env.example` to `.env` and add your Resend key. Turnstile uses Cloudflare's public **test keys** (always pass) unless you supply real ones.
 
 > Use a Chromium-based browser (Chrome/Edge) for the local run — the session cookie is `Secure`, which those browsers accept on `http://localhost`.
 
@@ -56,7 +56,7 @@ For manual (non-Docker) development, see [Getting started](#getting-started).
 
 ### Accounts
 - Email + password sign-up with **Cloudflare Turnstile**, **email verification** and **password reset** (via Resend).
-- Profile: name, handle, designation, company name, profile photo, company logo (photo + logo hosted on Cloudinary).
+- Profile: name, handle, designation, company name, profile photo, company logo (photo + logo stored in a private Cloudflare R2 bucket, streamed back through the API — never a public URL).
 
 ### Data & privacy
 - **Browser-only designs** — every design lives entirely in the user's browser (`localStorage` for design JSON + `IndexedDB` for image blobs). The server stores **only** account + profile info.
@@ -72,7 +72,7 @@ For manual (non-Docker) development, see [Getting started](#getting-started).
 | **Frontend** (`app/`) | React 19 · Vite 8 · React Router 7 · TypeScript · `html2canvas` · `jsPDF` — deployed to **Cloudflare Pages** |
 | **Backend** (`api/`) | **Hono 4** on **Cloudflare Workers** · **Cloudflare D1** (SQLite) · a slim **Durable Object** (`RateLimitDO`) for atomic auth rate-limiting · `zod` validation |
 | **Auth** | PBKDF2-HMAC-SHA256 (Web Crypto) · JWT httpOnly-cookie sessions · Cloudflare **Turnstile** · **Resend** email |
-| **Media** | **Cloudinary** (profile photo + company logo only) |
+| **Media** | **Cloudflare R2** (private bucket; profile photo + company logo only) |
 | **Fonts** | Archivo (display) · Newsreader (serif) · Space Grotesk (UI) — Google Fonts |
 | **CI/CD** | GitHub Actions → Cloudflare Pages / Workers on push to `main` |
 
@@ -86,12 +86,19 @@ Browser (Cloudflare Pages)                 Cloudflare Workers (Hono)
 │ React SPA                    │           │ /api/auth   (signup, login, │
 │  • editor / dashboard        │  cookie   │   verify, reset, me)        │
 │  • localStorage  → designs   │──JWT─────▶ │ /api/profile (get/update,   │
-│  • IndexedDB     → images    │           │   photo/logo upload)        │
+│  • IndexedDB     → images    │           │   photo/logo upload+stream) │
 │  • html2canvas   → PNG/PDF   │           │                             │
 └──────────────────────────────┘           │  ┌───────────────────────┐  │
                                             │  │ RateLimitDO           │  │
-   Cloudinary ◀── profile photo/logo ──────┼─▶│  (atomic auth         │  │
-                                            │  │   throttling only)   │  │
+                                            │  │  (atomic auth         │  │
+                                            │  │   throttling only)    │  │
+                                            │  └───────────────────────┘  │
+                                            │  ┌───────────────────────┐  │
+                                            │  │ R2: PROFILE_IMAGES    │  │
+                                            │  │  (private; streamed   │  │
+                                            │  │   back through this   │  │
+                                            │  │   Worker, no public   │  │
+                                            │  │   or signed URL)      │  │
                                             │  └──────────┬────────────┘  │
                                             └─────────────┼───────────────┘
                                                           ▼
@@ -137,7 +144,7 @@ Browser (Cloudflare Pages)                 Cloudflare Workers (Hono)
 │       ├── routes/          #   auth, profile, admin
 │       ├── middleware/      #   auth-required, email-verified-required, admin-required, rate-limit
 │       ├── durable-objects/ #   rate-limit (RateLimitDO — atomic auth throttling only)
-│       ├── lib/             #   db (D1 data access), jwt, password, cloudinary, resend, turnstile, ...
+│       ├── lib/             #   db (D1 data access), jwt, password, storage (R2), resend, turnstile, ...
 │       └── schema.ts        #   users / auth_events row types
 ├── brand/brand-kit.md       # Single source of truth for the visual brand
 ├── docs/contentpro-spec.md  # Full product/requirements spec
@@ -151,7 +158,7 @@ Browser (Cloudflare Pages)                 Cloudflare Workers (Hono)
 
 ## Getting started
 
-Prerequisites: **Node.js 20+**, a Cloudflare account (Workers + Pages + D1), Cloudinary, Resend, and Cloudflare Turnstile.
+Prerequisites: **Node.js 20+**, a Cloudflare account (Workers + Pages + D1 + R2), Resend, and Cloudflare Turnstile.
 
 ### Frontend (`app/`)
 
@@ -177,7 +184,7 @@ npm run deploy     # wrangler deploy
 ```
 
 Worker secrets (set via `wrangler secret put` or the `/setup-secrets` skill — never commit values):
-`JWT_SECRET`, `RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+`JWT_SECRET`, `RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`. Profile-photo/company-logo storage (Cloudflare R2, binding `PROFILE_IMAGES`) needs no secret at all — just a one-time `npx wrangler r2 bucket create contentpro-profile-images` and a `wrangler.toml` binding (see `/setup-secrets` Part 5).
 
 ---
 

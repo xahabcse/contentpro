@@ -11,7 +11,6 @@ RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-ContentPro <onboarding@resend.dev>}
 JWT_SECRET=${JWT_SECRET}
 TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY}
 RESEND_API_KEY=${RESEND_API_KEY}
-CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
 EOF
 
 # Local D1 lives in a SQLite file under /app/.wrangler (a named volume, so it

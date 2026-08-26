@@ -94,9 +94,9 @@ Unlike the old Mongo/Atlas setup (schemaless, no migration file, indexes had to 
 
 ### R2 bucket considerations
 
-- The R2 bucket (private only — no public bucket URLs; holds profile photos, company logos, and every exported PNG/PDF) must exist and be bound in `api/wrangler.toml` (`[[r2_buckets]]`) before the first deploy of any route that touches it. Creating the bucket (`wrangler r2 bucket create <name>`) is a remote mutation — confirm first.
-- There is no bucket-level public-access toggle to manage: privacy is enforced entirely by the Worker routes (`/api/designs/:id/download`, `/api/profile/photo`, `/api/profile/logo`) checking session ownership before streaming the object or issuing a short-lived presigned URL — don't "fix" a perceived access problem by making the bucket public.
-- Deleting objects/buckets (`wrangler r2 object delete`, `wrangler r2 bucket delete`) always requires confirmation — these back live user data (a user's saved designs and exports), not disposable build artifacts.
+- The `PROFILE_IMAGES` R2 bucket (`contentpro-profile-images` — private only, no public bucket URLs; holds the profile photo and company logo only, since design content/exports are never persisted server-side at all — see `schema.ts`) must exist and be bound in `api/wrangler.toml` (`[[r2_buckets]]`) before the first deploy of any route that touches it. Creating the bucket (`npx wrangler r2 bucket create contentpro-profile-images`) is a remote mutation — confirm first.
+- There is no bucket-level public-access toggle to manage: privacy is enforced entirely by the Worker routes (`/api/profile/photo`, `/api/profile/logo`) checking session ownership before streaming the object body straight back — there is no presigned or signed URL of any kind anywhere in this flow. Don't "fix" a perceived access problem by making the bucket public or by adding URL signing.
+- Deleting objects/buckets (`wrangler r2 object delete`, `wrangler r2 bucket delete`) always requires confirmation — these back a live user's profile photo/company logo, not disposable build artifacts.
 
 ## Standard procedures
 
@@ -116,7 +116,7 @@ Unlike the old Mongo/Atlas setup (schemaless, no migration file, indexes had to 
 
 ### Set a Worker secret (BOM-safe)
 
-`printf '%s' '<value>' | npx wrangler secret put <NAME>` (a here-string/echo can append a trailing newline or BOM that breaks the secret). Worker runtime secrets: `JWT_SECRET`, `RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`, `CLOUDINARY_API_SECRET`. These are a distinct tier from the GitHub Actions secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) and the frontend build-time values (`VITE_API_BASE_URL`, `VITE_TURNSTILE_SITE_KEY`) — don't conflate the three when the user asks to "set a secret." The user provides all real values themselves; never invent placeholders and put them anywhere durable.
+`printf '%s' '<value>' | npx wrangler secret put <NAME>` (a here-string/echo can append a trailing newline or BOM that breaks the secret). Worker runtime secrets: `JWT_SECRET`, `RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`. These are a distinct tier from the GitHub Actions secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) and the frontend build-time values (`VITE_API_BASE_URL`, `VITE_TURNSTILE_SITE_KEY`) — don't conflate the three when the user asks to "set a secret." The user provides all real values themselves; never invent placeholders and put them anywhere durable. (Profile-photo/company-logo storage is Cloudflare R2, binding `PROFILE_IMAGES` — that's a `wrangler.toml` binding, not a secret at all; see R2 bucket considerations above.)
 
 ### Post-deploy smoke check
 

@@ -67,7 +67,7 @@ Specialist subagents, slash-skills, and CI/CD for the web app described in `docs
 | Skill | Purpose |
 |---|---|
 | `/deploy` | Ship to production — push to `main` (no dev branch), CI deploys automatically. |
-| `/setup-secrets` | Set Cloudflare Worker secrets (`JWT_SECRET`, `RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`, `CLOUDINARY_API_SECRET`) + GitHub Actions secrets. Run once per new account/rotation — **user supplies the real key/token values.** |
+| `/setup-secrets` | Set Cloudflare Worker secrets (`JWT_SECRET`, `RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`) + GitHub Actions secrets. Run once per new account/rotation — **user supplies the real key/token values.** |
 | `/build-check` | Production build sanity check for `app/` before committing/deploying. |
 | `/ui-test` | Interactive Playwright QA run (the human-invokable counterpart to the `ui-tester` agent). |
 

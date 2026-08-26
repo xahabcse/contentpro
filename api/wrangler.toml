@@ -11,13 +11,6 @@ ENV = "production"
 FRONTEND_URL = "https://content.xahabcse.me"
 RESEND_FROM_EMAIL = "Cardstock <noreply@xahabcse.me>"
 
-# Cloudinary storage (spec section 5.6, revised) -- profile photos, company
-# logos, and every exported PNG/PDF. Cloud name + API key are not secret
-# (same as protfolio's wrangler.toml); the API secret is set via:
-#   npx wrangler secret put CLOUDINARY_API_SECRET
-CLOUDINARY_CLOUD_NAME = "drwezeylt"
-CLOUDINARY_API_KEY = "115224732881292"
-
 # Admin allowlist (comma-separated). Not a credential -- access still requires
 # logging in as one of these accounts; this just flags which sessions may reach
 # the /api/admin/* routes.
@@ -28,6 +21,16 @@ ADMIN_EMAILS = "sujoncep@gmail.com"
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
 id = "85a0e6dd9be04224a6bb088f6a16667c"
+
+# -----------------------------------------------------------------------------
+# R2 -- profile photos and company logos (spec section 5.6). The bucket stays
+# PRIVATE: every read goes through the ownership-checked /api/profile/{photo,logo}
+# route, which streams the object body back through the Worker. `wrangler dev`
+# emulates this locally with no credentials, same as D1.
+# -----------------------------------------------------------------------------
+[[r2_buckets]]
+binding = "PROFILE_IMAGES"
+bucket_name = "contentpro-profile-images"
 
 # -----------------------------------------------------------------------------
 # D1 -- the primary datastore (users + auth_events). Schema lives in
@@ -90,5 +93,5 @@ renamed_classes = [{ from = "MongoConnectionDO", to = "RateLimitDO" }]
 # -----------------------------------------------------------------------------
 # Secrets -- NOT set in this file. Provision via `wrangler secret put <NAME>`
 # (see .dev.vars.example for local-dev equivalents):
-#   JWT_SECRET, RESEND_API_KEY, TURNSTILE_SECRET_KEY, CLOUDINARY_API_SECRET
+#   JWT_SECRET, RESEND_API_KEY, TURNSTILE_SECRET_KEY
 # -----------------------------------------------------------------------------

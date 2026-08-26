@@ -6,7 +6,7 @@ import type { AppEnv, Env } from "../env";
 import { hashPassword, needsRehash, verifyPassword, verifyPasswordDummy } from "../lib/password";
 import { findUserByEmail, findUserById, insertUser, updateUser } from "../lib/db";
 import { signActionToken, signSessionToken, verifyActionToken } from "../lib/jwt";
-import { signProfileImageUrls } from "../lib/cloudinary";
+import { toProfileResponse } from "../lib/storage";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../lib/resend";
 import { verifyTurnstileToken } from "../lib/turnstile";
 import { authRequired, SESSION_COOKIE_NAME } from "../middleware/auth-required";
@@ -230,9 +230,9 @@ auth.get("/me", authRequired, async (c) => {
     id: user._id,
     email: user.email,
     emailVerified: user.emailVerified,
-    // Sign the Cloudinary URLs at response time -- keep parity with
-    // GET /api/profile, which also returns signed URLs.
-    profile: await signProfileImageUrls(user.profile, c.env.CLOUDINARY_API_SECRET, c.env.CLOUDINARY_CLOUD_NAME),
+    // Stored R2 keys become their serving routes -- keep parity with
+    // GET /api/profile, which returns the same mapped shape.
+    profile: toProfileResponse(user.profile),
   });
 });
 

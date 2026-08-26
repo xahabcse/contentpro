@@ -9,7 +9,7 @@ import adminRoutes from "./routes/admin";
 const app = new Hono<AppEnv>();
 
 // Baseline hardening headers (X-Content-Type-Options: nosniff, etc.) -- matters
-// because /api/profile/{photo,logo} issue 302 redirects to Cloudinary.
+// because /api/profile/{photo,logo} stream user-uploaded bytes back out.
 app.use("*", secureHeaders());
 
 // Cookie-based CORS (credentials: true) -- the session JWT travels as an

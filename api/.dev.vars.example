@@ -1,8 +1,9 @@
 # Copy this file to `.dev.vars` for local `wrangler dev` runs. `.dev.vars` is
 # already gitignored at the repo root -- never commit real secret values.
 
-# The database (D1) needs no entry here -- `wrangler dev` binds a local SQLite
-# file under .wrangler/ automatically. Create/refresh it with:
+# Neither the database (D1) nor profile-image storage (R2) needs an entry here
+# -- `wrangler dev` emulates both locally with no credentials. Create/refresh
+# the local database with:
 #   npx wrangler d1 migrations apply contentpro-db --local
 #   npx wrangler d1 execute contentpro-db --local --file=./seed.sql
 
@@ -18,9 +19,3 @@ RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 # Cloudflare Turnstile secret key (https://dash.cloudflare.com/?to=/:account/turnstile)
 # -- server-side validation for the public signup form.
 TURNSTILE_SECRET_KEY="0x0000000000000000000000000000000000"
-
-# Cloudinary API secret (https://cloudinary.com/console) -- signs uploads and
-# delivery URLs (lib/cloudinary.ts). CLOUDINARY_CLOUD_NAME/CLOUDINARY_API_KEY
-# are NOT secret -- they're plain [vars] in wrangler.toml and already apply to
-# `wrangler dev` too, so they don't need to be repeated here.
-CLOUDINARY_API_SECRET="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

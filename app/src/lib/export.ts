@@ -4,7 +4,7 @@ import { jsPDF } from 'jspdf';
 // Client-side export pipeline. Uses html2canvas (not html-to-image, which
 // hangs on this browser awaiting img.decode() of an SVG data URI). Nodes are
 // captured at their natural size × 2 for crisp output. Carousel pages use
-// JPEG to stay under Cloudinary's 10MB free-tier upload cap.
+// JPEG to keep a multi-page PDF's file size manageable.
 const EXPORT_TIMEOUT_MS = 25_000;
 const CAROUSEL_PAGE_JPEG_QUALITY = 0.92;
 

@@ -11,10 +11,14 @@
 export interface UserProfile {
   name?: string;
   designation?: string;
-  /** Cloudinary secure_url. */
+  /**
+   * R2 object key (lib/storage.ts), NOT a URL -- the field name predates the
+   * move back to R2 and is kept as-is to avoid a column rename. Responses map
+   * it to the route that serves the bytes; the key itself never leaves the API.
+   */
   photoUrl?: string;
   companyName?: string;
-  /** Cloudinary secure_url. */
+  /** R2 object key -- see photoUrl above. */
   companyLogoUrl?: string;
   /** shared handle text, e.g. "at-xahabcse" */
   handle?: string;

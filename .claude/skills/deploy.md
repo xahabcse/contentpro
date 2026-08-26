@@ -57,17 +57,17 @@ These are consumed by the Worker at runtime, not at CI build time — set them d
 | `JWT_SECRET` | Signing/verifying session, email-verification, and password-reset JWTs |
 | `RESEND_API_KEY` | Transactional email delivery via Resend |
 | `TURNSTILE_SECRET_KEY` | Server-side Turnstile siteverify call on signup |
-| `CLOUDINARY_API_SECRET` | Signs Cloudinary uploads and delivery URLs |
 
 ```bash
 cd api
 npx wrangler secret put JWT_SECRET
 npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put TURNSTILE_SECRET_KEY
-npx wrangler secret put CLOUDINARY_API_SECRET
 ```
 
 The database itself (Cloudflare D1) is **not** a secret — it's a plain `wrangler.toml` binding (`DB`). First-time setup needs `npx wrangler d1 create contentpro-db` (paste the returned `database_id` into `wrangler.toml`) and `npx wrangler d1 migrations apply contentpro-db --remote` (applies `api/migrations/0001_init.sql`) — see `/setup-secrets` Part 4 for the full sequence.
+
+Profile photo / company logo storage (Cloudflare R2) is likewise **not** a secret — it's a plain `wrangler.toml` `[[r2_buckets]]` binding (`PROFILE_IMAGES`, bucket `contentpro-profile-images`). First-time setup needs `npx wrangler r2 bucket create contentpro-profile-images` — see `/setup-secrets` Part 5. The bucket is private with no public or presigned URLs; `GET /api/profile/photo` and `GET /api/profile/logo` stream the object bytes back directly after an ownership check.
 
 ## Production URLs
 
@@ -138,5 +138,5 @@ On the **very first** API deploy only: `wrangler.toml` must already have a `[[d1
 | CORS error calling the API from the app | App's Pages domain not in the Worker's CORS allow-list | Check the origin allow-list in `api/src/index.ts` |
 | Signup fails Turnstile validation (400) | `TURNSTILE_SECRET_KEY` unset, or it doesn't match the widget behind `VITE_TURNSTILE_SITE_KEY` | Confirm both keys come from the same Turnstile widget in the Cloudflare dashboard |
 | Verification/reset emails never arrive | `RESEND_API_KEY` missing/invalid, or sending domain not verified in Resend | Check the Resend dashboard's domain verification status |
-| Downloading an export returns 403/404 | Presigned R2 URL expired (~5 min) or wrong R2 bucket binding name | Re-request the download; check the R2 binding name in `wrangler.toml` |
+| Profile photo/company logo fails to load (404) | `PROFILE_IMAGES` R2 binding missing/misnamed in `wrangler.toml`, or nothing has been uploaded yet for that user | Confirm the binding name and that `POST /api/profile/photo`/`/logo` succeeded first — delivery is a direct authenticated stream through the Worker, there is no presigned URL to expire |
 | CI build fails on `npm ci` in `app/` | Peer dependency conflict | Check for a newly added package that needs `--legacy-peer-deps`, or pin the conflicting version |
