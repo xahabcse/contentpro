@@ -1,21 +1,17 @@
 import { getCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
-import type { AppEnv, Env } from "../env";
+import type { AppEnv } from "../env";
+import { findUserById } from "../lib/db";
 import { verifySessionToken } from "../lib/jwt";
 
 export const SESSION_COOKIE_NAME = "session";
-
-function mongoStub(env: Env) {
-  const id = env.MONGO_DO.idFromName("global-mongo-connection");
-  return env.MONGO_DO.get(id);
-}
 
 /**
  * Verifies the session JWT cookie and sets `userId`/`emailVerified` in
  * context. Two checks:
  *   1. Signature + `type: "session"` + expiry (lib/jwt.ts).
  *   2. The token's `v` (sessionVersion at issuance) still matches the user's
- *      current sessionVersion in Mongo -- this is the session-revocation gate.
+ *      current sessionVersion in the database -- the session-revocation gate.
  *      Only a successful password reset bumps sessionVersion, which instantly
  *      invalidates every outstanding session cookie. Costs one findUserById per
  *      request; that is the accepted price of being able to revoke live
@@ -44,7 +40,7 @@ export const authRequired = createMiddleware<AppEnv>(async (c, next) => {
     return c.json({ error: "UNAUTHENTICATED" }, 401);
   }
 
-  const user = await mongoStub(c.env).findUserById(payload.sub);
+  const user = await findUserById(c.env.DB, payload.sub);
   if (!user || (user.sessionVersion ?? 0) !== payload.v) {
     return c.json({ error: "UNAUTHENTICATED" }, 401);
   }

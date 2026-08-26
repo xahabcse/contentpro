@@ -4,6 +4,15 @@
 # is required: workerd does not run on Alpine/musl.
 FROM node:22-bookworm-slim
 
+# workerd validates outbound TLS against the OS trust store, and the -slim base
+# ships none -- without this, every fetch() from the Worker (Turnstile
+# siteverify, Resend, Cloudinary) dies with "TLS peer's certificate is not
+# trusted", which breaks signup and login. Node's own bundled CA list covers
+# npm, so the gap only shows up at runtime inside the Worker.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Install deps first for layer caching. Use the committed lockfile (npm ci) so

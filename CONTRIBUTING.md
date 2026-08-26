@@ -25,7 +25,7 @@ cd app && npm install && npm run dev
 ## Project layout
 
 - `app/` — React/Vite frontend (Cloudflare Pages)
-- `api/` — Hono API on Cloudflare Workers (MongoDB via a Durable Object)
+- `api/` — Hono API on Cloudflare Workers (Cloudflare D1 database)
 - `brand/brand-kit.md` — the design system (tokens, fonts, palettes, templates)
 - `docs/contentpro-spec.md` — the full product spec
 - See the [README](README.md) for the full map.

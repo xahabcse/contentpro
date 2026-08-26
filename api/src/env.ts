@@ -1,16 +1,17 @@
-import type { MongoConnectionDO } from "./durable-objects/mongo-connection";
+import type { RateLimitDO } from "./durable-objects/rate-limit";
 
 /** Cloudflare resource bindings, wired up in wrangler.toml. */
 export interface Bindings {
   /** resend-verification / forgot-password rate-limit tracking (spec 5.3/5.4) */
   RATE_LIMIT_KV: KVNamespace;
-  /** single global Mongo Connection Durable Object (spec 4.2) */
-  MONGO_DO: DurableObjectNamespace<MongoConnectionDO>;
+  /** users + auth_events; schema in api/migrations, access via lib/db.ts */
+  DB: D1Database;
+  /** single global Durable Object backing the atomic login/signup/reset throttles */
+  RATE_LIMIT_DO: DurableObjectNamespace<RateLimitDO>;
 }
 
 /** Workers secrets -- set via `wrangler secret put`, never committed (spec 5.7). */
 export interface Secrets {
-  MONGODB_URI: string;
   JWT_SECRET: string;
   RESEND_API_KEY: string;
   TURNSTILE_SECRET_KEY: string;

@@ -1,10 +1,10 @@
 # Copy this file to `.dev.vars` for local `wrangler dev` runs. `.dev.vars` is
 # already gitignored at the repo root -- never commit real secret values.
 
-# MongoDB Atlas connection string. Use a SEPARATE dev-tier database/database
-# user, never the production URI -- `wrangler dev` talks to the real Atlas
-# cluster over the network, there is no local Mongo emulator.
-MONGODB_URI="mongodb+srv://<dev-user>:<dev-password>@<dev-cluster>.mongodb.net/?retryWrites=true&w=majority"
+# The database (D1) needs no entry here -- `wrangler dev` binds a local SQLite
+# file under .wrangler/ automatically. Create/refresh it with:
+#   npx wrangler d1 migrations apply contentpro-db --local
+#   npx wrangler d1 execute contentpro-db --local --file=./seed.sql
 
 # Long random string used to sign/verify session JWTs and the email-verification
 # / password-reset action JWTs (HMAC-SHA256). Generate one with:

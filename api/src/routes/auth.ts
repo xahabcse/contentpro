@@ -4,6 +4,7 @@ import { deleteCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
 import type { AppEnv, Env } from "../env";
 import { hashPassword, needsRehash, verifyPassword, verifyPasswordDummy } from "../lib/password";
+import { findUserByEmail, findUserById, insertUser, updateUser } from "../lib/db";
 import { signActionToken, signSessionToken, verifyActionToken } from "../lib/jwt";
 import { signProfileImageUrls } from "../lib/cloudinary";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../lib/resend";
@@ -11,11 +12,10 @@ import { verifyTurnstileToken } from "../lib/turnstile";
 import { authRequired, SESSION_COOKIE_NAME } from "../middleware/auth-required";
 import { logAuthEvent } from "../lib/auth-events";
 import { checkAndRecordRateLimit } from "../middleware/rate-limit";
-import type { NewUserInput } from "../schema";
+import type { NewUserInput, UserUpdateInput } from "../schema";
 
-// Duplicate-key sentinel thrown by MongoConnectionDO.insertUser -- RPC across
-// the DO boundary preserves Error.message but not custom props, so match on the
-// message string.
+// Duplicate-key sentinel thrown by lib/db.ts's insertUser when D1 rejects the
+// insert on the users.email UNIQUE index.
 const DUPLICATE_EMAIL_ERROR = "DUPLICATE_EMAIL";
 
 // Auth-abuse throttles. These are ATOMIC (backed by the global DO's serialized
@@ -35,9 +35,12 @@ function clientIp(c: { req: { header: (name: string) => string | undefined } }):
 
 const auth = new Hono<AppEnv>();
 
-function mongoStub(env: Env) {
-  const id = env.MONGO_DO.idFromName("global-mongo-connection");
-  return env.MONGO_DO.get(id);
+// User data lives in D1 (lib/db.ts); the DO is retained solely for the atomic
+// brute-force counters below, which need serialized get-then-put semantics that
+// neither KV nor D1 provides.
+function rateLimitStub(env: Env) {
+  const id = env.RATE_LIMIT_DO.idFromName("global-rate-limit");
+  return env.RATE_LIMIT_DO.get(id);
 }
 
 function resendConfig(env: Env) {
@@ -77,8 +80,7 @@ auth.post("/signup", jsonValidator(signupSchema), async (c) => {
   const { email, password, turnstileToken } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
 
-  const stub = mongoStub(c.env);
-  const ipRate = await stub.rateLimit(
+  const ipRate = await rateLimitStub(c.env).rateLimit(
     `signup-ip:${clientIp(c)}`,
     IP_AUTH_LIMIT.maxAttempts,
     IP_AUTH_LIMIT.windowSeconds,
@@ -97,7 +99,7 @@ auth.post("/signup", jsonValidator(signupSchema), async (c) => {
     return c.json({ error: "TURNSTILE_FAILED" }, 400);
   }
 
-  const existing = await stub.findUserByEmail(normalizedEmail);
+  const existing = await findUserByEmail(c.env.DB, normalizedEmail);
   if (existing) {
     return c.json({ error: "EMAIL_IN_USE" }, 409);
   }
@@ -119,7 +121,7 @@ auth.post("/signup", jsonValidator(signupSchema), async (c) => {
 
   let userId: string;
   try {
-    userId = await stub.insertUser(newUser);
+    userId = await insertUser(c.env.DB, newUser);
   } catch (err) {
     // Closes the TOCTOU race between the findUserByEmail check above and the
     // unique-index insert -- surface it as the same 409 rather than a 500.
@@ -150,7 +152,7 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
   const { email, password, turnstileToken } = c.req.valid("json");
   const normalizedEmail = email.toLowerCase();
   const ip = clientIp(c);
-  const stub = mongoStub(c.env);
+  const stub = rateLimitStub(c.env);
 
   // Atomic brute-force throttle (DO storage, not KV -- see LOGIN_LIMIT note):
   // fail closed if EITHER the per-email OR per-IP counter is exhausted. Both
@@ -173,7 +175,7 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
     return c.json({ error: "TURNSTILE_FAILED" }, 400);
   }
 
-  const user = await stub.findUserByEmail(normalizedEmail);
+  const user = await findUserByEmail(c.env.DB, normalizedEmail);
   if (!user) {
     // Burn equivalent CPU so response timing doesn't reveal that the account is
     // missing (account enumeration). Always fails.
@@ -188,7 +190,7 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
     return c.json({ error: "INVALID_CREDENTIALS" }, 401);
   }
 
-  const userUpdate: Parameters<typeof stub.updateUser>[1] = { lastLoginAt: new Date() };
+  const userUpdate: UserUpdateInput = { lastLoginAt: new Date() };
   // Rehash-on-login: transparently upgrade legacy low-iteration hashes to the
   // current target now that we hold the plaintext, without forcing a reset.
   if (needsRehash(user.passwordIterations)) {
@@ -197,7 +199,7 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
     userUpdate.passwordSalt = rehashed.salt;
     userUpdate.passwordIterations = rehashed.iterations;
   }
-  await stub.updateUser(user._id, userUpdate);
+  await updateUser(c.env.DB, user._id, userUpdate);
 
   // Successful auth -- clear the throttle counters for this email + IP.
   await Promise.all([
@@ -221,8 +223,7 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
 // Flat shape -- matches app/src/lib/auth.tsx's AuthContext User type exactly
 // (setUser(await res.json())), not wrapped in a `user` key.
 auth.get("/me", authRequired, async (c) => {
-  const stub = mongoStub(c.env);
-  const user = await stub.findUserById(c.get("userId"));
+  const user = await findUserById(c.env.DB, c.get("userId"));
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
 
   return c.json({
@@ -249,14 +250,13 @@ auth.post("/verify-email", jsonValidator(verifyEmailSchema), async (c) => {
     return c.json({ error: "INVALID_OR_EXPIRED_TOKEN" }, 400);
   }
 
-  const stub = mongoStub(c.env);
-  const user = await stub.findUserById(payload.sub);
+  const user = await findUserById(c.env.DB, payload.sub);
   // v mismatch guards against a stale/superseded link being used after a resend.
   if (!user || user.tokenVersion !== payload.v) {
     return c.json({ error: "INVALID_OR_EXPIRED_TOKEN" }, 400);
   }
 
-  await stub.updateUser(user._id, { emailVerified: true, updatedAt: new Date() });
+  await updateUser(c.env.DB, user._id, { emailVerified: true, updatedAt: new Date() });
   c.executionCtx.waitUntil(logAuthEvent(c, { type: "email_verified", email: user.email }));
   return c.json({ message: "Email verified. Please log in again." });
 });
@@ -274,12 +274,11 @@ auth.post("/resend-verification", jsonValidator(emailOnlySchema), async (c) => {
     return c.json({ error: "RATE_LIMITED", message: GENERIC_RATE_LIMITED_MESSAGE, retryAfterSeconds: rate.retryAfterSeconds }, 429);
   }
 
-  const stub = mongoStub(c.env);
-  const user = await stub.findUserByEmail(normalizedEmail);
+  const user = await findUserByEmail(c.env.DB, normalizedEmail);
   if (user && !user.emailVerified) {
     // Increment tokenVersion first -- instantly invalidates any prior outstanding link.
     const nextVersion = user.tokenVersion + 1;
-    await stub.updateUser(user._id, { tokenVersion: nextVersion });
+    await updateUser(c.env.DB, user._id, { tokenVersion: nextVersion });
     const token = await signActionToken(user._id, normalizedEmail, "email_verification", nextVersion, c.env.JWT_SECRET);
     // Send off the response path so latency is identical whether or not the
     // account exists -- closes the timing-based enumeration channel (spec 5.3).
@@ -301,11 +300,10 @@ auth.post("/forgot-password", jsonValidator(emailOnlySchema), async (c) => {
     return c.json({ error: "RATE_LIMITED", message: GENERIC_RATE_LIMITED_MESSAGE, retryAfterSeconds: rate.retryAfterSeconds }, 429);
   }
 
-  const stub = mongoStub(c.env);
-  const user = await stub.findUserByEmail(normalizedEmail);
+  const user = await findUserByEmail(c.env.DB, normalizedEmail);
   if (user) {
     const nextVersion = user.tokenVersion + 1;
-    await stub.updateUser(user._id, { tokenVersion: nextVersion });
+    await updateUser(c.env.DB, user._id, { tokenVersion: nextVersion });
     const token = await signActionToken(user._id, normalizedEmail, "password_reset", nextVersion, c.env.JWT_SECRET);
     // Send off the response path -- constant response timing regardless of
     // account existence (spec 5.4).
@@ -325,8 +323,7 @@ const resetPasswordSchema = z.object({
 });
 
 auth.post("/reset-password", jsonValidator(resetPasswordSchema), async (c) => {
-  const stub = mongoStub(c.env);
-  const ipRate = await stub.rateLimit(
+  const ipRate = await rateLimitStub(c.env).rateLimit(
     `reset-password-ip:${clientIp(c)}`,
     IP_AUTH_LIMIT.maxAttempts,
     IP_AUTH_LIMIT.windowSeconds,
@@ -342,13 +339,13 @@ auth.post("/reset-password", jsonValidator(resetPasswordSchema), async (c) => {
     return c.json({ error: "INVALID_OR_EXPIRED_TOKEN" }, 400);
   }
 
-  const user = await stub.findUserById(payload.sub);
+  const user = await findUserById(c.env.DB, payload.sub);
   if (!user || user.tokenVersion !== payload.v) {
     return c.json({ error: "INVALID_OR_EXPIRED_TOKEN" }, 400);
   }
 
   const { hash, salt, iterations } = await hashPassword(password);
-  await stub.updateUser(user._id, {
+  await updateUser(c.env.DB, user._id, {
     passwordHash: hash,
     passwordSalt: salt,
     passwordIterations: iterations,

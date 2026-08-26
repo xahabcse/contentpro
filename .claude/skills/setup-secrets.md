@@ -18,15 +18,15 @@ This doc covers *how* to set each secret and *what it's for* — you provide the
 | Account ID | `<run \`wrangler whoami\` to find it — same value as \`CLOUDFLARE_ACCOUNT_ID\` below>` |
 | Pages project | `contentpro` |
 | Worker name | `contentpro-api` |
-| Database | MongoDB Atlas M0 cluster, database `contentpro` (**not** Cloudflare D1) — connection string stored as the `MONGODB_URI` Worker secret |
+| Database | **Cloudflare D1**, database `contentpro-db` — no secret involved, just a `wrangler.toml` `[[d1_databases]]` binding (`DB`); see Part 4 below for provisioning |
 | R2 bucket | `contentpro-files` (private — profile photos, company logos, exported PNG/PDF; no secret involved, just a `wrangler.toml` binding) |
 | KV namespace | `RATE_LIMIT_KV` (resend/reset rate-limit tracking; also a binding, not a secret) |
 
-> **Prerequisite:** the Worker's `wrangler.toml` needs `compatibility_flags = ["nodejs_compat_v2"]` and `compatibility_date >= 2025-03-20`, plus a `[[migrations]]` block (`new_classes = ["MongoConnectionDO"]`) on first deploy. Without these, `MONGODB_URI` is set correctly but the native MongoDB driver still won't connect — this is the single most common first-deploy failure and is unrelated to the secret value itself.
+> **Prerequisite:** the Worker's `wrangler.toml` needs a `[[d1_databases]]` block with a real `database_id` (see Part 4) and the `RateLimitDO` Durable Object's `[[migrations]]` entries in place before first deploy. Unlike the project's old Mongo-based setup, D1 needs no `nodejs_compat_v2`/`node:net`-style compatibility flag to function — it's queried through a plain Workers binding, not a network driver.
 
 ## Part 1 — Cloudflare Worker Secrets
 
-Worker secrets are set via `wrangler secret put`. **Critical:** always use `printf` (not `echo`) to avoid a UTF-8 BOM being prepended. A leading BOM is invisible when you print the value back, but it silently corrupts it — a BOM'd `MONGODB_URI` fails the driver's connection-string scheme check, a BOM'd `TURNSTILE_SECRET_KEY`/`RESEND_API_KEY` gets rejected by the provider's API as a bad credential, and a BOM'd `JWT_SECRET` just quietly stops matching whatever value you have recorded elsewhere (e.g. a local `.dev.vars` file), producing signature-mismatch failures with no obvious cause.
+Worker secrets are set via `wrangler secret put`. **Critical:** always use `printf` (not `echo`) to avoid a UTF-8 BOM being prepended. A leading BOM is invisible when you print the value back, but it silently corrupts it — a BOM'd `TURNSTILE_SECRET_KEY`/`RESEND_API_KEY` gets rejected by the provider's API as a bad credential, and a BOM'd `JWT_SECRET` just quietly stops matching whatever value you have recorded elsewhere (e.g. a local `.dev.vars` file), producing signature-mismatch failures with no obvious cause.
 
 ### Required env vars
 
@@ -47,11 +47,6 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 printf '<generated_hex>' | CLOUDFLARE_API_TOKEN=<token> CLOUDFLARE_ACCOUNT_ID=<account_id> \
   npx wrangler secret put JWT_SECRET --name contentpro-api
 
-# MONGODB_URI (from MongoDB Atlas → Database → Connect → Drivers → Node.js)
-printf 'mongodb+srv://<user>:<password>@<cluster-host>/contentpro?retryWrites=true&w=majority' | \
-  CLOUDFLARE_API_TOKEN=<token> CLOUDFLARE_ACCOUNT_ID=<account_id> \
-  npx wrangler secret put MONGODB_URI --name contentpro-api
-
 # RESEND_API_KEY (from Resend dashboard → API Keys)
 printf '<resend_api_key>' | \
   CLOUDFLARE_API_TOKEN=<token> CLOUDFLARE_ACCOUNT_ID=<account_id> \
@@ -61,6 +56,12 @@ printf '<resend_api_key>' | \
 printf '<turnstile_secret_key>' | \
   CLOUDFLARE_API_TOKEN=<token> CLOUDFLARE_ACCOUNT_ID=<account_id> \
   npx wrangler secret put TURNSTILE_SECRET_KEY --name contentpro-api
+
+# CLOUDINARY_API_SECRET (from Cloudinary dashboard → Settings → API Keys — CLOUDINARY_CLOUD_NAME
+# and CLOUDINARY_API_KEY are NOT secret by Cloudinary's own design and are plain [vars] in wrangler.toml instead)
+printf '<cloudinary_api_secret>' | \
+  CLOUDFLARE_API_TOKEN=<token> CLOUDFLARE_ACCOUNT_ID=<account_id> \
+  npx wrangler secret put CLOUDINARY_API_SECRET --name contentpro-api
 ```
 
 ### Verify secrets are set
@@ -68,7 +69,7 @@ printf '<turnstile_secret_key>' | \
 ```bash
 CLOUDFLARE_API_TOKEN=<token> CLOUDFLARE_ACCOUNT_ID=<account_id> \
   npx wrangler secret list --name contentpro-api
-# Should show: JWT_SECRET, MONGODB_URI, RESEND_API_KEY, TURNSTILE_SECRET_KEY
+# Should show: JWT_SECRET, RESEND_API_KEY, TURNSTILE_SECRET_KEY, CLOUDINARY_API_SECRET
 ```
 
 ### Diagnose BOM issue
@@ -122,25 +123,21 @@ Turnstile is Cloudflare's own CAPTCHA, used only on the public signup form (`POS
    - **Secret Key** — private, never exposed to the browser. Goes into the `TURNSTILE_SECRET_KEY` Worker secret (Part 1), used server-side when `/api/auth/signup` calls Cloudflare's siteverify endpoint to validate the token before creating a user.
 5. Domain/widget changes can take a few minutes to propagate.
 
-## Part 4 — MongoDB Atlas Setup
+## Part 4 — Cloudflare D1 Setup
 
-1. [MongoDB Atlas](https://cloud.mongodb.com) → **Create a cluster** → pick the free **M0** tier.
-2. **Database Access** → Add New Database User — create a dedicated user with a strong generated password. This user/password pair is embedded directly in the connection string.
-3. **Network Access** → Add IP Access List Entry → **allow `0.0.0.0/0`** (or, if you'd rather scope it, Cloudflare's published IP ranges — but Workers do **not** have a fixed egress IP, so a narrower single-IP allowlist will not work). This is a common first-deploy stumbling block: if Atlas's IP allowlist doesn't include the Worker's request, the connection just times out with no clear error pointing at "network access," and it's easy to burn time suspecting the connection string or the driver instead.
-4. **Database** → **Connect** → **Drivers** → Node.js — copy the connection string. It looks like:
+Unlike the project's old MongoDB Atlas setup, this is **not** a secret at all — D1 is reached via a plain `wrangler.toml` binding (`DB`), never a connection string. Run these once, from `api/`:
 
-   ```text
-   mongodb+srv://<user>:<password>@<cluster-host>/contentpro?retryWrites=true&w=majority
-   ```
-
-5. Use database name `contentpro`. This full string (with your real user/password filled in) is exactly what goes into the `MONGODB_URI` Worker secret in Part 1 — nothing else needs to reference Atlas directly.
+1. `npx wrangler d1 create contentpro-db` — creates the database on the real Cloudflare account and prints a `database_id`.
+2. Paste that `database_id` into `api/wrangler.toml`'s `[[d1_databases]]` block — it ships as a literal placeholder string (`"PLACEHOLDER-run-wrangler-d1-create-and-fill-this-in"`) until this step is done.
+3. `npx wrangler d1 migrations apply contentpro-db --remote` — applies the schema in `api/migrations/0001_init.sql` (`users`, `auth_events`) to the real remote database. This is a live-database mutation; confirm before running it against production.
+4. Do **not** run `api/seed.sql` against `--remote` — it's a local-only demo-account fixture, applied only via `wrangler d1 execute contentpro-db --local --file=./seed.sql` for local dev.
 
 ## Troubleshooting
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| MongoDB connection times out / never connects | Atlas Network Access doesn't allow the Worker's request | Add `0.0.0.0/0` to the Atlas IP Access List — Workers have no fixed egress IP |
-| MongoDB URI rejected as malformed despite looking correct | BOM in `MONGODB_URI` | Re-set with `printf` (not `echo`) |
+| `D1_ERROR: no such table: users` after deploy | The schema migration was never applied to the remote database | Run `npx wrangler d1 migrations apply contentpro-db --remote` (Part 4) |
+| Worker deploy fails referencing the D1 binding | `database_id` in `api/wrangler.toml` is still the placeholder string | Run `npx wrangler d1 create contentpro-db` and paste the real id in (Part 4) |
 | Turnstile siteverify returns `invalid-input-secret` | Wrong or BOM'd `TURNSTILE_SECRET_KEY`, or it's paired with a different widget's site key | Re-set with `printf`; confirm the site key and secret key came from the same Turnstile widget |
 | Turnstile widget never renders on the signup page | `VITE_TURNSTILE_SITE_KEY` missing at build time | Set the GitHub secret and re-run the deploy — Vite bakes this in at build time, so a rebuild is required, not just a Worker restart |
 | Resend emails not sending / API returns 401 | Wrong or BOM'd `RESEND_API_KEY` | Re-set with `printf`; verify the key in the Resend dashboard |

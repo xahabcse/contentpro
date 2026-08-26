@@ -49,4 +49,4 @@ app.onError((err, c) => {
 });
 
 export default app;
-export { MongoConnectionDO } from "./durable-objects/mongo-connection";
+export { RateLimitDO } from "./durable-objects/rate-limit";

@@ -1,8 +1,11 @@
-import type { ObjectId } from "mongodb";
-
 // ---------------------------------------------------------------------------
-// users collection. Designs are browser-only (localStorage + IndexedDB) and
-// no longer persisted server-side, so the only Mongo collection is `users`.
+// Domain types for the `users` table. Designs are browser-only (localStorage +
+// IndexedDB) and are not persisted server-side, so the only user-owned table
+// here is `users` (plus the `auth_events` audit trail below).
+//
+// These stay camelCase and `Date`-typed. The snake_case / epoch-ms SQL columns
+// they map onto live in api/migrations, and the translation between the two
+// happens exclusively in src/lib/db.ts.
 // ---------------------------------------------------------------------------
 
 export interface UserProfile {
@@ -18,7 +21,7 @@ export interface UserProfile {
 }
 
 export interface UserDocument {
-  _id?: ObjectId;
+  _id?: string;
   email: string;
   passwordHash: string;
   passwordSalt: string;
@@ -31,8 +34,9 @@ export interface UserDocument {
    * cookies. Deliberately NOT the same counter as `tokenVersion`: that one is
    * bumped by the UNAUTHENTICATED /forgot-password and /resend-verification
    * routes, so using it as the session gate let anyone who merely knew a
-   * victim's email address force-log-out that account on demand. Optional
-   * because documents predating this field exist -- treat missing as 0.
+   * victim's email address force-log-out that account on demand. Stays
+   * optional on the type (the column is NOT NULL DEFAULT 0) so callers keep
+   * treating a missing value as 0.
    */
   sessionVersion?: number;
   createdAt: Date;
@@ -47,7 +51,7 @@ export type NewUserInput = Omit<UserDocument, "_id">;
 export type UserUpdateInput = Partial<Omit<UserDocument, "_id">>;
 
 // ---------------------------------------------------------------------------
-// auth_events collection. Best-effort audit trail of auth-flow events
+// `auth_events` table. Best-effort audit trail of auth-flow events
 // (signup/login/reset/verify), surfaced read-only through the admin API.
 // ---------------------------------------------------------------------------
 
@@ -61,7 +65,8 @@ export type AuthEventType =
   | "admin_delete_user";
 
 export interface AuthEventDocument {
-  _id?: ObjectId;
+  /** autoincrement rowid; never surfaced through the API */
+  _id?: number;
   /** epoch milliseconds (Date.now()) */
   ts: number;
   type: AuthEventType;

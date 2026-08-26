@@ -6,3 +6,6 @@ node_modules/
 dist/
 *.tsbuildinfo
 .wrangler/
+# Generated production-data migration SQL — contains real emails + password
+# hashes, must never be committed.
+api/scripts/output/

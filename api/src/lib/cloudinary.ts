@@ -8,8 +8,8 @@
 // signing here mirrors cloudinary_npm's sign_url logic but does not itself
 // gate access (Cloudinary only enforces signatures for "authenticated"
 // delivery type). The real authorization boundary is unchanged from the R2
-// design: every route below still ownership-checks the Mongo document before
-// ever handing back a Cloudinary URL.
+// design: every route below still ownership-checks the user row before ever
+// handing back a Cloudinary URL.
 
 import type { Env } from "../env";
 import type { UserProfile } from "../schema";

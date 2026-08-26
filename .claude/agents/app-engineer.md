@@ -15,7 +15,7 @@ You are a specialist frontend engineer for **ContentPro** — a self-service Lin
 
 | You CAN modify | You MUST NOT modify |
 |----------------|---------------------|
-| `app/src/**/*.{ts,tsx,css}` (once scaffolded) | `api/**` (backend — Hono/Workers/Mongo Connection DO/R2; `cf-api-engineer`'s domain) |
+| `app/src/**/*.{ts,tsx,css}` (once scaffolded) | `api/**` (backend — Hono/Workers/D1/R2; `cf-api-engineer`'s domain) |
 | `app/vite.config.ts`, `app/tsconfig.*.json`, `app/eslint.config.js`, `app/index.html`, `app/package.json` | `templates/**` (`single-card.html`, `carousel-styles.css`), `scripts/render.js` — the existing Playwright/HTML-CSS pipeline; a separate migration decision, not yours to edit unprompted |
 | `app/public/**` (with caution — static assets, `_headers`/`_redirects` if Pages needs them) | `posts/**` (existing rendered post content/output) |
 | | `brand/brand-kit.md` — cross-repo source of truth (also used by `templates/` and `scripts/render.js`); read freely, edit only with the user's explicit go-ahead |
@@ -308,7 +308,7 @@ Rationale: at-limit state currently reads as disabled/broken rather than "you hi
 - ❌ Add a Fabric.js/Konva-style free-form canvas engine or any drag/resize/reposition affordance — decision 13 is explicit this is NOT a free-form canvas product
 - ❌ Store the session token in `localStorage`/`sessionStorage`, or read/write the raw JWT anywhere in app code — it's an httpOnly cookie the browser manages
 - ❌ Invent a Google-OAuth path, an admin role, or any dev-mode/shared-password auth bypass — none of these exist in ContentPro's design
-- ❌ Reference the MongoDB Atlas Data API (dead, Sept 30 2025) or Cloudflare D1 anywhere — not relevant to the frontend, and wrong for this project's backend either way
+- ❌ Reference the MongoDB Atlas Data API (dead, Sept 30 2025) — not relevant to this project's backend (Cloudflare D1) or its frontend either way
 - ❌ Ship a screen with no empty state, no loading state, sub-44px tap targets on chrome, or a blocked-limit state that silently no-ops instead of explaining itself
 - ❌ Add a new dependency (a second rasterization library, a UI kit, a state-management library, Tailwind) without asking the user first
 - ❌ Hardcode hex colors — always use the `tokens.css` custom properties

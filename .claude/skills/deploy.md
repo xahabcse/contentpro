@@ -54,18 +54,20 @@ These are consumed by the Worker at runtime, not at CI build time — set them d
 
 | Secret | Used by |
 |--------|---------|
-| `MONGODB_URI` | Mongo Connection Durable Object — Atlas connection string |
 | `JWT_SECRET` | Signing/verifying session, email-verification, and password-reset JWTs |
 | `RESEND_API_KEY` | Transactional email delivery via Resend |
 | `TURNSTILE_SECRET_KEY` | Server-side Turnstile siteverify call on signup |
+| `CLOUDINARY_API_SECRET` | Signs Cloudinary uploads and delivery URLs |
 
 ```bash
 cd api
-npx wrangler secret put MONGODB_URI
 npx wrangler secret put JWT_SECRET
 npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put TURNSTILE_SECRET_KEY
+npx wrangler secret put CLOUDINARY_API_SECRET
 ```
+
+The database itself (Cloudflare D1) is **not** a secret — it's a plain `wrangler.toml` binding (`DB`). First-time setup needs `npx wrangler d1 create contentpro-db` (paste the returned `database_id` into `wrangler.toml`) and `npx wrangler d1 migrations apply contentpro-db --remote` (applies `api/migrations/0001_init.sql`) — see `/setup-secrets` Part 4 for the full sequence.
 
 ## Production URLs
 
@@ -94,7 +96,7 @@ done
 curl -s https://contentpro.pages.dev | grep -o '<title>[^<]*</title>'
 
 # API auth-gated route should reject with 401, not 500 — confirms the Worker,
-# JWT middleware, and Mongo Connection DO are all actually wired up
+# JWT middleware, and D1 binding are all actually wired up
 curl -s -o /dev/null -w "%{http_code}\n" https://contentpro-api.YOUR-SUBDOMAIN.workers.dev/api/designs
 # → 401
 ```
@@ -124,15 +126,15 @@ CLOUDFLARE_API_TOKEN=<token> CLOUDFLARE_ACCOUNT_ID=<account-id> \
   npx wrangler deploy --minify
 ```
 
-On the **very first** API deploy only: `wrangler.toml` must already have `compatibility_flags = ["nodejs_compat_v2"]`, `compatibility_date >= "2025-03-20"`, and a `[[migrations]]` block registering the Mongo Connection Durable Object (e.g. `new_classes = ["MongoConnectionDO"]`) — and all four Worker runtime secrets above must already be set via `wrangler secret put` — before `wrangler deploy` will produce a working API.
+On the **very first** API deploy only: `wrangler.toml` must already have a `[[d1_databases]]` block with a real `database_id` (not the placeholder string — see `/setup-secrets` Part 4) and the `[[migrations]]` block registering the `RateLimitDO` Durable Object — and all Worker runtime secrets above must already be set via `wrangler secret put` — before `wrangler deploy` will produce a working API. The D1 schema itself must also already be applied remotely (`wrangler d1 migrations apply contentpro-db --remote`) — a fresh deploy does not run migrations for you.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `wrangler 8000007` | Pages project doesn't exist | `npx wrangler pages project create contentpro --production-branch=main` |
-| Worker deploy errors on Durable Object class | Missing `[[migrations]]` block for `MongoConnectionDO` | Add `new_classes = ["MongoConnectionDO"]` under `[[migrations]]` in `wrangler.toml`, redeploy |
-| Mongo driver hangs / connection errors in the Worker | `nodejs_compat_v2` flag or `compatibility_date < 2025-03-20` missing | Check `wrangler.toml` — both are required for `node:net`/`node:tls`/`node:dns` support |
+| Worker deploy errors on Durable Object class | Missing `[[migrations]]` block for `RateLimitDO` | Add the `new_sqlite_classes`/`renamed_classes` entry under `[[migrations]]` in `wrangler.toml`, redeploy |
+| `D1_ERROR: no such table` in the Worker | Schema migration never applied to the remote database, or `database_id` is still the placeholder | Run `wrangler d1 migrations apply contentpro-db --remote`; confirm `database_id` in `wrangler.toml` is real |
 | CORS error calling the API from the app | App's Pages domain not in the Worker's CORS allow-list | Check the origin allow-list in `api/src/index.ts` |
 | Signup fails Turnstile validation (400) | `TURNSTILE_SECRET_KEY` unset, or it doesn't match the widget behind `VITE_TURNSTILE_SITE_KEY` | Confirm both keys come from the same Turnstile widget in the Cloudflare dashboard |
 | Verification/reset emails never arrive | `RESEND_API_KEY` missing/invalid, or sending domain not verified in Resend | Check the Resend dashboard's domain verification status |

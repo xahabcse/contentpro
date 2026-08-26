@@ -16,7 +16,7 @@ This repo also contains a **legacy Claude-driven pipeline** (`templates/`, `scri
 
 ## Quick start (Docker)
 
-Run the whole stack — frontend, the Cloudflare Worker API (via `wrangler dev`), and MongoDB — locally with one command. **No Cloudflare account, MongoDB Atlas, Resend, or Cloudinary needed.** Requires only Docker.
+Run the whole stack — frontend and the Cloudflare Worker API (via `wrangler dev`, with its built-in local D1 SQLite emulation) — locally with one command. **No Cloudflare account, Resend, or Cloudinary needed.** Requires only Docker.
 
 ```bash
 git clone https://github.com/xahabcse/contentpro.git
@@ -70,7 +70,7 @@ For manual (non-Docker) development, see [Getting started](#getting-started).
 | Layer | Tech |
 |---|---|
 | **Frontend** (`app/`) | React 19 · Vite 8 · React Router 7 · TypeScript · `html2canvas` · `jsPDF` — deployed to **Cloudflare Pages** |
-| **Backend** (`api/`) | **Hono 4** on **Cloudflare Workers** · **MongoDB Atlas 7** (native driver) via a **Durable Object** · `zod` validation |
+| **Backend** (`api/`) | **Hono 4** on **Cloudflare Workers** · **Cloudflare D1** (SQLite) · a slim **Durable Object** (`RateLimitDO`) for atomic auth rate-limiting · `zod` validation |
 | **Auth** | PBKDF2-HMAC-SHA256 (Web Crypto) · JWT httpOnly-cookie sessions · Cloudflare **Turnstile** · **Resend** email |
 | **Media** | **Cloudinary** (profile photo + company logo only) |
 | **Fonts** | Archivo (display) · Newsreader (serif) · Space Grotesk (UI) — Google Fonts |
@@ -89,18 +89,18 @@ Browser (Cloudflare Pages)                 Cloudflare Workers (Hono)
 │  • IndexedDB     → images    │           │   photo/logo upload)        │
 │  • html2canvas   → PNG/PDF   │           │                             │
 └──────────────────────────────┘           │  ┌───────────────────────┐  │
-                                            │  │ MongoConnectionDO     │  │
-   Cloudinary ◀── profile photo/logo ──────┼─▶│  (warm Mongo conn +   │  │
-                                            │  │   atomic rate-limits) │  │
+                                            │  │ RateLimitDO           │  │
+   Cloudinary ◀── profile photo/logo ──────┼─▶│  (atomic auth         │  │
+                                            │  │   throttling only)   │  │
                                             │  └──────────┬────────────┘  │
                                             └─────────────┼───────────────┘
                                                           ▼
-                                                   MongoDB Atlas
-                                                   └ users (auth + profile)
+                                                   Cloudflare D1
+                                                   └ users, auth_events
 ```
 
-- **Designs never touch the server.** They are created, edited, and exported entirely client-side. The only Mongo collection is `users`.
-- A single global **Durable Object** (`MongoConnectionDO`) owns one warm MongoDB connection for the whole Worker (avoiding a TCP/TLS handshake per request) and also hosts the atomic auth rate-limiters.
+- **Designs never touch the server.** They are created, edited, and exported entirely client-side. The only D1 table holding account data is `users` (plus `auth_events`, a read-only auth audit log).
+- A single global **Durable Object** (`RateLimitDO`) does atomic brute-force throttling for login/signup/reset-password — unrelated to the database; D1, unlike a persistent-TCP-connection database, needs no warm-connection wrapper.
 - Sessions are stateless **JWTs in an httpOnly cookie**, carrying a `sessionVersion` that is checked against the DB each request so a password reset can revoke live sessions. Kept as its own counter, separate from the `tokenVersion` used to invalidate email-verification/password-reset links, so the unauthenticated forgot-password/resend-verification routes can't force-logout an arbitrary account by email alone.
 
 ---
@@ -136,9 +136,9 @@ Browser (Cloudflare Pages)                 Cloudflare Workers (Hono)
 │       ├── index.ts         #   app + CORS + secure headers + routes
 │       ├── routes/          #   auth, profile, admin
 │       ├── middleware/      #   auth-required, email-verified-required, admin-required, rate-limit
-│       ├── durable-objects/ #   mongo-connection (warm conn + atomic rate-limits)
-│       ├── lib/             #   jwt, password, cloudinary, resend, turnstile, ...
-│       └── schema.ts        #   users collection types
+│       ├── durable-objects/ #   rate-limit (RateLimitDO — atomic auth throttling only)
+│       ├── lib/             #   db (D1 data access), jwt, password, cloudinary, resend, turnstile, ...
+│       └── schema.ts        #   users / auth_events row types
 ├── brand/brand-kit.md       # Single source of truth for the visual brand
 ├── docs/contentpro-spec.md  # Full product/requirements spec
 ├── .github/workflows/       # deploy-api.yml, deploy-app.yml (push to main)
@@ -151,7 +151,7 @@ Browser (Cloudflare Pages)                 Cloudflare Workers (Hono)
 
 ## Getting started
 
-Prerequisites: **Node.js 20+**, a Cloudflare account (Workers + Pages), MongoDB Atlas, Cloudinary, Resend, and Cloudflare Turnstile.
+Prerequisites: **Node.js 20+**, a Cloudflare account (Workers + Pages + D1), Cloudinary, Resend, and Cloudflare Turnstile.
 
 ### Frontend (`app/`)
 
@@ -177,7 +177,7 @@ npm run deploy     # wrangler deploy
 ```
 
 Worker secrets (set via `wrangler secret put` or the `/setup-secrets` skill — never commit values):
-`MONGODB_URI`, `JWT_SECRET`, `RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+`JWT_SECRET`, `RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
 
 ---
 

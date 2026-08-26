@@ -30,6 +30,17 @@ binding = "RATE_LIMIT_KV"
 id = "85a0e6dd9be04224a6bb088f6a16667c"
 
 # -----------------------------------------------------------------------------
+# D1 -- the primary datastore (users + auth_events). Schema lives in
+# api/migrations/*.sql and is applied with `wrangler d1 migrations apply`.
+# api/seed.sql is a LOCAL-ONLY demo fixture and is deliberately NOT a migration
+# -- apply it only via `wrangler d1 execute contentpro-db --local --file=./seed.sql`.
+# -----------------------------------------------------------------------------
+[[d1_databases]]
+binding = "DB"
+database_name = "contentpro-db"
+database_id = "PLACEHOLDER-run-wrangler-d1-create-and-fill-this-in"
+
+# -----------------------------------------------------------------------------
 # Workers Route -- the frontend (app/) calls the API via relative /api/*
 # paths (e.g. fetch('/api/profile')), which only resolve correctly once this
 # Worker is bound to handle that path prefix on the same custom domain the
@@ -49,27 +60,35 @@ id = "85a0e6dd9be04224a6bb088f6a16667c"
 # zone_name = "xahabcse.me"
 
 # -----------------------------------------------------------------------------
-# Durable Object binding + migration -- wraps the single warm MongoClient
-# connection (spec section 4.2). Durable Object class migrations are
-# one-directional -- do not remove or rename an already-applied `new_classes`
-# entry in production.
+# Durable Object binding + migrations -- a single global instance backs the
+# ATOMIC auth throttles (login / signup / reset-password). DO storage is used
+# because its get-then-put is serialized per instance, which KV cannot provide
+# and brute-force defense actually requires. Durable Object class migrations
+# are one-directional -- never remove or edit an already-applied entry; append
+# a new tag instead.
 # -----------------------------------------------------------------------------
 [durable_objects]
 bindings = [
-  { name = "MONGO_DO", class_name = "MongoConnectionDO" }
+  { name = "RATE_LIMIT_DO", class_name = "RateLimitDO" }
 ]
 
 [[migrations]]
 tag = "v1"
 # Free-plan Durable Objects require SQLite-backed storage as of the current
 # Workers platform requirements -- `new_classes` (KV-backed DO storage) is
-# gated to paid plans. MongoConnectionDO doesn't use `this.ctx.storage` for
-# anything (it only caches an in-memory MongoClient), so this is purely a
-# platform/deployment requirement, not a behavior change.
+# gated to paid plans.
 new_sqlite_classes = ["MongoConnectionDO"]
+
+[[migrations]]
+tag = "v2"
+# Mongo retired in favour of D1; the class kept only its rate-limiting half and
+# was renamed accordingly. `renamed_classes` (not a new/delete pair) preserves
+# the existing instance's storage -- the live `rl:` throttle counters -- across
+# the rename.
+renamed_classes = [{ from = "MongoConnectionDO", to = "RateLimitDO" }]
 
 # -----------------------------------------------------------------------------
 # Secrets -- NOT set in this file. Provision via `wrangler secret put <NAME>`
 # (see .dev.vars.example for local-dev equivalents):
-#   MONGODB_URI, JWT_SECRET, RESEND_API_KEY, TURNSTILE_SECRET_KEY
+#   JWT_SECRET, RESEND_API_KEY, TURNSTILE_SECRET_KEY, CLOUDINARY_API_SECRET
 # -----------------------------------------------------------------------------

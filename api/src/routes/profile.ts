@@ -9,6 +9,7 @@ import {
   signProfileImageUrls,
   uploadToCloudinary,
 } from "../lib/cloudinary";
+import { findUserById, updateUser } from "../lib/db";
 import { authRequired } from "../middleware/auth-required";
 import { emailVerifiedRequired } from "../middleware/email-verified-required";
 import { checkAndRecordRateLimit } from "../middleware/rate-limit";
@@ -16,11 +17,6 @@ import type { UserProfile } from "../schema";
 
 const profile = new Hono<AppEnv>();
 profile.use("*", authRequired, emailVerifiedRequired);
-
-function mongoStub(env: Env) {
-  const id = env.MONGO_DO.idFromName("global-mongo-connection");
-  return env.MONGO_DO.get(id);
-}
 
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5MB
@@ -30,10 +26,10 @@ const UPLOAD_MAX_PER_HOUR = 20;
 // Multipart framing (boundary lines + part headers) around a MAX_UPLOAD_BYTES
 // payload -- slack for the Content-Length precheck below.
 const MULTIPART_OVERHEAD_BYTES = 8 * 1024;
-// PUT /api/profile is a Mongo read+write, and EVERY Mongo access in this Worker
-// is serialized through the one global MongoConnectionDO -- so an authenticated
-// account spamming profile writes degrades auth for everyone, not just itself.
-// Generous enough that no human editing a profile will ever see it.
+// PUT /api/profile is a D1 read+write on the same database every authenticated
+// request already reads for its session check -- so an account spamming profile
+// writes eats shared database budget, not just its own. Generous enough that no
+// human editing a profile will ever see it.
 const PROFILE_WRITE_MAX_PER_HOUR = 60;
 
 // Magic-byte (content) validation -- `file.type` from the multipart part is
@@ -64,8 +60,7 @@ async function signedProfile(env: Env, profile: UserProfile) {
 // Flat shape -- matches app/src/pages/ProfileSettingsPage.tsx's
 // `.then(setProfile)` (no `{ profile }` wrapper).
 profile.get("/", async (c) => {
-  const stub = mongoStub(c.env);
-  const user = await stub.findUserById(c.get("userId"));
+  const user = await findUserById(c.env.DB, c.get("userId"));
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
   return c.json(await signedProfile(c.env, user.profile));
 });
@@ -90,13 +85,12 @@ profile.put("/", jsonValidator(updateProfileSchema), async (c) => {
   }
 
   const updates = c.req.valid("json");
-  const stub = mongoStub(c.env);
 
-  const user = await stub.findUserById(userId);
+  const user = await findUserById(c.env.DB, userId);
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
 
   const nextProfile: UserProfile = { ...user.profile, ...updates };
-  await stub.updateUser(userId, { profile: nextProfile, updatedAt: new Date() });
+  await updateUser(c.env.DB, userId, { profile: nextProfile, updatedAt: new Date() });
   return c.json(await signedProfile(c.env, nextProfile));
 });
 
@@ -152,14 +146,13 @@ async function handleImageUpload(
     return c.json({ error: "UNSUPPORTED_FILE_TYPE" }, 400);
   }
 
-  const stub = mongoStub(c.env);
-  const user = await stub.findUserById(userId);
+  const user = await findUserById(c.env.DB, userId);
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
 
   const url = await uploadToCloudinary(c.env, file, `${cloudinaryFolder}/${userId}`);
 
   const nextProfile: UserProfile = { ...user.profile, [field]: url };
-  await stub.updateUser(userId, { profile: nextProfile, updatedAt: new Date() });
+  await updateUser(c.env.DB, userId, { profile: nextProfile, updatedAt: new Date() });
 
   // Top-level `url` -- matches ProfileSettingsPage.tsx's `const { url } = await res.json()`.
   const signed = await signCloudinaryUrlOrOriginal(url, c.env.CLOUDINARY_API_SECRET, c.env.CLOUDINARY_CLOUD_NAME);
@@ -174,8 +167,7 @@ profile.post("/logo", (c) => handleImageUpload(c, "companyLogoUrl", "contentpro/
 // streaming bytes through the Worker (see lib/cloudinary.ts for the access
 // model this relies on).
 async function handleImageRedirect(c: Context<AppEnv>, field: ProfileImageField): Promise<Response> {
-  const stub = mongoStub(c.env);
-  const user = await stub.findUserById(c.get("userId"));
+  const user = await findUserById(c.env.DB, c.get("userId"));
   const url = user?.profile[field];
   if (!user || !url) return c.json({ error: "NOT_FOUND" }, 404);
 
