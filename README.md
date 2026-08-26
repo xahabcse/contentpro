@@ -101,16 +101,16 @@ Browser (Cloudflare Pages)                 Cloudflare Workers (Hono)
 
 - **Designs never touch the server.** They are created, edited, and exported entirely client-side. The only Mongo collection is `users`.
 - A single global **Durable Object** (`MongoConnectionDO`) owns one warm MongoDB connection for the whole Worker (avoiding a TCP/TLS handshake per request) and also hosts the atomic auth rate-limiters.
-- Sessions are stateless **JWTs in an httpOnly cookie**, carrying a `tokenVersion` that is checked against the DB each request so a password reset (or logout) can revoke live sessions.
+- Sessions are stateless **JWTs in an httpOnly cookie**, carrying a `sessionVersion` that is checked against the DB each request so a password reset can revoke live sessions. Kept as its own counter, separate from the `tokenVersion` used to invalidate email-verification/password-reset links, so the unauthenticated forgot-password/resend-verification routes can't force-logout an arbitrary account by email alone.
 
 ---
 
 ## Security
 
 - **Passwords:** PBKDF2-HMAC-SHA256 at 100k iterations (the Workers Web Crypto max), per-user salt, constant-time compare, transparent rehash-on-login for legacy hashes.
-- **Sessions:** httpOnly · Secure · SameSite=Strict cookie; explicit `type: "session"` claim (action tokens can't be replayed as sessions); `alg` pinned to HS256; `tokenVersion` revocation.
+- **Sessions:** httpOnly · Secure · SameSite=Strict cookie; explicit `type: "session"` claim (action tokens can't be replayed as sessions); `alg` pinned to HS256; `sessionVersion` revocation.
 - **Brute-force:** atomic Durable-Object rate-limiting on login (per-email + per-IP), signup, and password reset. Enumeration-resistant (constant-time login for unknown accounts; email sends moved off the response path).
-- **Turnstile** on signup (fails closed).
+- **Turnstile** on signup and login (fails closed).
 - **CORS** pinned to owned origins only (no wildcard `*.pages.dev`).
 - **Uploads:** MIME + magic-byte validation, size cap, per-user rate cap.
 - **HTTP headers** (`app/public/_headers`): Content-Security-Policy, HSTS, `X-Frame-Options: DENY`, `X-Content-Type-Options`, Referrer-Policy, Permissions-Policy. No source maps in production.
@@ -126,16 +126,16 @@ Browser (Cloudflare Pages)                 Cloudflare Workers (Hono)
 │   ├── public/_headers      #   security headers for the Pages site
 │   └── src/
 │       ├── pages/           #   Landing, Login, Signup, VerifyEmail, Forgot/Reset,
-│       │                    #   Dashboard, Editor, ProfileSettings
-│       ├── components/      #   editor/SlideCanvas, layout/(AppShell, AuthShell, ProtectedRoute)
+│       │                    #   Dashboard, Editor, ProfileSettings, Admin
+│       ├── components/      #   TurnstileWidget, editor/SlideCanvas, layout/(AppShell, AuthShell, ProtectedRoute)
 │       ├── lib/             #   local-store, image-store, export, palettes,
 │       │                    #   templates, design-types, auth
 │       └── styles/tokens.css#   theme tokens (chrome + editor light/dark)
 ├── api/                     # Backend — Hono on Cloudflare Workers
 │   └── src/
 │       ├── index.ts         #   app + CORS + secure headers + routes
-│       ├── routes/          #   auth, profile
-│       ├── middleware/      #   auth-required, email-verified-required, rate-limit
+│       ├── routes/          #   auth, profile, admin
+│       ├── middleware/      #   auth-required, email-verified-required, admin-required, rate-limit
 │       ├── durable-objects/ #   mongo-connection (warm conn + atomic rate-limits)
 │       ├── lib/             #   jwt, password, cloudinary, resend, turnstile, ...
 │       └── schema.ts        #   users collection types

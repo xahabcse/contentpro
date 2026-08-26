@@ -26,7 +26,7 @@ ContentPro is a self-service, multi-tenant web application that turns the existi
 | Session/auth | JWT via `hono/jwt` (Web-Crypto backed) | Email + password auth (not Google OAuth — see §5). Stored client-side as an httpOnly cookie — see §5.2. |
 | File storage (binaries) | Cloudinary | Free tier: 25 credits/month (~25GB storage+bandwidth combined). Signed upload + signed delivery URLs (§5.6) — not Cloudflare R2 (R2 setup was blocked on a manual dashboard step; Cloudinary was adopted instead, matching the pattern used by the sibling `protfolio` project). |
 | Email delivery | Resend | Same provider as the reference "learning" project. `RESEND_API_KEY` stored as a Workers secret. |
-| CAPTCHA | Cloudflare Turnstile | Free. On the public signup form only (§5). |
+| CAPTCHA | Cloudflare Turnstile | Free. On both the signup and login forms (§5.5). |
 | Hosting (overall) | Cloudflare free tier, end to end, plus two non-Cloudflare managed services | Pages (frontend) + Workers (API) + Workers KV (rate limits) + Turnstile (bot defense) on Cloudflare; MongoDB Atlas M0 (database) and Cloudinary (file storage) are the two non-Cloudflare managed services. |
 
 See §5.7 for the consolidated Workers secrets inventory.
@@ -130,7 +130,7 @@ Hono app running on Cloudflare Workers. All routes below are namespaced under `/
 #### Auth
 
 - `POST /api/auth/signup` — email, password, Turnstile token; creates user with `emailVerified: false`, sends verification email.
-- `POST /api/auth/login` — email, password; validates credentials and, **regardless of `emailVerified` status**, issues a session JWT (set as an httpOnly cookie, §5.2) so the frontend can identify the account and route it appropriately. The JWT's payload includes an `emailVerified` claim reflecting status **at the moment of login** (see §5.3 for why this claim, not a live DB check, is the enforcement mechanism, and what that implies after a user verifies).
+- `POST /api/auth/login` — email, password, Turnstile token (§5.5); validates credentials and, **regardless of `emailVerified` status**, issues a session JWT (set as an httpOnly cookie, §5.2) so the frontend can identify the account and route it appropriately. The JWT's payload includes an `emailVerified` claim reflecting status **at the moment of login** (see §5.3 for why this claim, not a live DB check, is the enforcement mechanism, and what that implies after a user verifies).
 - `POST /api/auth/verify-email` — accepts the verification JWT (from the emailed link), validates, flips `emailVerified` to `true` in MongoDB, and prompts the user to log in again to obtain a fresh JWT carrying `emailVerified: true` (see §5.3).
 - `POST /api/auth/resend-verification` — email; rate-limited via Workers KV (§2/§5.3), generic response regardless of account existence (see §5.3).
 - `POST /api/auth/forgot-password` — email; sends password-reset email using the same token pattern as verification.
@@ -227,10 +227,12 @@ Decision 1 requires 100% client-side rendering with no server-side Playwright/he
 - Reuses the **exact same** JWT + `tokenVersion` + Resend mechanism as email verification — the only difference is the `type` claim value (e.g. `"password_reset"` instead of `"email_verification"`). This is explicitly *not* a separate, parallel mechanism — same expiry window, same `tokenVersion`-invalidation check, same generic-response/rate-limiting rules (same `RATE_LIMIT_KV` namespace, §5.3), same Resend + `Idempotency-Key` delivery path.
 - On successful reset: update `passwordHash`/`passwordSalt`/`passwordIterations`, and increment `tokenVersion` again (invalidating the reset token itself and any other outstanding verification/reset links).
 
-### 5.5 Turnstile (bot defense on public signup)
+### 5.5 Turnstile (bot defense on signup and login)
 
 - Signup is **open public signup** — anyone can register with an email (no invite-only/admin-allowlist, unlike the reference "learning" project's Google-OAuth-only + admin-allowlist pattern).
 - Because signup is open, the signup form embeds **Cloudflare Turnstile** (Cloudflare's own free CAPTCHA product); `POST /api/auth/signup` validates the Turnstile token server-side (via Cloudflare's siteverify call, using the `TURNSTILE_SECRET_KEY` Workers secret, §5.7) before creating the user document, rejecting the request if validation fails.
+- The login form embeds the same Turnstile widget; `POST /api/auth/login` validates the token the same way (after the per-email/per-IP rate-limit check, before the password check) so credential-stuffing against `/login` gets the same bot-defense layer as signup, not just the brute-force throttle (§5.3).
+- Both pages share one `TurnstileWidget` component (`app/src/components/TurnstileWidget.tsx`) — script loading/polling, the dev-only bypass button, and `size: 'flexible'` sizing (so the widget matches the width of the surrounding form inputs) live in one place.
 
 ### 5.6 Cloudinary storage and signed-delivery pattern
 
@@ -251,7 +253,7 @@ All of the following are stored as Cloudflare Workers secrets (never committed, 
 | `MONGODB_URI` | Mongo Connection DO (§4.2) — Atlas connection string |
 | `JWT_SECRET` | Signing/verifying all session, email-verification, and password-reset JWTs (§5.2–§5.4) |
 | `RESEND_API_KEY` | Email delivery via Resend (§5.3/§5.4) |
-| `TURNSTILE_SECRET_KEY` | Server-side Turnstile siteverify call on signup (§5.5) |
+| `TURNSTILE_SECRET_KEY` | Server-side Turnstile siteverify call on signup and login (§5.5) |
 | `CLOUDINARY_API_SECRET` | Signs Cloudinary uploads and delivery URLs (§5.6) |
 
 `CLOUDINARY_CLOUD_NAME` and `CLOUDINARY_API_KEY` are **not** secret by Cloudinary's own design (cloud name and API key are routinely client-visible in upload widgets) — they're plain `[vars]` in `wrangler.toml`, matching protfolio's own committed config, not listed in the secrets table above.
@@ -266,7 +268,7 @@ All of the following are stored as Cloudflare Workers secrets (never committed, 
 |---|---|
 | **Signup** | Email + password form + Turnstile widget. On submit, calls `/api/auth/signup`, then routes to the Verify-Email Notice screen. |
 | **Verify-Email Notice** | Static "check your email" screen shown post-signup (and shown again if a not-yet-verified user tries to log in); includes a "resend verification email" action (rate-limited per §5.3) and a note that login is blocked until verified. After the emailed link is clicked and verification succeeds, this flow ends with an explicit "log in again" prompt (§5.3) rather than silently unlocking the session. |
-| **Login** | Email + password. On success, a session JWT is always issued (§5.3); if the JWT's `emailVerified` claim is `true`, routes to the Dashboard; if `false`, routes to the Verify-Email Notice screen instead (a UX convenience — the actual access gate is server-side middleware, §5.3, §4.1). |
+| **Login** | Email + password form + Turnstile widget (§5.5). On success, a session JWT is always issued (§5.3); if the JWT's `emailVerified` claim is `true`, routes to the Dashboard; if `false`, routes to the Verify-Email Notice screen instead (a UX convenience — the actual access gate is server-side middleware, §5.3, §4.1). |
 | **Forgot Password / Reset Password** | Two-step flow: (1) email-entry form calling `/api/auth/forgot-password` (always shows a generic "check your email" response); (2) a reset-token landing page (from the emailed link) with a new-password form calling `/api/auth/reset-password`. |
 | **Dashboard / Gallery** | Lists the current user's saved designs (cards from `GET /api/designs`), each showing format (card/carousel), title, a **thumbnail produced by a client-side mini-render** of that design's `content`/`style` through the same React component tree the editor uses (scaled down) — not a stored image and not fetched from Cloudinary, since un-exported drafts have no export asset and exported files are only ever handed out through the ownership-checked download route (decision 12, §5.6) — plus last-updated date and file type (image/PDF). Prominently shows the **5/5 image** and **5/5 PDF** usage counters (e.g. "Images: 3/5", "PDFs: 5/5"). When a type is at 5/5, the "create new" / "export" affordances for that type are visibly disabled/blocked with explanatory copy (see §7) rather than silently allowed. Supports opening a design into its editor, duplicating a design ("save as new"), and deleting a design (which frees a slot, per §7). |
 | **Profile / Company Info Settings** | One settings screen covering the fixed field set from decision 16: personal (name, designation, profile photo upload), company (company name, company logo upload), and social (the 4 fixed icons — Facebook/WhatsApp/Gmail/LinkedIn, non-configurable — plus the single shared handle text field, e.g. `at-xahabcse`, used under all 4). No per-platform handle fields and no platform-selection toggle exist in v1 (explicitly deferred as a v2 nice-to-have). A first-time design-creation attempt with an incomplete profile (missing name/designation/handle) is redirected here with explanatory copy (§4.1). |
