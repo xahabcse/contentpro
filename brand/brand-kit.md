@@ -4,7 +4,7 @@
 
 > **Cardstock** is the product brand (logo, wordmark, UI). The repo, Worker, and database keep the original internal name `contentpro` — don't rename those.
 
-1. **Cardstock Web App (current, primary)** — the self-service editor at `content.xahabcse.me` where end users design LinkedIn **cards** (1080×1080) and **carousels** (1080×1350). Warm cream/amber UI, `Archivo` / `Newsreader` / `Space Grotesk` type, 10 fixed templates, 6 card palettes. Implemented as literal code under `app/src/` — this section maps 1:1 to those tokens.
+1. **Cardstock Web App (current, primary)** — the self-service editor at `content.xahabcse.me` where end users design LinkedIn **cards** (1080×1080) and **carousels** (1080×1350). Mineral/glass UI with amber accents, `Archivo` / `Newsreader` / `Space Grotesk` type, 100 fixed templates, and 10 card palettes. Implemented under `app/src/`.
 2. **Legacy `templates/` pipeline (Claude-driven, superseded)** — the original code-only pipeline (`templates/`, `scripts/render.js`, `posts/<slug>/content.json`) that renders posts from HTML/CSS with Playwright. It uses an **older mint-green / Plus Jakarta Sans** system carried over from learn.xahabcse.me. Kept for existing `posts/` but no longer the brand the product ships — see **Legacy Pipeline** at the bottom.
 
 > If you're touching the web app, use **ContentPro Web App** below. The mint-green palette in the legacy section is NOT the ContentPro brand.
@@ -13,7 +13,7 @@
 
 ## ContentPro Web App — Design System (current)
 
-The shipped brand. Every token here is the literal value in `app/src/` — changing the brand means changing both this file and that code together.
+The shipped brand. Keep this summary aligned with `app/src/styles/tokens.css`, `app/src/lib/palettes.ts`, and `app/src/lib/templates.ts` when changing the app.
 
 ### Surfaces & theme (app chrome)
 
@@ -21,20 +21,20 @@ App chrome (auth, dashboard, profile settings) is always light; source of truth 
 
 | Token | Hex / value | Role |
 |-------|-------------|------|
-| `--bg` | `#EFE8D8` | Page background (warm cream) |
-| `--bar` | `#FBF7EC` | Top bar / raised surface |
-| `--surface` | `#F7F2E5` | Cards, panels |
-| `--surface-2` | `#FBF7EC` | Secondary surface |
-| `--ink` | `#1B160E` | Primary text (near-black warm brown) |
-| `--muted` | `#6F6750` | Secondary text — **AA-compliant** (~4.6:1 on `--bg`); do not lighten |
-| `--muted-2` | `#5E5844` | Tertiary/smallest text (~5.6:1) |
+| `--bg` | `#e9eeea` | Base mineral page color; `body` adds gradients |
+| `--bar` | `#f9faf7` | Top bar base |
+| `--surface` | `rgba(255, 255, 255, 0.54)` | Translucent cards and panels |
+| `--surface-2` | `rgba(255, 255, 255, 0.76)` | Raised translucent surface |
+| `--ink` | `#182725` | Primary dark-green text |
+| `--muted` | `#566460` | Secondary text |
+| `--muted-2` | `#3f504c` | Tertiary text |
 | `--brand` | `#F2B705` | Amber accent — primary CTA, focus rings, active states |
 | `--brand-ink` | `#1B160E` | Text on amber |
-| `--brand-strong` | `#B58000` | Deeper amber for icons/text on cream where `--brand` itself is too light (~3.2:1 on `--bar`) |
+| `--brand-strong` | `#855d00` | Deeper amber for icons/text on light surfaces |
 | `--danger` | `#E1402B` | Destructive actions (delete) |
 | `--success` | `#12784A` | Positive/confirmation status (~5.1:1 on `--bar`) |
-| `--line` | `rgba(27,22,14,.12)` | Hairline dividers |
-| `--input` | `#FFFFFF` | Form field background |
+| `--line` | `rgba(24, 39, 37, 0.13)` | Hairline dividers |
+| `--input` | `rgba(255, 255, 255, 0.78)` | Translucent form field background |
 
 The **editor shell** (`.cp[data-ui="light" | "dark"]`) self-themes light/dark with a parallel `--c-*` token set (see `tokens.css`). The exported card/carousel uses its own **palette** tokens (below), independent of the editor chrome.
 
@@ -50,46 +50,37 @@ Loaded from Google Fonts in `app/index.html`.
 
 ### Card palettes
 
-Every design picks one of six curated palettes (`app/src/lib/palettes.ts`); each can override `bg` / `text` / `accent` with custom hex per design. These are the **canvas** colors (what the exported image uses), not the app chrome.
+Every design picks one of ten curated palettes (`app/src/lib/palettes.ts`); each can override `bg` / `text` / `accent` with custom hex per design. These are the **canvas** colors (what the exported image uses), not the app chrome. New cards start with Paper; new carousels start with Ink.
 
 | Palette | Background | Text | Accent |
 |---------|-----------|------|--------|
-| **Ink** (default card) | `#141109` | `#F5F1E4` | `#FFDA36` |
-| **Bone** | `#F1EBDC` | `#171310` | `#E1402B` |
-| **Cobalt** | `#1330E6` | `#FBFAF6` | `#FFE24B` |
-| **Crimson** | `#B41722` | `#FDEFDF` | `#141109` |
-| **Forest** | `#0E3B2C` | `#EEF0DC` | `#C6F24B` |
-| **Grape** | `#241546` | `#F1E7FF` | `#F49BE6` |
+| **Ink** | `#14110B` | `#F5F1E4` | `#F2B441` |
+| **Paper** | `#F4EFE4` | `#1A1712` | `#B4531F` |
+| **Slate** | `#24303A` | `#E9EEF2` | `#8FC0D4` |
+| **Navy** | `#16233F` | `#EDF0F5` | `#D6A84C` |
+| **Forest** | `#1B3A2E` | `#EAF0E4` | `#8FC98C` |
+| **Wine** | `#3B1E27` | `#F4E6E8` | `#E39AA6` |
+| **Sand** | `#E7DCC7` | `#2A2117` | `#A8481F` |
+| **Charcoal** | `#1C1C1E` | `#FAFAFA` | `#B7B7BC` |
+| **Cobalt** | `#21386E` | `#EEF1F8` | `#EBC258` |
+| **Plum** | `#2E1F3F` | `#EFE6F5` | `#C79BE0` |
 
 When a **background image** is set, the renderer forces text to `#FFFFFF` and lays a dark scrim gradient over the photo for legibility (`SlideCanvas.tsx`).
 
 ### Templates
 
-Ten fixed templates (`app/src/lib/templates.ts`, rendered in `app/src/components/editor/SlideCanvas.tsx`). A card uses one; a carousel sequences several. Order as shown in the editor:
+There are 100 fixed templates, defined and ordered by `TEMPLATE_ORDER` in `app/src/lib/templates.ts` and rendered in `app/src/components/editor/SlideCanvas.tsx` and `CatalogCanvas.tsx`. A card uses one; a carousel sequences several. The library includes editorial layouts, tutorial and learning posts, charts and progress visuals, career milestones, business posts, and community messages. The `fields` metadata in `templates.ts` is the authoritative list of editable regions.
 
-| # | Template | Fields |
-|---|----------|--------|
-| 1 | **Quote** | quote |
-| 2 | **Big Stat** | eyebrow · number · caption |
-| 3 | **Numbered Tips** | title · tips (list) |
-| 4 | **Cover / Hook** | kicker · headline |
-| 5 | **Announcement** | badge · title · subtitle · detail |
-| 6 | **Bold Question** | kicker · question |
-| 7 | **Before / After** | left label/text · right label/text |
-| 8 | **Framework** | title · steps ("Name — desc", list) |
-| 9 | **Call to Action** | headline · button |
-| 10 | **Statement** | statement · highlight word |
-
-This is a **curated fixed-template** model — pick a template and fill its regions — deliberately NOT a free-form canvas.
+This is a **curated fixed-template** model: users pick a template and fill its regions; the canvas does not allow free-form placement.
 
 ### Canvas & formats
 
 | Format | Size | Output |
 |--------|------|--------|
 | **Card** | 1080 × 1080 | single PNG |
-| **Carousel** | 1080 × 1350 (portrait) | multi-page JPEG PDF (1–15 slides) |
+| **Carousel** | 1080 × 1350 (portrait) | multi-page JPEG PDF or ordered PNG slides ZIP (1–15 slides) |
 
-Export is **client-side** (`app/src/lib/export.ts`, html2canvas → PNG/PDF) and downloads directly; nothing is uploaded. Filenames carry a timestamp so re-exports never collide.
+Export is **client-side** (`app/src/lib/export.ts`, html2canvas → PNG/PDF/ZIP) and downloads directly; nothing is uploaded. Filenames carry a timestamp so re-exports never collide.
 
 ### Footer lockup
 
@@ -105,10 +96,10 @@ Defaults cascade from the user's **profile** (name, handle, photo, designation, 
 | Path | Purpose |
 |---|---|
 | `app/src/styles/tokens.css` | All theme tokens (`:root` chrome + `.cp[data-ui]` editor light/dark) |
-| `app/src/lib/palettes.ts` | The 6 card palettes + custom-override resolution |
+| `app/src/lib/palettes.ts` | The 10 card palettes + custom-override resolution |
 | `app/src/lib/templates.ts` | Template metadata, field sets, default content |
-| `app/src/components/editor/SlideCanvas.tsx` | The renderer (all 10 templates + footer) |
-| `app/src/lib/export.ts` | Client-side PNG/PDF export pipeline |
+| `app/src/components/editor/SlideCanvas.tsx` | The renderer (100 templates + footer, with `CatalogCanvas.tsx`) |
+| `app/src/lib/export.ts` | Client-side PNG/PDF/ZIP export pipeline |
 | `app/src/components/Logo.tsx` | Brand mark (amber tile + dog-eared card glyph) + wordmark lockup; the lockup collapses to the mark on landing-nav scroll |
 | `app/public/favicon.svg` | Favicon (the brand mark) |
 | `app/index.html` | Google Fonts (Archivo / Newsreader / Space Grotesk) + favicon + title |

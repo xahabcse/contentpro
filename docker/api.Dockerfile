@@ -2,7 +2,7 @@
 # via `wrangler dev` (workerd + Miniflare) -- same code that ships to
 # production, with Durable Objects + KV simulated locally. Debian (glibc) base
 # is required: workerd does not run on Alpine/musl.
-FROM node:22-bookworm-slim
+FROM node:24-bookworm-slim
 
 # workerd validates outbound TLS against the OS trust store, and the -slim base
 # ships none -- without this, every fetch() from the Worker (Turnstile

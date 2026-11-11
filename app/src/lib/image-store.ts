@@ -1,13 +1,16 @@
-// IndexedDB blob store for design images (background images + per-design
-// avatar overrides). Designs live in localStorage as lightweight JSON that
-// references images by id; the binaries live here. Object URLs are cached so
-// a given image is only materialised once per session.
+// Browser images are keyed by both account and image id. The old unscoped keys
+// remain readable only through getLegacyImageBlob for explicit migration.
 
 const DB_NAME = 'contentpro';
 const STORE = 'images';
 const DB_VERSION = 1;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+function imageKey(ownerId: string, id: string): string {
+  if (!ownerId) throw new Error('A signed-in account is required to access images.');
+  return JSON.stringify([ownerId, id]);
+}
 
 function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
@@ -18,26 +21,22 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => { dbPromise = null; reject(req.error); };
   });
   return dbPromise;
 }
 
-// Bounded LRU of object URLs. Object URLs are never garbage-collected on their
-// own -- without a cap, browsing many designs leaks one per image for the whole
-// session. On eviction we revoke the URL; the next getImageUrl re-materialises.
-const URL_CACHE_MAX = 60;
+// Keep URLs valid while a route is rendering them. Revoking an LRU entry here
+// breaks gallery thumbnails: Dashboard retains the URL after it leaves cache.
+// Routes release their owner's URLs on unmount instead.
 const urlCache = new Map<string, string>();
 
-function cacheTouch(id: string, url: string): void {
-  urlCache.delete(id);
-  urlCache.set(id, url);
-  while (urlCache.size > URL_CACHE_MAX) {
-    const oldest = urlCache.keys().next().value as string | undefined;
-    if (oldest === undefined) break;
-    const stale = urlCache.get(oldest);
-    if (stale) URL.revokeObjectURL(stale);
-    urlCache.delete(oldest);
+export function releaseImageUrls(ownerId: string): void {
+  const prefix = `[${JSON.stringify(ownerId)},`;
+  for (const [key, url] of urlCache) {
+    if (!key.startsWith(prefix)) continue;
+    URL.revokeObjectURL(url);
+    urlCache.delete(key);
   }
 }
 
@@ -45,50 +44,62 @@ export function newImageId(): string {
   return 'img_' + crypto.randomUUID();
 }
 
-export async function putImage(id: string, blob: Blob): Promise<void> {
+export async function putImage(ownerId: string, id: string, blob: Blob): Promise<void> {
+  const key = imageKey(ownerId, id);
   const db = await openDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put(blob, id);
+    tx.objectStore(STORE).put(blob, key);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
   // refresh any cached url
-  const old = urlCache.get(id);
-  if (old) { URL.revokeObjectURL(old); urlCache.delete(id); }
+  const old = urlCache.get(key);
+  if (old) { URL.revokeObjectURL(old); urlCache.delete(key); }
 }
 
-export async function getImageBlob(id: string): Promise<Blob | null> {
+async function readImage(key: string): Promise<Blob | null> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readonly');
-    const req = tx.objectStore(STORE).get(id);
+    const req = tx.objectStore(STORE).get(key);
     req.onsuccess = () => resolve((req.result as Blob) ?? null);
     req.onerror = () => reject(req.error);
   });
 }
 
+export function getImageBlob(ownerId: string, id: string): Promise<Blob | null> {
+  return readImage(imageKey(ownerId, id));
+}
+
+/** Read the pre-account-scoping image only during an explicit legacy import. */
+export function getLegacyImageBlob(id: string): Promise<Blob | null> {
+  return readImage(id);
+}
+
 /** Materialise an image id to an object URL (cached). Null if not found. */
-export async function getImageUrl(id: string): Promise<string | null> {
-  const cached = urlCache.get(id);
-  if (cached) { cacheTouch(id, cached); return cached; }
-  const blob = await getImageBlob(id);
+export async function getImageUrl(ownerId: string, id: string): Promise<string | null> {
+  const key = imageKey(ownerId, id);
+  const cached = urlCache.get(key);
+  if (cached) return cached;
+  const blob = await getImageBlob(ownerId, id);
   if (!blob) return null;
   const url = URL.createObjectURL(blob);
-  cacheTouch(id, url);
+  urlCache.set(key, url);
   return url;
 }
 
-export async function deleteImage(id: string): Promise<void> {
+export async function deleteImage(ownerId: string, id: string): Promise<void> {
+  const key = imageKey(ownerId, id);
   const db = await openDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).delete(id);
+    tx.objectStore(STORE).delete(key);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
-  const old = urlCache.get(id);
-  if (old) { URL.revokeObjectURL(old); urlCache.delete(id); }
+  const old = urlCache.get(key);
+  if (old) { URL.revokeObjectURL(old); urlCache.delete(key); }
 }
 
 // ---- backup/restore helpers (base64 <-> blob) ----

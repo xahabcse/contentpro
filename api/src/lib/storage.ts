@@ -30,6 +30,14 @@ export function profileImageRoute(field: ProfileImageField): string {
   return ROUTE_PATH[field];
 }
 
+/** Remove both deterministic keys when an account is deleted. */
+export async function deleteProfileImages(bucket: R2Bucket, userId: string): Promise<void> {
+  await Promise.all([
+    bucket.delete(profileImageKey("photoUrl", userId)),
+    bucket.delete(profileImageKey("companyLogoUrl", userId)),
+  ]);
+}
+
 export async function uploadToR2(bucket: R2Bucket, key: string, file: File): Promise<void> {
   await bucket.put(key, file, { httpMetadata: { contentType: file.type } });
 }

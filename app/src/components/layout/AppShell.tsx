@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth-context';
 import { CardstockLogo } from '@/components/Logo';
 import versionData from '@/version.json';
 
@@ -22,9 +22,9 @@ export default function AppShell({ title, children }: AppShellProps) {
   }
 
   return (
-    <div style={{ minHeight: '100vh' }}>
+    <div className="app-shell" style={{ minHeight: '100vh' }}>
       <header
-        className="card-surface"
+        className="card-surface app-header"
         style={{
           borderRadius: 0,
           borderLeft: 'none',
@@ -37,7 +37,7 @@ export default function AppShell({ title, children }: AppShellProps) {
       >
         <div
           style={{
-            maxWidth: 960,
+            maxWidth: 1120,
             margin: '0 auto',
             padding: '12px 16px',
             display: 'flex',
@@ -117,12 +117,12 @@ export default function AppShell({ title, children }: AppShellProps) {
         )}
       </header>
 
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '20px 16px 40px 16px' }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 16px 0' }}>{title}</h1>
+      <main style={{ maxWidth: 1120, margin: '0 auto', padding: '32px 18px 48px' }}>
+        <h1 style={{ fontSize: 27, fontWeight: 800, letterSpacing: '-0.035em', margin: '0 0 22px' }}>{title}</h1>
         {children}
       </main>
 
-      <footer style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px 40px 16px' }}>
+      <footer style={{ maxWidth: 1120, margin: '0 auto', padding: '0 18px 40px' }}>
         <span style={{ fontSize: 12, color: 'var(--muted)', opacity: 0.8 }}>
           Cardstock v{versionData.version} · © 2026{' '}
           <a href="https://www.xahabcse.me/" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>xahabcse.me</a>

@@ -1,5 +1,7 @@
 # Copy this file to `.dev.vars` for local `wrangler dev` runs. `.dev.vars` is
-# already gitignored at the repo root -- never commit real secret values.
+# gitignored -- never commit real secret values. These defaults support the
+# seeded demo account at http://localhost:5173 with Cloudflare's public
+# Turnstile test keys; internet is still needed for the widget and siteverify.
 
 # Neither the database (D1) nor profile-image storage (R2) needs an entry here
 # -- `wrangler dev` emulates both locally with no credentials. Create/refresh
@@ -7,15 +9,16 @@
 #   npx wrangler d1 migrations apply contentpro-db --local
 #   npx wrangler d1 execute contentpro-db --local --file=./seed.sql
 
-# Long random string used to sign/verify session JWTs and the email-verification
-# / password-reset action JWTs (HMAC-SHA256). Generate one with:
-#   node -e "console.log(crypto.randomUUID()+crypto.randomUUID())"
-JWT_SECRET="<generate-a-long-random-secret>"
+ENV="development"
+FRONTEND_URL="http://localhost:5173"
 
-# Resend API key (https://resend.com/api-keys) -- sends verification + password
-# reset emails.
-RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# Replace with a long random value for any non-demo setup.
+JWT_SECRET="local-dev-jwt-secret-change-me"
 
-# Cloudflare Turnstile secret key (https://dash.cloudflare.com/?to=/:account/turnstile)
-# -- server-side validation for the public signup form.
-TURNSTILE_SECRET_KEY="0x0000000000000000000000000000000000"
+# Optional for the seeded demo. Signup verification and password reset require
+# a Resend API key and configured sender address.
+RESEND_API_KEY=""
+RESEND_FROM_EMAIL="ContentPro <onboarding@resend.dev>"
+
+# Cloudflare's public test secret (pair with the test site key in app/.env).
+TURNSTILE_SECRET_KEY="1x0000000000000000000000000000000AA"

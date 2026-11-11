@@ -4,13 +4,25 @@ import SlideCanvas from '@/components/editor/SlideCanvas';
 import { CardstockMark } from '@/components/Logo';
 import { canvasSize, type FieldValue, type FooterData, type LocalDesign, type ResolvedSlide, type Slide, type TemplateId } from '@/lib/design-types';
 import { PALETTES, resolveColors } from '@/lib/palettes';
-import { TEMPLATE_ORDER, TEMPLATES, templateDefaults } from '@/lib/templates';
-import { exportCardAsPng, exportCarouselAsPdf, downloadBlob } from '@/lib/export';
-import { getDesign, saveDesign, storagePressure } from '@/lib/local-store';
-import { getImageUrl, newImageId, putImage } from '@/lib/image-store';
+import { CATALOG_BY_ID, TEMPLATE_ORDER, TEMPLATES, templateDefaults } from '@/lib/templates';
+import { DesignConflictError, MAX_IMAGE_BYTES, designStorageKey, getDesign, saveDesign, storagePressure } from '@/lib/local-store';
+import { getImageUrl, newImageId, putImage, releaseImageUrls } from '@/lib/image-store';
 import { useToast } from '@/lib/toast';
+import { useAuth } from '@/lib/auth-context';
 
 const MAX_SLIDES = 15;
+
+const carouselExportOptionStyle: CSSProperties = {
+  width: '100%',
+  padding: '11px 12px',
+  border: 0,
+  borderRadius: 8,
+  background: 'transparent',
+  color: 'var(--c-text)',
+  font: "700 13px/1.2 'Space Grotesk'",
+  textAlign: 'left',
+  cursor: 'pointer',
+};
 
 type MobileTab = 'templates' | 'content' | 'theme' | 'author' | 'background';
 const MOBILE_TABS: { id: MobileTab; label: string }[] = [
@@ -26,7 +38,6 @@ function useMediaQuery(query: string): boolean {
   useEffect(() => {
     const m = window.matchMedia(query);
     const on = () => setMatches(m.matches);
-    setMatches(m.matches);
     m.addEventListener('change', on);
     return () => m.removeEventListener('change', on);
   }, [query]);
@@ -46,6 +57,8 @@ export default function EditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
+  const ownerId = user?.id;
 
   const [loaded, setLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -58,12 +71,22 @@ export default function EditorPage() {
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [scale, setScale] = useState(0.35);
   const [mobileTab, setMobileTab] = useState<MobileTab>('content');
+  const [saveConflict, setSaveConflict] = useState(false);
   const isMobile = useMediaQuery('(max-width: 900px)');
+
+  useEffect(() => {
+    if (!ownerId) return;
+    return () => releaseImageUrls(ownerId);
+  }, [ownerId]);
 
   const stageAreaRef = useRef<HTMLDivElement>(null);
   const mobileStageRef = useRef<HTMLDivElement>(null);
   const exportRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const exportMenuRef = useRef<HTMLDetailsElement>(null);
   const dirty = useRef(false);
+  const pendingSave = useRef(false);
+  const conflict = useRef(false);
+  const savedRevision = useRef<number | null>(null);
   // latest design/active kept in refs so unmount + stable callbacks can read
   // them without re-subscribing. Written after commit (not during render):
   // every reader -- the unload/unmount flush and the memoised template picker
@@ -82,20 +105,39 @@ export default function EditorPage() {
 
   // ---- load design (localStorage) + profile (server) ----
   useEffect(() => {
-    if (!id) return;
-    const d = getDesign(id);
-    if (!d) { setNotFound(true); setLoaded(true); return; }
-    setDesign(d);
-    setLoaded(true);
-    fetch('/api/profile', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((p) => { if (p) setProfile(p); })
-      .catch(() => {});
-  }, [id]);
+    if (!id || !ownerId) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      dirty.current = false;
+      pendingSave.current = false;
+      conflict.current = false;
+      savedRevision.current = null;
+      setSaveConflict(false);
+      setImgUrls({});
+      let d: LocalDesign | null;
+      try { d = getDesign(ownerId, id); }
+      catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Could not read this design.');
+        setNotFound(true); setLoaded(true); return;
+      }
+      if (!d) { setNotFound(true); setLoaded(true); return; }
+      savedRevision.current = d.updatedAt;
+      setNotFound(false);
+      setDesign(d);
+      setLoaded(true);
+      fetch('/api/profile', { credentials: 'include' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((p) => { if (!cancelled && p) setProfile(p); })
+        .catch(() => {});
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, ownerId]);
 
   // resolve any referenced image ids -> object URLs
   useEffect(() => {
-    if (!design) return;
+    if (!design || !ownerId) return;
     const ids = new Set<string>();
     for (const s of design.slides) if (s.bgImageId) ids.add(s.bgImageId);
     if (design.authorOverride?.avatarImageId) ids.add(design.authorOverride.avatarImageId);
@@ -104,42 +146,72 @@ export default function EditorPage() {
       const next: Record<string, string> = {};
       for (const iid of ids) {
         if (imgUrls[iid]) { next[iid] = imgUrls[iid]; continue; }
-        const url = await getImageUrl(iid);
+        const url = await getImageUrl(ownerId, iid);
         if (url) next[iid] = url;
       }
       if (!cancelled) setImgUrls((prev) => ({ ...prev, ...next }));
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [design]);
+  }, [design, ownerId]);
 
   // ---- autosave to localStorage (debounced) ----
   useEffect(() => {
-    if (!loaded || !design) return;
+    if (!loaded || !design || !ownerId) return;
     if (!dirty.current) { dirty.current = true; return; }
+    if (conflict.current) return;
+    pendingSave.current = true;
     const t = setTimeout(() => {
-      storagePressure().then((p) => { if (p && p.ratio > 0.85) toast.info('Your browser storage is getting full — back up and remove old designs.'); });
+      storagePressure().then((p) => { if (p && p.ratio > 0.85) toast.info('Your browser storage is getting full — back up and remove old designs.'); }).catch(() => {});
       try {
-        saveDesign(design);
+        const saved = saveDesign(ownerId, design, savedRevision.current ?? undefined);
+        savedRevision.current = saved.updatedAt;
+        if (designRef.current === design) pendingSave.current = false;
       } catch (e) {
+        if (e instanceof DesignConflictError) { conflict.current = true; setSaveConflict(true); }
         toast.error(e instanceof Error ? e.message : "Couldn't save your design.");
       }
     }, 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [design]);
+  }, [design, ownerId]);
 
   // Flush the pending debounced save on unmount / tab-close so the last few
   // keystrokes before leaving the editor are never lost (there is no manual
   // Save button in this browser-only model).
   useEffect(() => {
     const flush = () => {
-      if (!dirty.current || !designRef.current) return;
-      try { saveDesign(designRef.current); } catch { /* quota surfaced on the debounced path */ }
+      if (!ownerId || !pendingSave.current || conflict.current || !designRef.current) return;
+      try {
+        const saved = saveDesign(ownerId, designRef.current, savedRevision.current ?? undefined);
+        savedRevision.current = saved.updatedAt;
+        pendingSave.current = false;
+      } catch { /* The editor's debounced path reports save failures. */ }
     };
     window.addEventListener('beforeunload', flush);
     return () => { window.removeEventListener('beforeunload', flush); flush(); };
-  }, []);
+  }, [ownerId]);
+
+  // Changes from another tab arrive before the next debounced save in the
+  // usual case. The expected revision check above remains the final guard.
+  useEffect(() => {
+    if (!ownerId || !id) return;
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== designStorageKey(ownerId)) return;
+      try {
+        const latest = getDesign(ownerId, id);
+        if (!latest || latest.updatedAt !== savedRevision.current) {
+          conflict.current = true;
+          setSaveConflict(true);
+        }
+      } catch {
+        conflict.current = true;
+        setSaveConflict(true);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [ownerId, id]);
 
   const cv = design ? canvasSize(design.type) : { w: 1080, h: 1080 };
   const colors = resolveColors(design?.paletteId ?? 'ink', { bg: design?.customBg, text: design?.customText, accent: design?.customAccent });
@@ -236,15 +308,20 @@ export default function EditorPage() {
   }
 
   async function storeImage(file: File): Promise<string | null> {
+    if (!ownerId) return null;
+    if (!file.type.startsWith('image/') || file.size > MAX_IMAGE_BYTES) {
+      toast.error('Choose an image smaller than 8 MB.');
+      return null;
+    }
     const iid = newImageId();
     try {
-      await putImage(iid, file);
+      await putImage(ownerId, iid, file);
     } catch {
       toast.error("Couldn't save that image — your browser storage may be full.");
       return null;
     }
     try {
-      const url = await getImageUrl(iid);
+      const url = await getImageUrl(ownerId, iid);
       if (url) setImgUrls((prev) => ({ ...prev, [iid]: url }));
     } catch {
       toast.info("Saved the image, but couldn't show a preview.");
@@ -252,7 +329,7 @@ export default function EditorPage() {
     return iid;
   }
 
-  async function exportNow() {
+  async function exportNow(format: 'pdf' | 'png-zip' = 'pdf') {
     if (exporting || !design) return;
     setExporting(true);
     try {
@@ -263,6 +340,7 @@ export default function EditorPage() {
       // pending commit + paint to land.
       await new Promise<void>((r) => setTimeout(r, 50));
       const nodes = exportRefs.current.filter((n): n is HTMLDivElement => n !== null);
+      const { exportCardAsPng, exportCarouselAsPdf, exportCarouselAsPngZip, downloadBlob } = await import('@/lib/export');
       // Timestamp suffix so re-exports never collide on the same filename --
       // otherwise the browser writes "name (1).png" while the user re-opens the
       // stale "name.png" and thinks the new background didn't apply.
@@ -274,6 +352,10 @@ export default function EditorPage() {
         const blob = await exportCardAsPng(nodes[0], cv.w, cv.h);
         downloadBlob(blob, `${base}-${stamp}.png`);
         toast.success('PNG downloaded.');
+      } else if (format === 'png-zip') {
+        const blob = await exportCarouselAsPngZip(nodes, cv.w, cv.h);
+        downloadBlob(blob, `${base}-${stamp}-slides.zip`);
+        toast.success(`PNG slides downloaded — ${design.slides.length} image${design.slides.length === 1 ? '' : 's'}.`);
       } else {
         const blob = await exportCarouselAsPdf(nodes, cv.w, cv.h);
         downloadBlob(blob, `${base}-${stamp}.pdf`);
@@ -381,6 +463,9 @@ export default function EditorPage() {
 
   const themePanel = (
     <Section title="THEME">
+      <button type="button" className="cp-theme-mobile-toggle" onClick={() => setUi(ui === 'light' ? 'dark' : 'light')}>
+        Switch editor to {ui === 'light' ? 'dark' : 'light'} mode
+      </button>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 16 }}>
         {PALETTES.map((p) => {
           const on = design.paletteId === p.id && !design.customBg && !design.customText && !design.customAccent;
@@ -517,10 +602,10 @@ export default function EditorPage() {
   return (
     <div className="cp" data-ui={ui} style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--c-app)', color: 'var(--c-text)', overflow: 'hidden' }}>
       {/* top bar */}
-      <div className="cp-topbar" style={{ display: 'flex', alignItems: 'center', gap: 16, height: 60, flex: '0 0 60px', padding: '0 20px', background: 'var(--c-bar)', borderBottom: '1px solid var(--c-line)' }}>
-        <button onClick={() => navigate('/dashboard')} title="Back to dashboard" style={{ display: 'flex', alignItems: 'center', gap: 11, border: 'none', background: 'none', cursor: 'pointer' }}>
+      <div className="cp-topbar" style={{ position: 'relative', zIndex: 50, display: 'flex', alignItems: 'center', gap: 16, height: 60, flex: '0 0 60px', padding: '0 20px', background: 'var(--c-bar)', borderBottom: '1px solid var(--c-line)' }}>
+        <button onClick={() => navigate('/dashboard')} title="Back to dashboard" aria-label="Back to dashboard" style={{ display: 'flex', alignItems: 'center', gap: 11, border: 'none', background: 'none', cursor: 'pointer' }}>
           <CardstockMark size={30} />
-          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, textAlign: 'left' }}>
+          <div className="cp-brand-name" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, textAlign: 'left' }}>
             <span style={{ font: '800 16px/1 Archivo', color: 'var(--c-text)' }}>Cardstock</span>
             <span className="cp-logosub" style={{ font: "600 9px/1.4 'Space Grotesk'", letterSpacing: '.22em', color: 'var(--c-dim)' }}>CARD &amp; CAROUSEL STUDIO</span>
           </div>
@@ -534,12 +619,34 @@ export default function EditorPage() {
           style={{ flex: 1, minWidth: 0, background: 'transparent', border: '1px solid var(--c-line2)', borderRadius: 8, color: 'var(--c-text)', font: "700 14px/1 'Space Grotesk'", padding: '10px 12px' }}
         />
         <span className="cp-topstatus" style={{ font: "500 13px/1 'Space Grotesk'", color: 'var(--c-dim)', flex: 'none', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name + (isCar ? ' · ' + design.slides.length + ' slides · 1080×1350' : ' · 1080×1080')}</span>
-        <button onClick={() => setUi(ui === 'light' ? 'dark' : 'light')} title={ui === 'light' ? 'Switch to dark' : 'Switch to light'} aria-label={ui === 'light' ? 'Switch to dark theme' : 'Switch to light theme'} style={{ width: 44, height: 44, borderRadius: 10, border: '1px solid var(--c-line2)', background: 'transparent', color: 'var(--c-dim2)', cursor: 'pointer', font: '16px/1', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{ui === 'light' ? '☽' : '☀'}</button>
-        <button onClick={exportNow} disabled={exporting} style={{ display: 'flex', alignItems: 'center', gap: 9, border: 'none', cursor: exporting ? 'wait' : 'pointer', font: "700 13px/1 'Space Grotesk'", padding: '12px 18px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)', opacity: exporting ? 0.6 : 1, flex: 'none' }}>
-          {exporting ? <span style={{ width: 13, height: 13, border: '2px solid color-mix(in srgb, var(--c-accent-ink) 35%, transparent)', borderTopColor: 'var(--c-accent-ink)', borderRadius: '50%', animation: 'cp-spin .7s linear infinite' }} /> : <span style={{ fontSize: 14 }}>↓</span>}
-          {exporting ? 'Exporting…' : design.type === 'card' ? 'Export PNG' : 'Export PDF'}
-        </button>
+        <button className="cp-theme-toggle" onClick={() => setUi(ui === 'light' ? 'dark' : 'light')} title={ui === 'light' ? 'Switch to dark' : 'Switch to light'} aria-label={ui === 'light' ? 'Switch to dark theme' : 'Switch to light theme'} style={{ width: 44, height: 44, borderRadius: 10, border: '1px solid var(--c-line2)', background: 'transparent', color: 'var(--c-dim2)', cursor: 'pointer', font: '16px/1', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{ui === 'light' ? '☽' : '☀'}</button>
+        {isCar ? (
+          <details ref={exportMenuRef} style={{ position: 'relative', flex: 'none', zIndex: 40 }}>
+            <summary
+              aria-label="Export carousel"
+              onClick={(e) => { if (exporting) e.preventDefault(); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 9, listStyle: 'none', border: 'none', cursor: exporting ? 'wait' : 'pointer', font: "700 13px/1 'Space Grotesk'", padding: '14px 18px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)', opacity: exporting ? 0.6 : 1 }}
+            >
+              {exporting ? 'Exporting…' : 'Export ▾'}
+            </summary>
+            <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', width: 252, padding: 6, borderRadius: 12, border: '1px solid var(--c-line2)', background: 'var(--c-panel)', boxShadow: '0 18px 44px rgba(15, 27, 25, 0.2)' }}>
+              <button type="button" disabled={exporting} onClick={() => { if (exportMenuRef.current) exportMenuRef.current.open = false; void exportNow('pdf'); }} style={carouselExportOptionStyle}>PDF for LinkedIn <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--c-dim)', marginTop: 4 }}>One swipeable document</span></button>
+              <button type="button" disabled={exporting} onClick={() => { if (exportMenuRef.current) exportMenuRef.current.open = false; void exportNow('png-zip'); }} style={carouselExportOptionStyle}>PNG slides ZIP for Facebook <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--c-dim)', marginTop: 4 }}>Separate images in slide order</span></button>
+            </div>
+          </details>
+        ) : (
+          <button onClick={() => { void exportNow(); }} disabled={exporting} style={{ display: 'flex', alignItems: 'center', gap: 9, border: 'none', cursor: exporting ? 'wait' : 'pointer', font: "700 13px/1 'Space Grotesk'", padding: '12px 18px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)', opacity: exporting ? 0.6 : 1, flex: 'none' }}>
+            {exporting ? <span style={{ width: 13, height: 13, border: '2px solid color-mix(in srgb, var(--c-accent-ink) 35%, transparent)', borderTopColor: 'var(--c-accent-ink)', borderRadius: '50%', animation: 'cp-spin .7s linear infinite' }} /> : <span style={{ fontSize: 14 }}>↓</span>}
+            {exporting ? 'Exporting…' : 'Export PNG'}
+          </button>
+        )}
       </div>
+
+      {saveConflict && (
+        <div role="alert" style={{ padding: '10px 20px', background: 'var(--c-chip)', color: 'var(--c-text)', borderBottom: '1px solid var(--c-line)' }}>
+          Another tab saved this design. Your current edits are still visible here but were not saved. Export them if needed, then reload before editing further.
+        </div>
+      )}
 
       {isMobile ? mobileBody : desktopBody}
 
@@ -627,28 +734,68 @@ interface TemplatePickerProps {
   onPick: (t: TemplateId) => void;
 }
 
-// Memoised so typing content (which changes the active slide, not these
-// primitive props) doesn't re-render all 10 scaled SlideCanvas previews.
+// Memoised so editing a slide doesn't rebuild the template picker.
 const TemplatePicker = memo(function TemplatePicker(props: TemplatePickerProps) {
   const { activeTemplate, bg, text, accent, name, handle, avatar, designation, companyName, companyLogo, cvW, cvH, onPick } = props;
-  const colors = { bg, text, accent };
-  const footer: FooterData = { name, handle, avatar, designation, companyName, companyLogo };
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('All');
+  const categories = ['All', 'Originals', 'Learning & Guides', 'Data & Comparisons', 'Career & Community', 'Business & Events'];
+  const visibleTemplates = TEMPLATE_ORDER.filter((id) => {
+    const catalog = CATALOG_BY_ID.get(id);
+    const group = catalog?.group ?? 'Originals';
+    return (category === 'All' || group === category)
+      && `${TEMPLATES[id].name} ${catalog?.description ?? ''} ${group}`.toLowerCase().includes(query.trim().toLowerCase());
+  });
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-      {TEMPLATE_ORDER.map((tid) => {
+    <div>
+      <input type="search" aria-label="Search templates" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search 100 templates…" style={{ ...inputStyle, width: '100%', boxSizing: 'border-box', marginBottom: 9 }} />
+      <select aria-label="Template category" value={category} onChange={(event) => setCategory(event.target.value)} style={{ ...inputStyle, width: '100%', boxSizing: 'border-box', marginBottom: 12 }}>
+        {categories.map((item) => <option key={item} value={item}>{item}</option>)}
+      </select>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      {visibleTemplates.map((tid) => {
         const on = activeTemplate === tid;
-        const slide: ResolvedSlide = { template: tid, fields: templateDefaults(tid), bgImage: null };
         return (
           <button key={tid} onClick={() => onPick(tid)} title={TEMPLATES[tid].name} aria-pressed={on} style={{ border: on ? '2px solid var(--c-accent)' : '1px solid var(--c-line2)', background: 'var(--c-chip)', borderRadius: 10, padding: 5, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, textAlign: 'left' }}>
-            <div style={{ width: 88, aspectRatio: cvW + '/' + cvH, borderRadius: 5, overflow: 'hidden', position: 'relative', background: '#000' }}>
-              <div style={{ width: cvW, height: cvH, transform: `scale(${88 / cvW})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-                <SlideCanvas slide={slide} colors={colors} footer={footer} width={cvW} height={cvH} />
-              </div>
-            </div>
+            <TemplateThumbnail tid={tid} bg={bg} text={text} accent={accent} name={name} handle={handle} avatar={avatar} designation={designation} companyName={companyName} companyLogo={companyLogo} cvW={cvW} cvH={cvH} />
             <span style={{ font: "600 10px/1.1 'Space Grotesk'", color: on ? 'var(--c-accent-ink)' : 'var(--c-dim)', paddingLeft: 2 }}>{TEMPLATES[tid].name}</span>
           </button>
         );
       })}
+      </div>
+      {visibleTemplates.length === 0 && <p style={{ font: "500 12px/1.4 'Space Grotesk'", color: 'var(--c-dim)' }}>No templates match this search.</p>}
+    </div>
+  );
+});
+
+const TemplateThumbnail = memo(function TemplateThumbnail(props: Omit<TemplatePickerProps, 'activeTemplate' | 'onPick'> & { tid: TemplateId }) {
+  const { tid, bg, text, accent, name, handle, avatar, designation, companyName, companyLogo, cvW, cvH } = props;
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [nearby, setNearby] = useState(() => typeof IntersectionObserver === 'undefined');
+
+  useEffect(() => {
+    const node = previewRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      setNearby(entries.some((entry) => entry.isIntersecting));
+    }, { rootMargin: '180px 0px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={previewRef} style={{ width: 88, aspectRatio: cvW + '/' + cvH, borderRadius: 5, overflow: 'hidden', position: 'relative', background: bg }}>
+      {nearby && (
+        <div style={{ width: cvW, height: cvH, transform: `scale(${88 / cvW})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+          <SlideCanvas
+            slide={{ template: tid, fields: templateDefaults(tid), bgImage: null }}
+            colors={{ bg, text, accent }}
+            footer={{ name, handle, avatar, designation, companyName, companyLogo }}
+            width={cvW}
+            height={cvH}
+          />
+        </div>
+      )}
     </div>
   );
 });

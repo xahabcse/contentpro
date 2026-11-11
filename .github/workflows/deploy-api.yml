@@ -37,6 +37,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Test API
+        run: npm test
+
       # The database is Cloudflare D1 (docs/contentpro-spec.md §2/§3). Schema
       # migrations (api/migrations/*.sql) are applied manually via
       # `wrangler d1 migrations apply contentpro-db --remote` — deliberately

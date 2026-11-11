@@ -11,7 +11,7 @@ import {
   uploadToR2,
   type ProfileImageField,
 } from "../lib/storage";
-import { findUserById, updateUser } from "../lib/db";
+import { findUserById, patchUserProfile } from "../lib/db";
 import { authRequired } from "../middleware/auth-required";
 import { emailVerifiedRequired } from "../middleware/email-verified-required";
 import { checkAndRecordRateLimit } from "../middleware/rate-limit";
@@ -87,9 +87,10 @@ profile.put("/", jsonValidator(updateProfileSchema), async (c) => {
   const user = await findUserById(c.env.DB, userId);
   if (!user) return c.json({ error: "NOT_FOUND" }, 404);
 
-  const nextProfile: UserProfile = { ...user.profile, ...updates };
-  await updateUser(c.env.DB, userId, { profile: nextProfile, updatedAt: new Date() });
-  return c.json(toProfileResponse(nextProfile));
+  await patchUserProfile(c.env.DB, userId, updates);
+  const current = await findUserById(c.env.DB, userId);
+  if (!current) return c.json({ error: "NOT_FOUND" }, 404);
+  return c.json(toProfileResponse(current.profile));
 });
 
 async function handleImageUpload(c: Context<AppEnv>, field: ProfileImageField): Promise<Response> {
@@ -145,11 +146,19 @@ async function handleImageUpload(c: Context<AppEnv>, field: ProfileImageField): 
   await uploadToR2(c.env.PROFILE_IMAGES, key, file);
 
   // The R2 key is what gets stored; clients only ever see the route below.
-  const nextProfile: UserProfile = { ...user.profile, [field]: key };
-  await updateUser(c.env.DB, userId, { profile: nextProfile, updatedAt: new Date() });
+  const imagePatch: UserProfile = field === "photoUrl" ? { photoUrl: key } : { companyLogoUrl: key };
+  const saved = await patchUserProfile(c.env.DB, userId, imagePatch);
+  if (!saved) {
+    await c.env.PROFILE_IMAGES.delete(key);
+    return c.json({ error: "NOT_FOUND" }, 404);
+  }
+  const current = await findUserById(c.env.DB, userId);
+  if (!current) return c.json({ error: "NOT_FOUND" }, 404);
 
-  // Top-level `url` -- matches ProfileSettingsPage.tsx's `const { url } = await res.json()`.
-  return c.json({ url: profileImageRoute(field), profile: toProfileResponse(nextProfile) });
+  // A versioned URL makes the existing <img> reload immediately after a
+  // replacement; the authenticated serving route ignores the query string.
+  const url = `${profileImageRoute(field)}?v=${Date.now()}`;
+  return c.json({ url, profile: toProfileResponse(current.profile) });
 }
 
 profile.post("/photo", (c) => handleImageUpload(c, "photoUrl"));
@@ -169,7 +178,9 @@ async function handleImageServe(c: Context<AppEnv>, field: ProfileImageField): P
   return new Response(object.body, {
     headers: {
       "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream",
-      "Cache-Control": "private, max-age=300",
+      // The path is identical for every account and every replacement. A
+      // browser cache must never serve another user's or an older image.
+      "Cache-Control": "private, no-store",
       ETag: object.httpEtag,
     },
   });

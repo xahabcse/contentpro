@@ -22,6 +22,16 @@ interface AuthEvent {
   detail?: string | null;
 }
 
+interface AdminOverview {
+  totalUsers: number;
+  verifiedUsers: number;
+  newUsers24h: number;
+  newUsers7d: number;
+  successfulLogins7d: number;
+  failedLogins7d: number;
+  failedLoginIps7d: number;
+}
+
 type Tab = 'overview' | 'users' | 'logs';
 type Gate = 'checking' | 'ok';
 
@@ -36,21 +46,6 @@ function formatTime(ts: number): string {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-
-function isToday(value?: number | string | null): boolean {
-  if (value == null) return false;
-  const d = new Date(typeof value === 'number' ? value : value);
-  if (Number.isNaN(d.getTime())) return false;
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-}
-
-function isLast7Days(value?: number | string | null): boolean {
-  if (value == null) return false;
-  const d = new Date(typeof value === 'number' ? value : value);
-  if (Number.isNaN(d.getTime())) return false;
-  return Date.now() - d.getTime() < 7 * 24 * 60 * 60 * 1000;
 }
 
 function eventBadgeClass(type: string): string {
@@ -69,6 +64,8 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [events, setEvents] = useState<AuthEvent[]>([]);
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
   const [usersLoading, setUsersLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(true);
   const [rowError, setRowError] = useState<string | null>(null);
@@ -79,6 +76,20 @@ export default function AdminPage() {
   const [pendingDelete, setPendingDelete] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const loadOverview = useCallback(async () => {
+    setOverviewLoading(true);
+    try {
+      const r = await fetch('/api/admin/overview', { credentials: 'include' });
+      if (!r.ok) throw new Error('load');
+      const data = (await r.json()) as { overview: AdminOverview };
+      setOverview(data.overview);
+    } catch {
+      setRowError('Could not load overview statistics.');
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, []);
+
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
     try {
@@ -86,7 +97,6 @@ export default function AdminPage() {
       if (!r.ok) throw new Error('load');
       const data = (await r.json()) as { users: AdminUser[] };
       setUsers(Array.isArray(data.users) ? data.users : []);
-      setRowError(null);
     } catch {
       setRowError('Could not load users.');
     } finally {
@@ -102,7 +112,6 @@ export default function AdminPage() {
       const data = (await r.json()) as { events: AuthEvent[] };
       const list = Array.isArray(data.events) ? data.events : [];
       setEvents([...list].sort((a, b) => b.ts - a.ts));
-      setRowError(null);
     } catch {
       setRowError('Could not load logs.');
     } finally {
@@ -120,18 +129,15 @@ export default function AdminPage() {
         if (cancelled) return;
         if (!data.isAdmin) { navigate('/dashboard', { replace: true }); return; }
         setGate('ok');
+        void loadOverview();
+        void loadUsers();
+        void loadLogs();
       } catch {
         if (!cancelled) navigate('/dashboard', { replace: true });
       }
     })();
     return () => { cancelled = true; };
-  }, [navigate]);
-
-  useEffect(() => {
-    if (gate !== 'ok') return;
-    void loadUsers();
-    void loadLogs();
-  }, [gate, loadUsers, loadLogs]);
+  }, [navigate, loadOverview, loadUsers, loadLogs]);
 
   useEffect(() => {
     if (!pendingDelete) return;
@@ -157,6 +163,7 @@ export default function AdminPage() {
       }
       setPendingDelete(null);
       await loadUsers();
+      await loadOverview();
       toast.success(`Deleted ${target.email}.`);
     } catch {
       toast.error(NETWORK_ERROR_MESSAGE);
@@ -165,17 +172,6 @@ export default function AdminPage() {
       setDeleting(false);
     }
   }
-
-  const stats = useMemo(() => {
-    const total = users.length;
-    const verified = users.filter(u => u.emailVerified).length;
-    const todayNew = users.filter(u => isToday(u.createdAt)).length;
-    const last7 = users.filter(u => isLast7Days(u.createdAt)).length;
-    const failedLogins = events.filter(e => e.type === 'login_failed').length;
-    const totalLogins = events.filter(e => e.type === 'login').length;
-    const uniqueFailedIPs = new Set(events.filter(e => e.type === 'login_failed' && e.ip).map(e => e.ip)).size;
-    return { total, verified, todayNew, last7, failedLogins, totalLogins, uniqueFailedIPs };
-  }, [users, events]);
 
   const filteredUsers = useMemo(() => {
     let list = users;
@@ -212,7 +208,7 @@ export default function AdminPage() {
   const topbarMeta: Record<Tab, { title: string; sub: string }> = {
     overview: { title: 'Overview', sub: 'Platform health at a glance' },
     users: { title: 'User Management', sub: `${users.length} registered accounts` },
-    logs: { title: 'Security Logs', sub: `${events.length} auth events captured` },
+    logs: { title: 'Security Logs', sub: `${events.length} recent auth events loaded` },
   };
 
   return (
@@ -248,7 +244,7 @@ export default function AdminPage() {
           <button id="admin-nav-logs" className={`admin-nav-item${activeTab === 'logs' ? ' active' : ''}`} onClick={() => setActiveTab('logs')}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
             Security Logs
-            {stats.failedLogins > 0 && <span className="admin-nav-badge">{stats.failedLogins}</span>}
+            {!!overview?.failedLogins7d && <span className="admin-nav-badge">{overview.failedLogins7d}</span>}
           </button>
 
           <div className="admin-sidebar-footer">
@@ -268,11 +264,20 @@ export default function AdminPage() {
               <span className="admin-topbar-sub">{topbarMeta[activeTab].sub}</span>
             </div>
             <div className="admin-topbar-actions">
-              <button id="admin-refresh-btn" className="admin-icon-btn" title="Refresh data" onClick={() => { void loadUsers(); void loadLogs(); }} disabled={usersLoading || logsLoading}>
+              <button id="admin-refresh-btn" className="admin-icon-btn" title="Refresh data" onClick={() => { setRowError(null); void loadOverview(); void loadUsers(); void loadLogs(); }} disabled={overviewLoading || usersLoading || logsLoading}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.6" /><path d="M20 4v6h-6" /></svg>
               </button>
             </div>
           </div>
+
+          <nav className="admin-mobile-nav" aria-label="Admin sections">
+            {(['overview', 'users', 'logs'] as const).map(tab => (
+              <button key={tab} className={`admin-mobile-tab${activeTab === tab ? ' active' : ''}`} aria-pressed={activeTab === tab} onClick={() => setActiveTab(tab)}>
+                {tab === 'logs' ? 'Security Logs' : tab === 'users' ? 'Users' : 'Overview'}
+              </button>
+            ))}
+            <button className="admin-mobile-tab admin-mobile-back" onClick={() => navigate('/dashboard')}>Dashboard</button>
+          </nav>
 
           {/* Error banner */}
           {rowError && (
@@ -286,16 +291,16 @@ export default function AdminPage() {
           {activeTab === 'overview' && (
             <div className="admin-content" key="overview">
               <div className="admin-stats-grid">
-                <StatCard icon="users" variant="accent" value={usersLoading ? '—' : String(stats.total)} label="Registered Users" trend="Total" trendClass="neutral" />
-                <StatCard icon="check" variant="success" value={usersLoading ? '—' : String(stats.verified)} label="Email Verified" trend={usersLoading ? '—' : `${stats.total > 0 ? Math.round((stats.verified / stats.total) * 100) : 0}%`} trendClass="up" />
-                <StatCard icon="clock" variant="info" value={usersLoading ? '—' : String(stats.todayNew)} label="New Signups Today" trend="Today" trendClass="up" />
-                <StatCard icon="shield" variant="danger" value={logsLoading ? '—' : String(stats.failedLogins)} label="Failed Login Attempts" trend={`${stats.uniqueFailedIPs} IP${stats.uniqueFailedIPs !== 1 ? 's' : ''}`} trendClass={stats.failedLogins > 5 ? 'warn' : 'neutral'} />
+                <StatCard icon="users" variant="accent" value={overviewLoading || !overview ? '—' : String(overview.totalUsers)} label="Registered Users" trend="Total" trendClass="neutral" />
+                <StatCard icon="check" variant="success" value={overviewLoading || !overview ? '—' : String(overview.verifiedUsers)} label="Email Verified" trend={!overview || overviewLoading ? '—' : `${overview.totalUsers > 0 ? Math.round((overview.verifiedUsers / overview.totalUsers) * 100) : 0}%`} trendClass="up" />
+                <StatCard icon="clock" variant="info" value={overviewLoading || !overview ? '—' : String(overview.newUsers24h)} label="New Signups (24h)" trend="24h" trendClass="up" />
+                <StatCard icon="shield" variant="danger" value={overviewLoading || !overview ? '—' : String(overview.failedLogins7d)} label="Failed Logins (7 days)" trend={!overview || overviewLoading ? '—' : `${overview.failedLoginIps7d} IP${overview.failedLoginIps7d !== 1 ? 's' : ''}`} trendClass={overview && overview.failedLogins7d > 5 ? 'warn' : 'neutral'} />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="admin-overview-panels">
                 {/* Auth events breakdown */}
                 <div className="admin-table-wrap" style={{ padding: 20 }}>
-                  <div style={{ fontSize: 10, color: '#6b6f88', fontWeight: 700, marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Auth Events Breakdown</div>
+                  <div style={{ fontSize: 10, color: '#6b6f88', fontWeight: 700, marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Latest 200 Auth Events</div>
                   {logsLoading ? <div style={{ color: '#8b8fa8', fontSize: 13 }}>Loading…</div> : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {logEventTypes.length === 0 ? <div style={{ color: '#8b8fa8', fontSize: 13 }}>No events yet.</div> : logEventTypes.map(type => {
@@ -320,10 +325,10 @@ export default function AdminPage() {
                   <div style={{ fontSize: 10, color: '#6b6f88', fontWeight: 700, marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Platform Stats</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     {[
-                      { label: 'Successful Logins', value: logsLoading ? '…' : stats.totalLogins, color: '#4ade80' },
-                      { label: 'New Users (7 days)', value: usersLoading ? '…' : stats.last7, color: '#60a5fa' },
-                      { label: 'Unverified Accounts', value: usersLoading ? '…' : stats.total - stats.verified, color: '#fb923c' },
-                      { label: 'Suspicious IPs', value: logsLoading ? '…' : stats.uniqueFailedIPs, color: stats.uniqueFailedIPs > 0 ? '#ff5c5c' : '#8b8fa8' },
+                      { label: 'Successful Logins (7 days)', value: overviewLoading || !overview ? '…' : overview.successfulLogins7d, color: '#4ade80' },
+                      { label: 'New Users (7 days)', value: overviewLoading || !overview ? '…' : overview.newUsers7d, color: '#60a5fa' },
+                      { label: 'Unverified Accounts', value: overviewLoading || !overview ? '…' : overview.totalUsers - overview.verifiedUsers, color: '#fb923c' },
+                      { label: 'IPs with Failed Logins (7 days)', value: overviewLoading || !overview ? '…' : overview.failedLoginIps7d, color: overview && overview.failedLoginIps7d > 0 ? '#ff5c5c' : '#8b8fa8' },
                     ].map(item => (
                       <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: 13, color: '#8b8fa8' }}>{item.label}</span>

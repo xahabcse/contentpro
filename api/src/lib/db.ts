@@ -176,15 +176,13 @@ export async function insertUser(db: D1Database, user: NewUserInput): Promise<st
  * mirroring Mongo's `$set` semantics: absent keys are left untouched, an
  * explicitly present key is written even if its value is falsy.
  *
- * A present `profile` key replaces ALL SIX profile columns -- also matching the
- * old `$set: { profile }`, which replaced the whole subdocument. Callers always
- * pass a fully merged profile (`{ ...user.profile, ...updates }`), so this is a
- * whole-object write by design, not a partial one.
+ * Profile fields are deliberately handled by patchUserProfile below. Writing a
+ * read/merged profile as one object would lose concurrent text/image updates.
  */
 export async function updateUser(
   db: D1Database,
   id: string,
-  update: UserUpdateInput,
+  update: Omit<UserUpdateInput, "profile">,
 ): Promise<void> {
   const assignments: string[] = [];
   const values: (string | number | null)[] = [];
@@ -204,16 +202,6 @@ export async function updateUser(
   if ("createdAt" in update && update.createdAt !== undefined) set("created_at", update.createdAt.getTime());
   if ("updatedAt" in update && update.updatedAt !== undefined) set("updated_at", update.updatedAt.getTime());
   if ("lastLoginAt" in update && update.lastLoginAt !== undefined) set("last_login_at", update.lastLoginAt.getTime());
-  if ("profile" in update && update.profile !== undefined) {
-    const profile = update.profile;
-    set("profile_name", profile.name ?? null);
-    set("profile_designation", profile.designation ?? null);
-    set("profile_photo_url", profile.photoUrl ?? null);
-    set("profile_company_name", profile.companyName ?? null);
-    set("profile_company_logo_url", profile.companyLogoUrl ?? null);
-    set("profile_handle", profile.handle ?? null);
-  }
-
   if (assignments.length === 0) return;
 
   await db
@@ -222,9 +210,119 @@ export async function updateUser(
     .run();
 }
 
+/**
+ * Records a successful login, and optionally upgrades its password hash, only
+ * while the session version observed during password verification is current.
+ * A concurrent password reset increments that version; without this condition
+ * a late rehash could restore the old password after the reset completed.
+ */
+export async function recordLoginIfSessionVersion(
+  db: D1Database,
+  id: string,
+  expectedSessionVersion: number,
+  rehash?: { hash: string; salt: string; iterations: number },
+): Promise<boolean> {
+  const assignments = ["last_login_at = ?"];
+  const values: (string | number)[] = [Date.now()];
+  if (rehash) {
+    assignments.push("password_hash = ?", "password_salt = ?", "password_iterations = ?");
+    values.push(rehash.hash, rehash.salt, rehash.iterations);
+  }
+  const result = await db
+    .prepare(`UPDATE users SET ${assignments.join(", ")} WHERE id = ? AND session_version = ?`)
+    .bind(...values, id, expectedSessionVersion)
+    .run();
+  return result.meta.changes === 1;
+}
+
+const PROFILE_COLUMNS: Record<keyof UserProfile, string> = {
+  name: "profile_name",
+  designation: "profile_designation",
+  photoUrl: "profile_photo_url",
+  companyName: "profile_company_name",
+  companyLogoUrl: "profile_company_logo_url",
+  handle: "profile_handle",
+};
+
+/** Updates only supplied profile columns, preserving concurrent changes elsewhere. */
+export async function patchUserProfile(db: D1Database, id: string, patch: UserProfile): Promise<boolean> {
+  const assignments: string[] = [];
+  const values: (string | number)[] = [];
+  for (const field of Object.keys(PROFILE_COLUMNS) as (keyof UserProfile)[]) {
+    const value = patch[field];
+    if (value !== undefined) {
+      assignments.push(`${PROFILE_COLUMNS[field]} = ?`);
+      values.push(value);
+    }
+  }
+  if (assignments.length === 0) return true;
+  assignments.push("updated_at = ?");
+  values.push(Date.now());
+  const result = await db
+    .prepare(`UPDATE users SET ${assignments.join(", ")} WHERE id = ?`)
+    .bind(...values, id)
+    .run();
+  return result.meta.changes === 1;
+}
+
+/** Consumes one reset token atomically and revokes existing sessions. */
+export async function resetUserPasswordIfTokenVersion(
+  db: D1Database,
+  id: string,
+  expectedTokenVersion: number,
+  password: { hash: string; salt: string; iterations: number },
+): Promise<boolean> {
+  const result = await db
+    .prepare(`UPDATE users SET password_hash = ?, password_salt = ?, password_iterations = ?,
+              token_version = token_version + 1, session_version = session_version + 1,
+              updated_at = ? WHERE id = ? AND token_version = ?`)
+    .bind(password.hash, password.salt, password.iterations, Date.now(), id, expectedTokenVersion)
+    .run();
+  return result.meta.changes === 1;
+}
+
 // ---------------------------------------------------------------------------
 // admin: user listing + deletion
 // ---------------------------------------------------------------------------
+
+export interface AdminOverview {
+  totalUsers: number;
+  verifiedUsers: number;
+  newUsers24h: number;
+  newUsers7d: number;
+  successfulLogins7d: number;
+  failedLogins7d: number;
+  failedLoginIps7d: number;
+}
+
+/** Exact aggregate counts; independent of the 200-row security log preview. */
+export async function getAdminOverview(db: D1Database, nowMs = Date.now()): Promise<AdminOverview> {
+  const since24h = nowMs - 24 * 60 * 60 * 1000;
+  const since7d = nowMs - 7 * 24 * 60 * 60 * 1000;
+  const [users, events] = await Promise.all([
+    db.prepare(`SELECT COUNT(*) AS totalUsers,
+      COUNT(CASE WHEN email_verified = 1 THEN 1 END) AS verifiedUsers,
+      COUNT(CASE WHEN created_at >= ? THEN 1 END) AS newUsers24h,
+      COUNT(CASE WHEN created_at >= ? THEN 1 END) AS newUsers7d
+      FROM users`).bind(since24h, since7d).first<Pick<AdminOverview,
+      "totalUsers" | "verifiedUsers" | "newUsers24h" | "newUsers7d">>(),
+    db.prepare(`SELECT
+      COUNT(CASE WHEN type = 'login' THEN 1 END) AS successfulLogins7d,
+      COUNT(CASE WHEN type = 'login_failed' THEN 1 END) AS failedLogins7d,
+      COUNT(DISTINCT CASE WHEN type = 'login_failed' AND TRIM(ip) <> '' THEN ip END) AS failedLoginIps7d
+      FROM auth_events WHERE ts >= ?`).bind(since7d).first<Pick<AdminOverview,
+      "successfulLogins7d" | "failedLogins7d" | "failedLoginIps7d">>(),
+  ]);
+  return {
+    totalUsers: users?.totalUsers ?? 0,
+    verifiedUsers: users?.verifiedUsers ?? 0,
+    newUsers24h: users?.newUsers24h ?? 0,
+    newUsers7d: users?.newUsers7d ?? 0,
+    successfulLogins7d: events?.successfulLogins7d ?? 0,
+    failedLogins7d: events?.failedLogins7d ?? 0,
+    failedLoginIps7d: events?.failedLoginIps7d ?? 0,
+  };
+}
 
 export async function listAllUsers(db: D1Database): Promise<UserRecord[]> {
   const { results } = await db

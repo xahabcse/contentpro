@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 declare global {
   interface Window {
@@ -20,6 +20,14 @@ declare global {
 }
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+const TURNSTILE_SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+const SCRIPT_TIMEOUT_MS = 8_000;
+type WidgetStatus = 'loading' | 'ready' | 'unavailable' | 'challenge-error' | 'expired';
+
+function widgetSize(container: HTMLElement): 'compact' | 'flexible' {
+  const width = container.getBoundingClientRect().width;
+  return width > 0 && width < 300 ? 'compact' : 'flexible';
+}
 
 // Renders the real Cloudflare Turnstile widget (docs/contentpro-spec.md
 // §5.5) once its script has loaded -- the script tag is async, so poll
@@ -45,34 +53,111 @@ export default function TurnstileWidget({
   // still calling the latest callback, since an inline arrow prop would
   // otherwise change identity on every parent render.
   const onTokenRef = useRef(onToken);
-  onTokenRef.current = onToken;
   const widgetIdRef = useRef<string | null>(null);
+  const widgetSizeRef = useRef<'compact' | 'flexible' | null>(null);
+  const [status, setStatus] = useState<WidgetStatus>('loading');
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    onTokenRef.current = onToken;
+  }, [onToken]);
 
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY || !containerRef.current) return;
 
     let cancelled = false;
+    let script: HTMLScriptElement | null = null;
+    let createdScript = false;
 
-    const tryRender = () => {
+    const stopWaiting = () => {
+      window.clearInterval(pollId);
+      window.clearTimeout(timeoutId);
+    };
+    const failToLoad = () => {
       if (cancelled) return;
-      if (window.turnstile && containerRef.current) {
+      stopWaiting();
+      onTokenRef.current('');
+      setStatus('unavailable');
+    };
+    const tryRender = () => {
+      if (cancelled || !window.turnstile || !containerRef.current) return;
+      stopWaiting();
+      try {
+        setStatus('ready');
+        const size = widgetSize(containerRef.current);
+        widgetSizeRef.current = size;
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (t) => onTokenRef.current(t),
-          'expired-callback': () => onTokenRef.current(''),
-          'error-callback': () => onTokenRef.current(''),
-          size: 'flexible',
+          'expired-callback': () => {
+            onTokenRef.current('');
+            setStatus('expired');
+          },
+          'error-callback': () => {
+            onTokenRef.current('');
+            setStatus('challenge-error');
+          },
+          size,
         });
-      } else {
-        setTimeout(tryRender, 100);
+      } catch {
+        onTokenRef.current('');
+        setStatus('challenge-error');
       }
     };
-    tryRender();
+
+    const pollId = window.setInterval(tryRender, 100);
+    const timeoutId = window.setTimeout(failToLoad, SCRIPT_TIMEOUT_MS);
+
+    // The HTML script may have failed before this page mounted. A bounded
+    // wait gives clear feedback, and Retry injects a fresh script request.
+    if (!window.turnstile) {
+      script = attempt === 0
+        ? document.querySelector<HTMLScriptElement>(`script[src="${TURNSTILE_SCRIPT_URL}"]`)
+        : null;
+      if (!script) {
+        script = document.createElement('script');
+        script.src = TURNSTILE_SCRIPT_URL;
+        script.async = true;
+        script.defer = true;
+        createdScript = true;
+        document.head.appendChild(script);
+      }
+      script.addEventListener('error', failToLoad);
+    }
+    window.setTimeout(tryRender, 0);
 
     return () => {
       cancelled = true;
-      if (widgetIdRef.current && window.turnstile) window.turnstile.remove(widgetIdRef.current);
+      stopWaiting();
+      script?.removeEventListener('error', failToLoad);
+      if (createdScript) script?.remove();
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current);
+        widgetIdRef.current = null;
+      }
+      widgetSizeRef.current = null;
     };
+  }, [attempt]);
+
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY || !containerRef.current) return;
+    const container = containerRef.current;
+    const checkWidth = () => {
+      const next = widgetSize(container);
+      if (widgetIdRef.current && widgetSizeRef.current !== next) {
+        widgetSizeRef.current = next;
+        onTokenRef.current('');
+        setStatus('loading');
+        setAttempt((old) => old + 1);
+      }
+    };
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(checkWidth);
+      observer.observe(container);
+      return () => observer.disconnect();
+    }
+    window.addEventListener('resize', checkWidth);
+    return () => window.removeEventListener('resize', checkWidth);
   }, []);
 
   // Only fires when the parent deliberately bumps resetSignal after a failed
@@ -86,7 +171,28 @@ export default function TurnstileWidget({
   }, [resetSignal]);
 
   if (TURNSTILE_SITE_KEY) {
-    return <div ref={containerRef} data-testid="turnstile-placeholder" />;
+    return (
+      <div data-testid="turnstile-placeholder">
+        <div ref={containerRef} />
+        {status === 'loading' && <p role="status" style={{ color: 'var(--muted)', fontSize: 13, margin: '8px 0 0' }}>Loading security check…</p>}
+        {status !== 'loading' && status !== 'ready' && (
+          <div role="alert" style={{ marginTop: 8 }}>
+            <p className="error-text" style={{ margin: '0 0 8px' }}>
+              {status === 'unavailable'
+                ? 'The security check could not load. Check your connection or content blocker, then retry.'
+                : status === 'expired'
+                  ? 'The security check expired. Please retry.'
+                  : 'The security check failed. Please retry.'}
+            </p>
+            <button type="button" className="btn btn-outline" style={{ width: 'auto', minHeight: 36, padding: '0 14px', fontSize: 13 }} onClick={() => {
+              onTokenRef.current('');
+              setStatus('loading');
+              setAttempt((old) => old + 1);
+            }}>Retry security check</button>
+          </div>
+        )}
+      </div>
+    );
   }
 
   if (import.meta.env.DEV) {

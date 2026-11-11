@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
 import { isAdminEmail } from "../lib/admin";
-import { deleteUserById, findUserById, listAllUsers, listAuthEvents } from "../lib/db";
+import { deleteUserById, findUserById, getAdminOverview, listAllUsers, listAuthEvents } from "../lib/db";
 import { authRequired } from "../middleware/auth-required";
 import { adminRequired } from "../middleware/admin-required";
 import { logAuthEvent } from "../lib/auth-events";
+import { deleteProfileImages } from "../lib/storage";
 
 const admin = new Hono<AppEnv>();
 
@@ -20,6 +21,10 @@ admin.get("/me", async (c) => {
   // the UI never advertises an admin surface the API would then 403.
   const isAdmin = !!user && c.get("emailVerified") && isAdminEmail(c.env, user.email);
   return c.json({ isAdmin });
+});
+
+admin.get("/overview", adminRequired, async (c) => {
+  return c.json({ overview: await getAdminOverview(c.env.DB) });
 });
 
 admin.get("/users", adminRequired, async (c) => {
@@ -46,7 +51,11 @@ admin.delete("/users/:id", adminRequired, async (c) => {
   if (isAdminEmail(c.env, target.email)) {
     return c.json({ error: "CANNOT_DELETE_ADMIN" }, 400);
   }
-  await deleteUserById(c.env.DB, target._id);
+  // Keep the account retryable if R2 is temporarily unavailable. Deleting the
+  // row first would strand private images with no account left to find them.
+  await deleteProfileImages(c.env.PROFILE_IMAGES, target._id);
+  const deleted = await deleteUserById(c.env.DB, target._id);
+  if (!deleted) return c.json({ error: "NOT_FOUND" }, 404);
   // Account deletion is the most destructive operation this API exposes -- it
   // belongs in the same audit trail that already records logins and resets, so
   // a compromised admin session leaves a record. `email` is the deleted

@@ -4,8 +4,9 @@
 # D1 and profile-image storage is Cloudflare R2, both of which `wrangler dev`
 # emulates locally, so there is no database or storage service to run here.
 #
-# The one optional external service (email verification) activates only if you
-# supply a real key in a .env file — see .env.example.
+# Turnstile's test widget still calls Cloudflare for login and signup, so those
+# flows need internet access. Email delivery activates only if you supply a
+# real Resend key in a .env file — see .env.example.
 name: contentpro
 
 services:

@@ -1,13 +1,14 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AuthShell from '@/components/layout/AuthShell';
 import TurnstileWidget from '@/components/TurnstileWidget';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth-context';
 import { NETWORK_ERROR_MESSAGE, readApiError } from '@/lib/errorMessages';
 import { useToast } from '@/lib/toast';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { refresh } = useAuth();
   const toast = useToast();
   const [email, setEmail] = useState('');
@@ -40,7 +41,11 @@ export default function LoginPage() {
       // Server-side middleware is the real gate (spec §5.3) -- this is just
       // a UX convenience so an unverified user lands on the right screen.
       if (me.emailVerified) {
-        navigate('/dashboard');
+        const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
+        const destination = from?.pathname?.startsWith('/') && !from.pathname.startsWith('//')
+          ? `${from.pathname}${from.search ?? ''}`
+          : '/dashboard';
+        navigate(destination, { replace: true });
       } else {
         toast.info('Verify your email address to finish setting up your account.');
         navigate('/verify-email');

@@ -4,7 +4,7 @@
 # is required for the SameSite=Strict session cookie to work.
 
 # ---- build the SPA ----
-FROM node:22-bookworm-slim AS build
+FROM node:24-bookworm-slim AS build
 WORKDIR /app
 
 # Turnstile site key is baked in at build time (import.meta.env.VITE_*).

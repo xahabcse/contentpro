@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import AppShell from '@/components/layout/AppShell';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth-context';
 import { NETWORK_ERROR_MESSAGE, readApiError } from '@/lib/errorMessages';
 import { useToast } from '@/lib/toast';
 

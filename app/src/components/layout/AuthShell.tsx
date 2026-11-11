@@ -12,6 +12,7 @@ interface AuthShellProps {
 export default function AuthShell({ title, subtitle, children }: AuthShellProps) {
   return (
     <div
+      className="auth-shell"
       style={{
         position: 'relative',
         minHeight: '100vh',
@@ -21,11 +22,11 @@ export default function AuthShell({ title, subtitle, children }: AuthShellProps)
         padding: '24px 16px',
       }}
     >
-      <div className="card-surface" style={{ width: '100%', maxWidth: 420, padding: 28 }}>
-        <div style={{ marginBottom: 18 }}>
+      <div className="card-surface auth-card" style={{ width: '100%', maxWidth: 440, padding: 'clamp(24px, 5vw, 36px)' }}>
+        <div style={{ marginBottom: 26 }}>
           <CardstockLogo size={30} wordSize={19} color="var(--ink)" />
         </div>
-        <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 8px 0' }}>{title}</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.035em', margin: '0 0 8px 0' }}>{title}</h1>
         {subtitle && (
           <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 24px 0' }}>{subtitle}</p>
         )}

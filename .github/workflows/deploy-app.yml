@@ -54,6 +54,12 @@ jobs:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
 
+      - name: Lint app
+        run: npm run lint
+
+      - name: Test app
+        run: npm test
+
       - name: Ensure main is production branch
         continue-on-error: true
         run: |

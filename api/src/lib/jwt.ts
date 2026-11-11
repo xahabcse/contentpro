@@ -89,15 +89,21 @@ async function verifyJwt<T extends { exp: number }>(token: string, secret: strin
     return null;
   }
 
-  const key = await importHmacKey(secret);
-  const signatureBytes = base64UrlToBytes(encodedSignature);
-  const signingInput = `${encodedHeader}.${encodedPayload}`;
-  const valid = await crypto.subtle.verify(
-    "HMAC",
-    key,
-    signatureBytes as BufferSource,
-    new TextEncoder().encode(signingInput),
-  );
+  let valid: boolean;
+  try {
+    const key = await importHmacKey(secret);
+    const signatureBytes = base64UrlToBytes(encodedSignature);
+    const signingInput = `${encodedHeader}.${encodedPayload}`;
+    valid = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      signatureBytes as BufferSource,
+      new TextEncoder().encode(signingInput),
+    );
+  } catch {
+    // Malformed base64/signature bytes are an invalid token, not a server error.
+    return null;
+  }
   if (!valid) return null;
 
   let payload: T;

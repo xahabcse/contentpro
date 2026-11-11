@@ -33,9 +33,14 @@ export default function SignupPage() {
         setTurnstileResetKey((k) => k + 1);
         return;
       }
-      // The toast survives the route change -- it confirms the account landed
-      // before the verify-email screen explains the next step.
-      toast.success('Account created. Check your email for the verification link.');
+      const result = (await res.json()) as { verificationEmailSent?: boolean };
+      // The account can be created even when the mail provider is unavailable.
+      // The verification page offers a resend path for that case.
+      if (result.verificationEmailSent === false) {
+        toast.info('Account created, but the verification email could not be sent. Use Resend on the next screen.');
+      } else {
+        toast.success('Account created. Check your email for the verification link.');
+      }
       navigate('/verify-email', { state: { email } });
     } catch {
       toast.error(NETWORK_ERROR_MESSAGE);

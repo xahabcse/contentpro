@@ -1,31 +1,62 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import AppShell from '@/components/layout/AppShell';
 import SlideCanvas from '@/components/editor/SlideCanvas';
 import { resolveColors } from '@/lib/palettes';
-import { canvasSize, type FooterData, type LocalDesign, type ResolvedSlide } from '@/lib/design-types';
+import { canvasSize, type FooterData, type LocalDesign, type ResolvedSlide, type TemplateId } from '@/lib/design-types';
+import { TEMPLATES } from '@/lib/templates';
 import { buildBackup, createDesign, deleteDesign, duplicateDesign, ensureSeeded, listDesigns, restoreBackup } from '@/lib/local-store';
-import { getImageUrl } from '@/lib/image-store';
+import { getImageUrl, releaseImageUrls } from '@/lib/image-store';
+import { useAuth } from '@/lib/auth-context';
+import { importLegacyDesigns, legacyImportAvailable } from '@/lib/local-store';
 import { useToast } from '@/lib/toast';
 
 interface Profile { name?: string; handle?: string; photoUrl?: string | null; designation?: string; companyName?: string; companyLogoUrl?: string | null }
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
+  const { user } = useAuth();
+  const ownerId = user?.id;
+  const requestedTemplate = searchParams.get('template');
+  const selectedTemplate = requestedTemplate && Object.hasOwn(TEMPLATES, requestedTemplate) ? requestedTemplate as TemplateId : null;
+  const selectedFormat = searchParams.get('format');
   const [designs, setDesigns] = useState<LocalDesign[]>([]);
   const [profile, setProfile] = useState<Profile>({});
   const [bgUrls, setBgUrls] = useState<Record<string, string>>({});
   const [pendingDelete, setPendingDelete] = useState<LocalDesign | null>(null);
+  const [legacyAvailable, setLegacyAvailable] = useState(false);
   const restoreInput = useRef<HTMLInputElement>(null);
 
-  function reload() { setDesigns(listDesigns()); }
+  function reload() {
+    if (!ownerId) return;
+    setDesigns(listDesigns(ownerId));
+  }
 
   useEffect(() => {
-    ensureSeeded();
-    reload();
-    fetch('/api/profile', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)).then((p) => { if (p) setProfile(p); }).catch(() => {});
-  }, []);
+    if (!ownerId) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      try {
+        ensureSeeded(ownerId);
+        setDesigns(listDesigns(ownerId));
+        setLegacyAvailable(legacyImportAvailable());
+        setBgUrls({});
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Could not read saved designs.');
+      }
+    });
+    fetch('/api/profile', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)).then((p) => { if (!cancelled && p) setProfile(p); }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownerId]);
+
+  useEffect(() => {
+    if (!ownerId) return;
+    return () => releaseImageUrls(ownerId);
+  }, [ownerId]);
 
   // resolve first-slide background images for thumbnails
   useEffect(() => {
@@ -34,13 +65,13 @@ export default function DashboardPage() {
       const next: Record<string, string> = {};
       for (const d of designs) {
         const id = d.slides[0]?.bgImageId;
-        if (id && !bgUrls[id]) { const u = await getImageUrl(id); if (u) next[id] = u; }
+        if (id && ownerId && !bgUrls[id]) { const u = await getImageUrl(ownerId, id); if (u) next[id] = u; }
       }
       if (!cancelled && Object.keys(next).length) setBgUrls((prev) => ({ ...prev, ...next }));
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [designs]);
+  }, [designs, ownerId]);
 
   // Esc closes the delete confirmation modal.
   useEffect(() => {
@@ -60,6 +91,7 @@ export default function DashboardPage() {
   };
 
   function handleCreate(type: 'card' | 'carousel') {
+    if (!ownerId) return;
     // A design signs itself from the profile footer -- send users with an
     // incomplete profile to fill it in first (spec §6). A toast, not inline
     // text: this component unmounts on the very next line, so page-local
@@ -70,18 +102,19 @@ export default function DashboardPage() {
       return;
     }
     try {
-      const d = createDesign(type);
+      const d = createDesign(ownerId, type, selectedTemplate ?? undefined);
       navigate('/designs/' + d.id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not create the design.');
     }
   }
   async function confirmDelete() {
+    if (!ownerId) return;
     const target = pendingDelete;
     if (!target) return;
     setPendingDelete(null);
     try {
-      await deleteDesign(target.id);
+      await deleteDesign(ownerId, target.id);
       reload();
       toast.success(`Deleted “${target.title || 'Untitled'}”.`);
     } catch (e) {
@@ -89,8 +122,9 @@ export default function DashboardPage() {
     }
   }
   async function handleDuplicate(id: string) {
+    if (!ownerId) return;
     try {
-      const copy = await duplicateDesign(id);
+      const copy = await duplicateDesign(ownerId, id);
       reload();
       if (copy) {
         toast.success('Copy created — opening it now.');
@@ -103,21 +137,35 @@ export default function DashboardPage() {
     }
   }
   async function handleBackup() {
+    if (!ownerId) return;
     try {
-      const blob = await buildBackup();
+      const blob = await buildBackup(ownerId);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = 'contentpro-designs-backup.json'; a.click();
       URL.revokeObjectURL(url);
       toast.success('Backup downloaded.');
-    } catch { toast.error('Could not build a backup.'); }
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not build a backup.'); }
   }
   async function handleRestore(file: File) {
+    if (!ownerId) return;
     try {
-      const n = await restoreBackup(file);
+      const n = await restoreBackup(ownerId, file);
       reload();
       toast.success(`Restored ${n} design${n === 1 ? '' : 's'}.`);
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not restore that file.'); }
+  }
+  async function handleLegacyImport() {
+    if (!ownerId) return;
+    if (!window.confirm('These older designs have no account owner recorded. Import them only if they are yours. Continue?')) return;
+    try {
+      const count = await importLegacyDesigns(ownerId);
+      setLegacyAvailable(false);
+      reload();
+      toast.success(`Imported ${count} older design${count === 1 ? '' : 's'} into this account.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not import older designs.');
+    }
   }
 
   const cardCount = designs.filter((d) => d.type === 'card').length;
@@ -128,23 +176,31 @@ export default function DashboardPage() {
 
   return (
     <AppShell title="Your designs">
+      {selectedTemplate && (
+        <div className="card-surface" role="note" style={{ padding: 16, marginBottom: 18 }}>
+          <strong>{TEMPLATES[selectedTemplate].name} template selected</strong>
+          <p style={{ margin: '5px 0 0', fontSize: 13, color: 'var(--muted)' }}>
+            Start a card or carousel below. This template will be the first slide; you can change it in the editor.
+          </p>
+        </div>
+      )}
       {/* create actions */}
       <div className="dash-create">
-        <button className="dash-tile dash-tile-primary" onClick={() => handleCreate('card')}>
+        <button className="dash-tile dash-tile-primary" onClick={() => handleCreate('card')} style={selectedFormat === 'card' ? { boxShadow: '0 0 0 2px var(--brand)' } : undefined}>
           <span className="dash-tile-ic" style={{ background: 'rgba(27,22,14,0.12)' }}>
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" /><path d="M7.5 15.5l3-3.5 2.3 2.5L16 11" /></svg>
           </span>
           <span style={{ minWidth: 0 }}>
-            <span style={{ display: 'block', font: '800 17px/1.1 var(--font-display)', color: 'var(--ink)' }}>New card</span>
+            <span style={{ display: 'block', font: '800 17px/1.1 var(--font-display)', color: 'var(--ink)' }}>{selectedTemplate ? `New ${TEMPLATES[selectedTemplate].name} card` : 'New card'}</span>
             <span style={{ display: 'block', marginTop: 3, font: '500 12px/1.3 var(--font-ui)', color: 'rgba(27,22,14,0.62)' }}>Single square post · 1080×1080</span>
           </span>
         </button>
-        <button className="dash-tile" onClick={() => handleCreate('carousel')}>
+        <button className="dash-tile" onClick={() => handleCreate('carousel')} style={selectedFormat === 'carousel' ? { boxShadow: '0 0 0 2px var(--brand)' } : undefined}>
           <span className="dash-tile-ic" style={{ background: 'var(--surface)', border: '1px solid var(--line)' }}>
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="7.5" y="4.5" width="13" height="15" rx="2.5" /><path d="M4.5 7v10" opacity="0.5" /><path d="M2 9v6" opacity="0.28" /></svg>
           </span>
           <span style={{ minWidth: 0 }}>
-            <span style={{ display: 'block', font: '800 17px/1.1 var(--font-display)', color: 'var(--ink)' }}>New carousel</span>
+            <span style={{ display: 'block', font: '800 17px/1.1 var(--font-display)', color: 'var(--ink)' }}>{selectedTemplate ? `New ${TEMPLATES[selectedTemplate].name} carousel` : 'New carousel'}</span>
             <span style={{ display: 'block', marginTop: 3, font: '500 12px/1.3 var(--font-ui)', color: 'var(--muted)' }}>Multi-slide swipe deck · up to 15</span>
           </span>
         </button>
@@ -171,6 +227,16 @@ export default function DashboardPage() {
       <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 20px' }}>
         Saved <strong>in this browser only</strong> — they don't sync across devices. Back up to keep or move them.
       </p>
+
+      {legacyAvailable && (
+        <div role="note" className="card-surface" style={{ padding: 16, marginBottom: 20 }}>
+          <strong>Older browser designs found</strong>
+          <p style={{ margin: '6px 0 12px', fontSize: 13, color: 'var(--muted)' }}>
+            These designs were saved before accounts had separate browser storage. Their owner is unknown, so import them only if they belong to you. The originals will stay on this browser.
+          </p>
+          <button className="dash-ghost" onClick={handleLegacyImport}>Import my older designs</button>
+        </div>
+      )}
 
       {!designs.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center', padding: '52px 24px', border: '1.5px dashed var(--line-2)', borderRadius: 18, color: 'var(--muted)' }}>

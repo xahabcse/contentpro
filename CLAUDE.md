@@ -1,19 +1,19 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides repository guidance for code and documentation work. This repo (GitHub: `xahabcse/contentpro`) contains:
 
-Conventions that apply to **all** work in this directory. This repo (GitHub: `xahabcse/contentpro`) has two things in it:
+1. **Cardstock, the current web app:** `app/` (React/Vite), `api/` (Hono/Cloudflare Workers), and `docker/` for local use. Users create cards and carousels in the browser. There are 100 fixed templates; local drafts and images are scoped to the signed-in account. See `README.md` for current behavior and local setup.
+2. **The legacy code-only post pipeline:** `templates/`, `scripts/render.js`, and `posts/<slug>/content.json`. See **Legacy post workflow** below.
 
-1. **Today:** a Claude-driven, code-only pipeline for designing **LinkedIn posts** (copy + graphics) — `templates/`, `scripts/render.js`, `posts/<slug>/content.json`. See **Purpose & Workflow** below.
-2. **In progress:** evolving into **ContentPro**, a self-service multi-tenant web app where end users register and create/edit/export their own LinkedIn card/carousel designs — no Claude/CLI involved for end users. Full requirements spec: **`docs/contentpro-spec.md`**. The `app/` (React/Vite frontend) and `api/` (Hono/Cloudflare Workers backend) folders it describes don't exist yet — see **ContentPro Web App** below for the specialist agents/skills/CI already scaffolded ahead of that build.
+`docs/contentpro-spec.md` preserves original requirements and design decisions, including proposals superseded by the shipped app. Check current code and `README.md` before relying on it as implementation documentation.
 
-## Purpose & Workflow
+## Legacy post workflow
 
 - **Goal:** produce **reliable, professional** LinkedIn posts — consistent, polished, publish-ready.
 - **Input → output:** the user provides a **content link** (article / blog / docs). From that source, produce the post — copy + graphics, in one of two formats (see `brand/brand-kit.md` → Formats): **A — Single Card** (short/hot news) or **B — Carousel** (deep-dive topic).
 - **Design engine:** **code, not a GUI tool.** HTML/CSS templates in `templates/`, rendered to PNG/PDF by Playwright (`scripts/render.js`) — see **Rendering Commands** below. This replaced Canva as the primary engine because Canva's MCP couldn't insert new text elements or crop images to a circle; raw HTML/CSS has neither limitation.
 - **Quality bar:** accuracy first — don't invent facts beyond the source; keep visual/brand style consistent across posts (enforced by construction, since every post reuses the same templates).
-- **Brand style:** every design follows **`brand/brand-kit.md`** — the single source of truth for colors/fonts/layout, and it now maps 1:1 to the literal CSS in `templates/`.
+- **Brand style:** the legacy templates follow **`brand/brand-kit.md`**. The web app's current theme tokens are in `app/src/styles/tokens.css`.
 
 ## Rendering Commands
 
@@ -51,7 +51,7 @@ node scripts/render.js posts/2026-07-http-query-method
 
 ## ContentPro Web App
 
-Specialist subagents, slash-skills, and CI/CD for the web app described in `docs/contentpro-spec.md` are already scaffolded, ported and adapted from the "learning" (Porhi) project's tooling for this project's actual stack (Cloudflare D1; email+password + PBKDF2, not Google OAuth; no dev branch). Content-authoring-specific agents/skills from that source project (course/MCQ/handbook writers) were **not** ported — irrelevant here.
+The web app is implemented under `app/` and `api/`. Its account and profile data use Cloudflare D1, profile images use private R2, and designs stay in account-scoped browser storage. `docker compose up --build` runs D1 and R2 locally, but the build, Google Fonts, Turnstile widget, and login/signup verification require internet access. Node.js 24 is used in Docker and CI. See `README.md` for setup and limitations.
 
 ### Agents (`.claude/agents/`)
 
@@ -73,7 +73,7 @@ Specialist subagents, slash-skills, and CI/CD for the web app described in `docs
 
 ### CI/CD (`.github/workflows/`)
 
-`deploy-api.yml` and `deploy-app.yml` trigger on push to **`main`** (path-filtered on `api/**` / `app/**`) — typecheck/build first, deploy only if that passes. **No `dev` branch, no auto-merge-PR bot** (a deliberate simplification vs. the Porhi project's flow) — deploy directly from `main`.
+`checks.yml` runs build/lint/tests on pull requests to `main`. `deploy-api.yml` and `deploy-app.yml` trigger on push to **`main`** (path-filtered on `api/**` / `app/**`), run checks, then deploy. There is no `dev` branch or auto-merge bot.
 
 ## MCP Servers
 

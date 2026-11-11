@@ -2,6 +2,9 @@
 // images (backgrounds + per-design avatar overrides) live in IndexedDB and
 // are referenced here by id (see image-store.ts).
 
+import type { LEARNING_TEMPLATES } from './template-catalog-learning';
+import type { EVERYDAY_TEMPLATE_DEFINITIONS } from './template-catalog-everyday';
+
 export type DesignType = 'card' | 'carousel';
 
 export type TemplateId =
@@ -30,7 +33,21 @@ export type TemplateId =
   | 'stattrio'
   | 'definition'
   | 'protip'
-  | 'roadmap';
+  | 'roadmap'
+  | 'birthday'
+  | 'congrats'
+  | 'thankyou'
+  | 'holiday'
+  | 'event'
+  | 'offer'
+  | 'hiring'
+  | 'product'
+  | 'faq'
+  | 'howto'
+  | 'awareness'
+  | 'flexible'
+  | (typeof LEARNING_TEMPLATES)[number]['id']
+  | (typeof EVERYDAY_TEMPLATE_DEFINITIONS)[number]['id'];
 
 export type FieldValue = string | string[];
 

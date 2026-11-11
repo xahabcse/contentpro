@@ -1,13 +1,15 @@
 # ContentPro — Requirements Specification
 
-**Status:** Final (post-grilling + adversarial review pass), v1 scope only
-**Source repo evolved:** `xahabcse/contentpro` (currently a Claude-driven, code-only HTML/CSS + Playwright rendering pipeline: `templates/`, `scripts/render.js`, `brand/brand-kit.md`, `posts/SLUG/content.json`)
+**Status:** Historical requirements and design decisions. `README.md` describes the current implementation.
+**Source repo:** `xahabcse/contentpro` now contains the Cardstock web app (`app/`, `api/`, `docker/`) and the older HTML/CSS + Playwright rendering pipeline (`templates/`, `scripts/render.js`, `posts/SLUG/content.json`).
+
+**Current implementation note:** The app offers 100 fixed templates and browser-based export: PNG cards, PDF carousels, and ordered PNG slide ZIPs. Draft JSON and image blobs stay in account-scoped `localStorage` and `IndexedDB`; the dashboard offers an explicit one-time import for older drafts without an owner. Backup restore imports copies under new IDs. Docker emulates D1 and R2 locally, but installation, Google Fonts, the Turnstile widget, and login/signup verification require internet access. The original server-side design CRUD, export storage/caps, and self-hosted-font proposals below remain as historical rationale; they are not shipped behavior.
 
 ---
 
 ## 1. Overview
 
-ContentPro is a self-service, multi-tenant web application that turns the existing `xahabcse/contentpro` repo — today a Claude-driven, code-only pipeline for rendering LinkedIn post designs via HTML/CSS templates and a Playwright script — into a product end users can operate entirely on their own, with no Claude, CLI, or code involved. It is for individual professionals and small teams who want to produce on-brand LinkedIn "single card" and "carousel" post designs (in the exact visual language already established by this repo's brand kit and templates) by registering an account, filling in their own personal/company profile once, pasting their own content into a fixed-layout live editor, lightly customizing font/size/color within a curated set of options, and exporting the result as a PNG or PDF — all rendered live in the browser via React, with no server-side headless-browser rendering step. The core value proposition is *"the same evidence-based, professionally-designed LinkedIn post templates this repo already produces via a code pipeline, but self-service, in a simple web UI, for any user — not just via Claude/CLI."*
+The original ContentPro plan proposed turning the repo's code-only LinkedIn post pipeline into a self-service, multi-tenant web application. The resulting Cardstock app lets individual professionals and small teams register, complete a personal/company profile, fill fixed-layout card and carousel templates in a live React editor, and export PNG/PDF files in the browser. End users need no Claude, CLI, or code to make designs.
 
 ---
 
@@ -84,7 +86,7 @@ Indexed on `ts DESC` (`idx_auth_events_ts`) — the admin log view always shows 
 
 ### 3.2 `designs` collection
 
-> **Implementation note (predates and is independent of the MongoDB→D1 migration):** as actually shipped, no `designs` table/collection exists server-side at all — every design lives entirely client-side (`localStorage` for the design JSON, `IndexedDB` for image blobs; see `README.md` → Data & privacy, and `api/src/schema.ts`'s comment: *"Designs are browser-only ... and are not persisted server-side"*). The current D1 schema (§3, `api/migrations/0001_init.sql`) has only `users` and `auth_events`. The subsection below reflects this spec's original server-persisted v1 model — kept here as design rationale for the style schema, structural guardrails, and per-type caps (still genuinely enforced, just client-side rather than via a server-side collection) — not as a description of current server storage. The `designs`-route list in §4.1 and the design-CRUD mentions in §6/§7 below inherit this same caveat.
+> **Implementation note:** No `designs` table/collection exists server-side. Designs live in account-scoped browser storage (`localStorage` JSON and `IndexedDB` image blobs), while D1 stores only `users` and `auth_events`. The subsection below describes the original server-persisted proposal, including routes, export assets, and 5-item limits that are not implemented. The current client enforces a 15-slide maximum; see `README.md` and `app/src/lib/local-store.ts` for shipped behavior.
 
 A `design` document is the single, unified entity for both the editable design *and* its exported file, per decision 10 (a design and its export are the same unit, not a two-tier draft/export model). Re-editing and re-exporting an existing design overwrites this same document's `content`/`style` in place and uploads a fresh Cloudinary asset for the export (the prior asset is simply orphaned rather than overwritten in place — see §5.6); "make something new" is an explicit duplicate action that creates a brand-new document.
 
@@ -297,6 +299,8 @@ The `PROFILE_IMAGES` R2 bucket (§5.6) needs **no secret at all** — it's reach
 There is **no separate "preview" page** anywhere in this flow (decision 18) — the editor screens themselves are the accurate live preview, since rendering is 100% client-side (decision 1). The Download button lives directly on the editor screen — one button per editor, matching that design's fixed output type (§3.2); decision 18 specifies that download controls live on the editor screen itself rather than a separate preview page, and does not mandate that every format expose both PNG and PDF — constraining each format to its one natural output type resolves a data-model conflict identified in review without touching the substance of decision 18. An optional "full-screen preview" **toggle** within the editor screen (hiding edit controls temporarily, without navigating away) may exist as a nice-to-have, but is not a required v1 route.
 
 ### 6.1 Editor interaction model — fixed regions + curated style controls (core UX)
+
+> **Current app differs from this original proposal:** it offers 100 fixed templates, edits text through inspector fields, scales heading/body/footer text groups, and applies palettes or custom canvas colors. It does not expose a seven-font, per-region selector or self-host those fonts. `app/index.html` loads Archivo, Newsreader, and Space Grotesk from Google Fonts, so font loading needs internet access. The bullets below record the earlier design plan.
 
 Both editors (§6.1 card, §6.2 carousel) share the same interaction philosophy, per decision 13: this is a **fixed-layout templated editor**, directly reusing this repo's existing template regions/structure (ported from `templates/single-card.html` / `templates/carousel-styles.css` to live React components) — it is explicitly **not** a free-form drag/resize/reposition canvas, and there is no Fabric.js/Konva-style engine anywhere in the product. Concretely:
 

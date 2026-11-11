@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import AuthShell from '@/components/layout/AuthShell';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth-context';
 import { NETWORK_ERROR_MESSAGE, readApiError } from '@/lib/errorMessages';
 import { useToast } from '@/lib/toast';
 

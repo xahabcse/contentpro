@@ -1,6 +1,6 @@
 import { type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth-context';
 import { CardstockLogo } from '@/components/Logo';
 import versionData from '@/version.json';
 
@@ -10,26 +10,26 @@ const PILLARS: { icon: string; title: string; subtitle: string; body: string }[]
   {
     icon: '📐',
     title: 'Constraint Over Chaos',
-    subtitle: 'Fixed-region layouts that mathematically never break',
-    body: 'When design tools give you an infinite blank canvas, you spend 40 minutes aligning boxes and fixing line wraps. Cardstock replaces free-form dragging with curated, hand-composed templates with deterministic auto-fit font scaling so your text never overflows or clips.',
+    subtitle: 'Structured layouts that keep the focus on your message',
+    body: 'When design tools give you an infinite blank canvas, you spend time aligning boxes and fixing line wraps. Cardstock replaces free-form dragging with curated templates and automatic font sizing. Preview longer copy before exporting to make sure every line fits.',
   },
   {
     icon: '⚡',
     title: 'Pixel-for-Pixel WYSIWYG',
     subtitle: 'What you see in the studio is what downloads',
-    body: 'Many tools use server-side headless browsers that render fonts differently than what you saw in your browser preview. Cardstock compiles PNG cards (1080×1080) and multi-page portrait PDF carousels (1080×1350) directly inside your browser engine using html2canvas and jsPDF.',
+    body: 'Cardstock compiles PNG cards (1080×1080), multi-page PDF carousels, and ordered PNG slide ZIPs (1080×1350 per slide) in your browser. Preview the design before exporting it for LinkedIn, Facebook, or another platform.',
   },
   {
     icon: '🔒',
     title: 'Radical Local-First Privacy',
     subtitle: 'Zero designs or drafts sent to our servers',
-    body: 'Your draft thoughts, client case studies, and unpublished ideas belong to you. Cardstock stores all design JSON in localStorage and uploaded images in IndexedDB on your device. The edge server stores only your account credentials and public profile signature.',
+    body: 'Your draft thoughts, client case studies, and unpublished ideas belong to you. Cardstock keeps design JSON in account-scoped localStorage and design images in IndexedDB on your device. The edge server stores account data and profile details, including any profile images you upload.',
   },
   {
     icon: '🌐',
     title: 'Open Source & Freedom',
     subtitle: 'MIT Licensed · Fully inspectable and self-hostable',
-    body: 'No hidden paywalls for basic features, no watermarks, and no vendor lock-in. The entire codebase is open source. You can run the whole stack offline with Docker or deploy your own instance to Cloudflare in minutes.',
+    body: 'No hidden paywalls for basic features or watermarks. The entire codebase is open source. You can run the stack locally with Docker or deploy your own instance to Cloudflare. Login and signup require internet access for Cloudflare Turnstile verification.',
   },
 ];
 
@@ -37,31 +37,31 @@ const TECH_STACK: { name: string; role: string; desc: string; badge: string }[] 
   {
     name: 'React 19 + TypeScript',
     role: 'Frontend UI & Studio Engine',
-    desc: 'Strictly-typed reactive editor shell with sub-millisecond live rendering across 26+ templates.',
+    desc: 'Typed editor with live previews across 100 templates for cards and carousels.',
     badge: 'Frontend',
   },
   {
-    name: 'html2canvas & jsPDF',
+    name: 'html2canvas, jsPDF & JSZip',
     role: 'Client-Side Export Pipeline',
-    desc: 'Compiles single-slide PNGs and multi-page LinkedIn document PDFs directly in the browser.',
+    desc: 'Creates PNG cards, LinkedIn document PDFs, and ordered PNG slide ZIPs in the browser.',
     badge: 'Engine',
   },
   {
     name: 'Cloudflare Workers & Hono 4',
     role: 'Edge API Layer',
-    desc: 'Lightweight, global edge runtime delivering sub-50ms API response times worldwide.',
+    desc: 'Edge runtime for accounts, profiles, and authentication.',
     badge: 'Backend',
   },
   {
-    name: 'Durable Objects & MongoDB',
-    role: 'Warm Connection & Rate Limiting',
-    desc: 'Single-owner DO manages warm MongoDB Atlas connections and atomic rate-limiting.',
+    name: 'D1, R2 & Durable Objects',
+    role: 'Data, Images & Rate Limiting',
+    desc: 'D1 stores accounts, R2 stores profile images, and Durable Objects enforce atomic login limits.',
     badge: 'Database',
   },
   {
     name: 'Web Crypto (PBKDF2)',
     role: 'Stateless Auth & Security',
-    desc: '100,000 PBKDF2-HMAC-SHA256 iterations, httpOnly Strict JWT cookies, and tokenVersion revocation.',
+    desc: '100,000 PBKDF2-HMAC-SHA256 iterations, httpOnly Strict JWT cookies, and sessionVersion revocation.',
     badge: 'Security',
   },
   {
@@ -77,7 +77,7 @@ export default function AboutPage() {
   const cta = user ? { to: '/dashboard', label: 'Open Studio Dashboard →' } : { to: '/signup', label: 'Start Designing Free →' };
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)', color: 'var(--ink)', overflowX: 'clip' }}>
+    <div style={{ position: 'relative', minHeight: '100vh', background: 'transparent', color: 'var(--ink)', overflowX: 'clip' }}>
       <div className="lp-grain" />
 
       {/* ==================== 1. NAVIGATION ==================== */}
@@ -86,9 +86,10 @@ export default function AboutPage() {
           position: 'sticky',
           top: 0,
           zIndex: 30,
-          background: 'color-mix(in srgb, var(--bar) 90%, transparent)',
-          backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid var(--line-2)',
+          background: 'rgba(250, 252, 249, 0.76)',
+          backdropFilter: 'blur(18px) saturate(1.2)',
+          borderBottom: '1px solid var(--glass-line)',
+          boxShadow: '0 8px 24px rgba(30, 48, 44, 0.06)',
         }}
       >
         <div className="lp-nav-inner" style={{ maxWidth: 1240, margin: '0 auto', display: 'flex', alignItems: 'center' }}>
@@ -97,9 +98,12 @@ export default function AboutPage() {
           </Link>
           <div style={{ flex: 1 }} />
           <nav style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <Link to="/" className="lp-underline" style={navTextLink}>Home</Link>
-            <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="lp-underline" style={navTextLink}>GitHub</a>
-            <Link to={cta.to} style={navPill}>{cta.label}</Link>
+            <Link to="/" className="lp-underline lp-about-aux" style={navTextLink}>Home</Link>
+            <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="lp-underline lp-about-aux" style={navTextLink}>GitHub</a>
+            <Link to={cta.to} style={navPill}>
+              <span className="lp-about-cta-long">{cta.label}</span>
+              <span className="lp-about-cta-short">{user ? 'Dashboard →' : 'Start Free →'}</span>
+            </Link>
           </nav>
         </div>
       </header>
@@ -342,7 +346,6 @@ const navPill: CSSProperties = {
 };
 
 const navTextLink: CSSProperties = {
-  display: 'inline-flex',
   alignItems: 'center',
   height: 40,
   padding: '0 6px',

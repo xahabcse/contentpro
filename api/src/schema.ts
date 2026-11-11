@@ -52,7 +52,9 @@ export interface UserDocument {
 export type UserRecord = Omit<UserDocument, "_id"> & { _id: string };
 
 export type NewUserInput = Omit<UserDocument, "_id">;
-export type UserUpdateInput = Partial<Omit<UserDocument, "_id">>;
+// Profile writes use the field-level patchUserProfile helper so concurrent
+// text/image requests cannot overwrite each other's columns.
+export type UserUpdateInput = Partial<Omit<UserDocument, "_id" | "profile">>;
 
 // ---------------------------------------------------------------------------
 // `auth_events` table. Best-effort audit trail of auth-flow events

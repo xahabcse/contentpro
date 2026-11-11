@@ -4,7 +4,7 @@ import { deleteCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
 import type { AppEnv, Env } from "../env";
 import { hashPassword, needsRehash, verifyPassword, verifyPasswordDummy } from "../lib/password";
-import { findUserByEmail, findUserById, insertUser, updateUser } from "../lib/db";
+import { findUserByEmail, findUserById, insertUser, recordLoginIfSessionVersion, resetUserPasswordIfTokenVersion, updateUser } from "../lib/db";
 import { signActionToken, signSessionToken, verifyActionToken } from "../lib/jwt";
 import { toProfileResponse } from "../lib/storage";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../lib/resend";
@@ -12,7 +12,7 @@ import { verifyTurnstileToken } from "../lib/turnstile";
 import { authRequired, SESSION_COOKIE_NAME } from "../middleware/auth-required";
 import { logAuthEvent } from "../lib/auth-events";
 import { checkAndRecordRateLimit } from "../middleware/rate-limit";
-import type { NewUserInput, UserUpdateInput } from "../schema";
+import type { NewUserInput } from "../schema";
 
 // Duplicate-key sentinel thrown by lib/db.ts's insertUser when D1 rejects the
 // insert on the users.email UNIQUE index.
@@ -132,10 +132,23 @@ auth.post("/signup", jsonValidator(signupSchema), async (c) => {
   }
 
   const token = await signActionToken(userId, normalizedEmail, "email_verification", 0, c.env.JWT_SECRET);
-  await sendVerificationEmail(normalizedEmail, token, resendConfig(c.env));
+  let verificationEmailSent = true;
+  try {
+    await sendVerificationEmail(normalizedEmail, token, resendConfig(c.env));
+  } catch (err) {
+    // The account already exists. Tell the client to offer the resend flow
+    // instead of reporting a failed signup that cannot safely be retried.
+    verificationEmailSent = false;
+    console.error("Verification email delivery failed after signup", err);
+  }
 
   c.executionCtx.waitUntil(logAuthEvent(c, { type: "signup", email: normalizedEmail }));
-  return c.json({ message: "Account created. Check your email to verify it." }, 201);
+  return c.json({
+    message: verificationEmailSent
+      ? "Account created. Check your email to verify it."
+      : "Account created, but the verification email could not be sent. Request a new link.",
+    verificationEmailSent,
+  }, 201);
 });
 
 const loginSchema = z.object({
@@ -190,16 +203,13 @@ auth.post("/login", jsonValidator(loginSchema), async (c) => {
     return c.json({ error: "INVALID_CREDENTIALS" }, 401);
   }
 
-  const userUpdate: UserUpdateInput = { lastLoginAt: new Date() };
   // Rehash-on-login: transparently upgrade legacy low-iteration hashes to the
   // current target now that we hold the plaintext, without forcing a reset.
-  if (needsRehash(user.passwordIterations)) {
-    const rehashed = await hashPassword(password);
-    userUpdate.passwordHash = rehashed.hash;
-    userUpdate.passwordSalt = rehashed.salt;
-    userUpdate.passwordIterations = rehashed.iterations;
-  }
-  await updateUser(c.env.DB, user._id, userUpdate);
+  // The write is conditional on sessionVersion, so a reset completing between
+  // verifyPassword and this update cannot restore the old password hash.
+  const rehashed = needsRehash(user.passwordIterations) ? await hashPassword(password) : undefined;
+  const loginRecorded = await recordLoginIfSessionVersion(c.env.DB, user._id, user.sessionVersion ?? 0, rehashed);
+  if (!loginRecorded) return c.json({ error: "INVALID_CREDENTIALS" }, 401);
 
   // Successful auth -- clear the throttle counters for this email + IP.
   await Promise.all([
@@ -344,20 +354,11 @@ auth.post("/reset-password", jsonValidator(resetPasswordSchema), async (c) => {
     return c.json({ error: "INVALID_OR_EXPIRED_TOKEN" }, 400);
   }
 
-  const { hash, salt, iterations } = await hashPassword(password);
-  await updateUser(c.env.DB, user._id, {
-    passwordHash: hash,
-    passwordSalt: salt,
-    passwordIterations: iterations,
-    // Increment again -- invalidates the reset token itself and any other
-    // outstanding verification/reset links (spec 5.4).
-    tokenVersion: user.tokenVersion + 1,
-    // Separate counter, bumped only here: revokes every live session cookie on
-    // a completed password reset (the point of session revocation) without
-    // exposing that power to the unauthenticated forgot-password route.
-    sessionVersion: (user.sessionVersion ?? 0) + 1,
-    updatedAt: new Date(),
-  });
+  const passwordHash = await hashPassword(password);
+  // The version check must be part of the UPDATE. Two concurrent requests may
+  // both read the same tokenVersion above, but only one can consume it here.
+  const consumed = await resetUserPasswordIfTokenVersion(c.env.DB, user._id, payload.v, passwordHash);
+  if (!consumed) return c.json({ error: "INVALID_OR_EXPIRED_TOKEN" }, 400);
 
   c.executionCtx.waitUntil(logAuthEvent(c, { type: "reset_complete", email: user.email }));
   return c.json({ message: "Password reset. Please log in with your new password." });

@@ -1,10 +1,10 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth-context';
 import { CardstockLogo } from '@/components/Logo';
 import SlideCanvas from '@/components/editor/SlideCanvas';
 import { resolveColors, PALETTES } from '@/lib/palettes';
-import { templateDefaults, TEMPLATES } from '@/lib/templates';
+import { CATALOG_BY_ID, templateDefaults, TEMPLATE_ORDER, TEMPLATES } from '@/lib/templates';
 import type { FooterData, ResolvedSlide, TemplateId } from '@/lib/design-types';
 import versionData from '@/version.json';
 
@@ -58,7 +58,7 @@ const CAROUSEL_DECK_SLIDES: { template: TemplateId; fields: Record<string, strin
   },
   {
     template: 'framework',
-    palette: 'grape',
+    palette: 'plum',
     fields: {
       title: 'The Post-Mortem Framework',
       items: [
@@ -70,7 +70,7 @@ const CAROUSEL_DECK_SLIDES: { template: TemplateId; fields: Record<string, strin
   },
   {
     template: 'cta',
-    palette: 'crimson',
+    palette: 'wine',
     fields: {
       headline: 'Want the full architecture diagram & code examples?',
       highlight: 'architecture diagram',
@@ -79,47 +79,151 @@ const CAROUSEL_DECK_SLIDES: { template: TemplateId; fields: Record<string, strin
   },
 ];
 
-const TEMPLATE_CATEGORIES: {
-  category: string;
-  items: { id: TemplateId; name: string; palette: string; desc: string }[];
-}[] = [
-  {
-    category: 'Hooks & Covers',
-    items: [
-      { id: 'cover', name: 'Cover / Hook', palette: 'ink', desc: 'Punchy headline with high-contrast highlight badge' },
-      { id: 'question', name: 'Bold Question', palette: 'bone', desc: 'Provocative question hook that stops the scroll' },
-      { id: 'announce', name: 'Announcement', palette: 'cobalt', desc: 'Product release, workshop, or milestone notice' },
-      { id: 'statement', name: 'Statement', palette: 'forest', desc: 'Bold contrarian viewpoint with inline marker accent' },
-    ],
-  },
-  {
-    category: 'Data & Benchmarks',
-    items: [
-      { id: 'stat', name: 'Big Stat', palette: 'cobalt', desc: 'Massive metric callout with context caption' },
-      { id: 'bignum', name: 'Big Number + Ring', palette: 'ink', desc: 'Circular visual graphic with percentage callout' },
-      { id: 'stattrio', name: 'Stat Trio', palette: 'bone', desc: 'Three stacked growth numbers in a structured row' },
-      { id: 'comparison', name: 'Comparison Matrix', palette: 'forest', desc: 'Side-by-side columns comparing two approaches' },
-    ],
-  },
-  {
-    category: 'Frameworks & Educational',
-    items: [
-      { id: 'tips', name: 'Numbered Tips', palette: 'grape', desc: 'High-retention listicle with clear step numbering' },
-      { id: 'framework', name: 'Framework', palette: 'crimson', desc: 'Multi-part method with bold step lead-ins' },
-      { id: 'contrast', name: 'Before / After', palette: 'bone', desc: 'Direct split comparison highlighting transformations' },
-      { id: 'checklist', name: 'Checklist', palette: 'forest', desc: 'Actionable tick-box items for saveable cheat sheets' },
-    ],
-  },
-];
+// Every registered template appears in the gallery. The groups only classify
+// them; a newly registered template still appears in Flexible & More until it
+// receives a specific category here.
+const SHOWCASE_GROUPS = [
+  { category: 'Everyday & Social', ids: ['birthday', 'congratulations', 'congrats', 'thankyou', 'thank-you', 'holiday', 'awareness', 'quote', 'testimonial', 'bio', 'closing'], desc: 'A polished card for messages, milestones, and community.' },
+  { category: 'Career & Community', ids: [], desc: 'Celebrate a career milestone or bring your community together.' },
+  { category: 'Business & Events', ids: ['event', 'offer', 'hiring', 'product', 'announce', 'cta'], desc: 'Make an announcement, invitation, or offer easy to notice.' },
+  { category: 'Hooks & Stories', ids: ['cover', 'question', 'statement', 'poll', 'divider'], desc: 'Open a story with a strong visual point of view.' },
+  { category: 'Learning & Guides', ids: ['faq', 'howto', 'how-to', 'tips', 'protip', 'checklist', 'framework', 'roadmap', 'timeline', 'agenda', 'definition', 'myth', 'takeaway'], desc: 'Break a useful idea into clear, memorable parts.' },
+  { category: 'Data & Comparisons', ids: ['stat', 'bignum', 'stattrio', 'comparison', 'contrast'], desc: 'Give a number or comparison room to speak.' },
+  { category: 'Flexible & More', ids: ['custom', 'flexible'], desc: 'An adaptable layout for your own message.' },
+] as const;
+
+const TEMPLATE_DETAILS: Record<string, { palette: string; desc: string }> = {
+  birthday: { palette: 'paper', desc: 'Send a personal birthday wish with space for a name and message.' },
+  congrats: { palette: 'wine', desc: 'Celebrate a promotion, win, or milestone.' },
+  thankyou: { palette: 'slate', desc: 'Thank a colleague, client, or community in a memorable way.' },
+  holiday: { palette: 'forest', desc: 'Share a seasonal greeting without starting from a blank page.' },
+  event: { palette: 'navy', desc: 'Invite people with a clear date, place, and next step.' },
+  offer: { palette: 'cobalt', desc: 'Highlight a sale, special offer, or limited opportunity.' },
+  hiring: { palette: 'ink', desc: 'Present an open role and the essentials at a glance.' },
+  product: { palette: 'plum', desc: 'Introduce a product and its key benefits.' },
+  awareness: { palette: 'sand', desc: 'Explain a cause and invite people to take action.' },
+  faq: { palette: 'paper', desc: 'Answer one common question with clarity.' },
+  howto: { palette: 'forest', desc: 'Teach a practical process in a few steps.' },
+  flexible: { palette: 'charcoal', desc: 'Start with a simple, adaptable message layout.' },
+  cover: { palette: 'ink', desc: 'A bold opening line for a post or the first slide of a deck.' },
+  question: { palette: 'paper', desc: 'Ask a question that invites a thoughtful reply.' },
+  announce: { palette: 'cobalt', desc: 'Share a launch, workshop, or milestone clearly.' },
+  stat: { palette: 'cobalt', desc: 'Put one important number in the spotlight.' },
+  comparison: { palette: 'forest', desc: 'Show two choices side by side.' },
+  tips: { palette: 'plum', desc: 'Turn practical advice into a numbered list.' },
+  framework: { palette: 'wine', desc: 'Explain a repeatable method one step at a time.' },
+  contrast: { palette: 'sand', desc: 'Show what changed from before to after.' },
+  checklist: { palette: 'forest', desc: 'Make an action list people can save and use.' },
+};
+
+const SHOWCASE_ITEMS = TEMPLATE_ORDER.map((id, index) => {
+  const catalog = CATALOG_BY_ID.get(id);
+  const group = SHOWCASE_GROUPS.find((entry) => entry.category === catalog?.group || (entry.ids as readonly string[]).includes(id)) ?? SHOWCASE_GROUPS[SHOWCASE_GROUPS.length - 1];
+  const detail = TEMPLATE_DETAILS[id];
+  return {
+    id,
+    name: TEMPLATES[id].name,
+    category: group.category,
+    palette: catalog?.palette ?? detail?.palette ?? PALETTES[index % PALETTES.length].id,
+    desc: catalog?.description ?? detail?.desc ?? group.desc,
+  };
+}).sort((a, b) =>
+  SHOWCASE_GROUPS.findIndex((group) => group.category === a.category)
+  - SHOWCASE_GROUPS.findIndex((group) => group.category === b.category),
+);
+
+// The gallery can contain dozens of templates. Render a slide only when its
+// preview approaches the viewport, and fit its full-size canvas to the card.
+function TemplatePreview({ id, palette, format }: { id: TemplateId; palette: string; format: 'card' | 'carousel' }) {
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  const [previewWidth, setPreviewWidth] = useState(260);
+  const height = format === 'card' ? 1080 : 1350;
+  const colors = resolveColors(palette, {});
+
+  useEffect(() => {
+    const node = previewRef.current;
+    if (!node) return;
+    const updateWidth = () => {
+      const next = Math.max(1, Math.round(node.getBoundingClientRect().width));
+      setPreviewWidth((old) => old === next ? old : next);
+    };
+    updateWidth();
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(updateWidth);
+      observer.observe(node);
+      return () => observer.disconnect();
+    }
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  useEffect(() => {
+    const node = previewRef.current;
+    if (!node || visible) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      const timer = window.setTimeout(() => setVisible(true), 0);
+      return () => window.clearTimeout(timer);
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setVisible(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '500px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  const slide: ResolvedSlide = { template: id, fields: templateDefaults(id), bgImage: null };
+  return (
+    <div ref={previewRef} aria-hidden="true" className="lp-template-preview" style={{ aspectRatio: `1080 / ${height}`, background: colors.bg }}>
+      {visible && (
+        <div style={{ width: 1080, height, transform: `scale(${previewWidth / 1080})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+          <SlideCanvas slide={slide} colors={colors} footer={DEMO_FOOTER} width={1080} height={height} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeckSlidePreview({ slide, colors }: { slide: ResolvedSlide; colors: ReturnType<typeof resolveColors> }) {
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.24);
+
+  useEffect(() => {
+    const frame = canvasRef.current?.parentElement;
+    if (!frame) return;
+    const fit = () => {
+      const { width, height } = frame.getBoundingClientRect();
+      const next = Math.min(width / 1080, height / 1350);
+      setScale((old) => Math.abs(old - next) < 0.001 ? old : next);
+    };
+    fit();
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(fit);
+      observer.observe(frame);
+      return () => observer.disconnect();
+    }
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, []);
+
+  return (
+    <div ref={canvasRef} style={{ width: 1080, height: 1350, transform: `scale(${scale})`, transformOrigin: 'center center', pointerEvents: 'none', flex: 'none' }}>
+      <SlideCanvas slide={slide} colors={colors} footer={DEMO_FOOTER} width={1080} height={1350} />
+    </div>
+  );
+}
 
 const FAQS: { q: string; a: string }[] = [
   {
-    q: 'How does exporting to LinkedIn work?',
-    a: 'Single cards export as crisp 1080×1080 PNG images. Carousels export as multi-page 1080×1350 portrait PDFs. When you create a post on LinkedIn, simply click the "Add a document" icon and select your exported PDF — LinkedIn automatically turns it into an interactive swipeable carousel!',
+    q: 'How do I export for LinkedIn or Facebook?',
+    a: 'Single cards export as 1080×1080 PNG images. For a carousel, choose a multi-page PDF for a LinkedIn document post or a ZIP of 1080×1350 PNG slides to upload as ordered images on Facebook or another platform.',
   },
   {
     q: 'Why fixed templates instead of a free-form canvas like Canva?',
-    a: 'Free-form canvases let you nudge text boxes forever, resulting in inconsistent alignment, unreadable mobile fonts, and 45 minutes wasted per post. Cardstock enforces mathematically locked typographic hierarchies and auto-contrast scrims so your post looks professionally typeset in under 3 minutes.',
+    a: 'Structured layouts keep spacing and type consistent while you write. Each template includes automatic font sizing and an image scrim. Check the live preview before exporting longer copy.',
   },
   {
     q: 'Are my designs saved on your server?',
@@ -127,7 +231,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'Can I add my own profile picture, logo, and brand colors?',
-    a: 'Yes! Set your name, handle, designation, avatar, and company logo once in your profile. Every template automatically signs your post in the footer. You can also pick from 6 curated palettes or enter custom hex colors for any design.',
+    a: `Yes! Set your name, handle, designation, avatar, and company logo once in your profile. Every template automatically signs your post in the footer. You can also pick from ${PALETTES.length} curated palettes or enter custom hex colors for any design.`,
   },
   {
     q: 'Is there any watermark on exported designs?',
@@ -167,6 +271,10 @@ export default function LandingPage() {
 
   // Template Showcase Filter
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [gallerySearch, setGallerySearch] = useState('');
+  const [galleryFormat, setGalleryFormat] = useState<'card' | 'carousel'>('card');
+  const visibleShowcaseItems = SHOWCASE_ITEMS.filter((item) => (selectedCategory === 'All' || item.category === selectedCategory)
+    && `${item.name} ${item.desc} ${item.category}`.toLowerCase().includes(gallerySearch.trim().toLowerCase()));
 
   // When changing sandbox template, set appropriate default editable text
   function handleSelectSandboxTemplate(t: typeof HERO_TEMPLATES[0]) {
@@ -199,7 +307,7 @@ export default function LandingPage() {
   const cta = user ? { to: '/dashboard', label: 'Go to Studio Dashboard →' } : { to: '/signup', label: 'Start Designing Free →' };
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)', color: 'var(--ink)', overflowX: 'clip' }}>
+    <div style={{ position: 'relative', minHeight: '100vh', background: 'transparent', color: 'var(--ink)', overflowX: 'clip' }}>
       <div className="lp-grain" />
 
       {/* ==================== 1. TOP NAVIGATION ==================== */}
@@ -208,9 +316,10 @@ export default function LandingPage() {
           position: 'sticky',
           top: 0,
           zIndex: 40,
-          background: 'color-mix(in srgb, var(--bar) 90%, transparent)',
-          backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid var(--line-2)',
+          background: 'rgba(250, 252, 249, 0.76)',
+          backdropFilter: 'blur(18px) saturate(1.2)',
+          borderBottom: '1px solid var(--glass-line)',
+          boxShadow: '0 8px 24px rgba(30, 48, 44, 0.06)',
         }}
       >
         <div className="lp-nav-inner" style={{ maxWidth: 1240, margin: '0 auto', display: 'flex', alignItems: 'center' }}>
@@ -248,21 +357,20 @@ export default function LandingPage() {
             </div>
 
             <h1 className="lp-reveal" style={{ margin: '0 0 22px', animationDelay: '0.08s' }}>
-              <span style={{ display: 'block', font: '900 clamp(38px, 5.8vw, 72px)/0.98 Archivo', letterSpacing: '-0.035em' }}>
-                LinkedIn cards &amp; carousels that look
-              </span>
-              <span style={{ display: 'block', font: '900 clamp(38px, 5.8vw, 72px)/0.98 Archivo', letterSpacing: '-0.035em' }}>
-                hand-typeset by an{' '}
+              <span style={{ display: 'block', font: '900 clamp(38px, 4.8vw, 64px)/1.04 Archivo', letterSpacing: '-0.035em' }}>
+                Cards for{' '}
                 <em style={{ fontFamily: 'Newsreader, serif', fontWeight: 500, fontStyle: 'italic', color: 'var(--ink)', position: 'relative', whiteSpace: 'nowrap' }}>
-                  <span style={{ position: 'relative', zIndex: 1 }}>editorial designer</span>
+                  <span style={{ position: 'relative', zIndex: 1 }}>every day.</span>
                   <span style={{ position: 'absolute', left: '-2%', right: '-2%', bottom: '0.08em', height: '0.32em', background: 'var(--brand)', zIndex: 0, borderRadius: 2 }} />
                 </em>
-                .
+              </span>
+              <span style={{ display: 'block', font: '900 clamp(38px, 4.8vw, 64px)/1.04 Archivo', letterSpacing: '-0.035em' }}>
+                Carousels worth a swipe.
               </span>
             </h1>
 
             <p className="lp-reveal" style={{ font: "400 clamp(16px, 1.8vw, 19px)/1.6 'Space Grotesk'", color: 'var(--muted-2)', maxWidth: 540, margin: '0 0 32px', animationDelay: '0.16s' }}>
-              No wrestling Canva text boxes. No fuzzy screenshots of phone notes. Pick a structured template, dial your message, and export vector-crisp 1080p PNGs or multi-page PDFs in under 3 minutes.
+              Make a birthday wish, event invite, work update, or useful guide for Facebook and LinkedIn. Pick a template, write your message, and export a PNG card, PDF carousel, or PNG slide pack.
             </p>
 
             <div className="lp-reveal" style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 30, animationDelay: '0.24s' }}>
@@ -280,8 +388,8 @@ export default function LandingPage() {
 
             <div className="lp-reveal" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 22px', animationDelay: '0.32s' }}>
               {[
-                '✓ 100% Client-Side Privacy',
-                '✓ Vector 1080p Export',
+                '✓ Drafts Stay on Your Device',
+                '✓ 1080×1080 PNG Export',
                 '✓ No Watermarks Ever',
                 '✓ Auto Profile Footers',
               ].map((item) => (
@@ -488,7 +596,7 @@ export default function LandingPage() {
           </div>
 
           {/* Carousel Stage Container */}
-          <div style={{ display: 'grid', gridTemplateColumns: feedSimulation ? '1fr' : 'minmax(0, 1.2fr) minmax(0, 0.8fr)', gap: 36, alignItems: 'center' }}>
+          <div className="lp-deck-stage" style={{ display: 'grid', gridTemplateColumns: feedSimulation ? '1fr' : 'minmax(0, 1.2fr) minmax(0, 0.8fr)', gap: 36, alignItems: 'center' }}>
             {/* Slide Stage / LinkedIn Mockup */}
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               {feedSimulation ? (
@@ -518,9 +626,7 @@ export default function LandingPage() {
 
                   {/* Document Carousel Container */}
                   <div style={{ position: 'relative', width: '100%', aspectRatio: '1080 / 1350', maxHeight: 440, background: '#000', borderRadius: 10, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: 1080, height: 1350, transform: 'scale(0.325)', transformOrigin: 'center center', pointerEvents: 'none', flex: 'none' }}>
-                      <SlideCanvas slide={currentDeckSlide} colors={currentDeckColors} footer={DEMO_FOOTER} width={1080} height={1350} />
-                    </div>
+                    <DeckSlidePreview slide={currentDeckSlide} colors={currentDeckColors} />
                     {/* LinkedIn document page pill */}
                     <div style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.65)', color: '#fff', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
                       {activeSlideIndex + 1} / {CAROUSEL_DECK_SLIDES.length}
@@ -536,9 +642,7 @@ export default function LandingPage() {
               ) : (
                 /* Raw Slide Stage View */
                 <div style={{ width: '100%', maxWidth: 440, aspectRatio: '1080 / 1350', background: '#0e0e0e', borderRadius: 18, overflow: 'hidden', position: 'relative', boxShadow: '0 24px 60px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ width: 1080, height: 1350, transform: 'scale(0.325)', transformOrigin: 'center center', pointerEvents: 'none', flex: 'none' }}>
-                    <SlideCanvas slide={currentDeckSlide} colors={currentDeckColors} footer={DEMO_FOOTER} width={1080} height={1350} />
-                  </div>
+                  <DeckSlidePreview slide={currentDeckSlide} colors={currentDeckColors} />
                 </div>
               )}
             </div>
@@ -625,7 +729,7 @@ export default function LandingPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
           {/* Card 1: Phone Notes Screenshot */}
-          <div className="lp-feature-card" style={{ background: '#fbf9f4', border: '1px solid var(--line-2)' }}>
+          <div className="lp-feature-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <span style={{ fontSize: 24 }}>📱</span>
               <div>
@@ -642,7 +746,7 @@ export default function LandingPage() {
           </div>
 
           {/* Card 2: Canva / Freeform Canvas */}
-          <div className="lp-feature-card" style={{ background: '#fbf9f4', border: '1px solid var(--line-2)' }}>
+          <div className="lp-feature-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <span style={{ fontSize: 24 }}>🎨</span>
               <div>
@@ -654,12 +758,12 @@ export default function LandingPage() {
               <li>30–45 minutes of manual dragging, aligning text boxes, and layer tweaking</li>
               <li>Templates are designed for Instagram and look mismatched on LinkedIn</li>
               <li>Font sizes easily break when switching between mobile and desktop feeds</li>
-              <li>Exporting crisp vector PDF carousels requires tedious multi-step setups</li>
+              <li>Making a multi-page PDF carousel requires tedious multi-step setups</li>
             </ul>
           </div>
 
           {/* Card 3: Cardstock (Winner) */}
-          <div className="lp-feature-card" style={{ background: 'var(--surface-2)', border: '2px solid var(--brand)', boxShadow: '0 20px 48px -12px rgba(242,183,5,0.25)' }}>
+          <div className="lp-feature-card" style={{ border: '1px solid rgba(190, 139, 20, 0.4)', boxShadow: '0 20px 48px -12px rgba(148,108,13,0.17)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <span style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--brand)', color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>✓</span>
               <div>
@@ -681,15 +785,15 @@ export default function LandingPage() {
       <section id="templates" style={{ position: 'relative', zIndex: 1, maxWidth: 1240, margin: '0 auto', padding: '40px 22px 72px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 32, borderBottom: '2px solid var(--ink)', paddingBottom: 20 }}>
           <div>
-            <span style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.28em', color: 'var(--muted)' }}>CURATED TEMPLATE ENGINE</span>
+            <span style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.28em', color: 'var(--muted)' }}>{SHOWCASE_ITEMS.length} CURATED TEMPLATES · CARDS + CAROUSELS</span>
             <h2 style={{ font: '900 clamp(26px, 4vw, 42px)/1.04 Archivo', letterSpacing: '-0.03em', margin: '8px 0 0' }}>
               Every template crafted for specific communication goals.
             </h2>
           </div>
 
           {/* Category Filter Pills */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {['All', 'Hooks & Covers', 'Data & Benchmarks', 'Frameworks & Educational'].map((cat) => (
+          <div className="lp-category-filters">
+            {['All', ...SHOWCASE_GROUPS.map((group) => group.category)].map((cat) => (
               <button
                 key={cat}
                 type="button"
@@ -704,41 +808,28 @@ export default function LandingPage() {
           </div>
         </div>
 
+        <div className="lp-format-switch" role="group" aria-label="Template preview format">
+          <span>Preview every design as</span>
+          <button type="button" data-active={galleryFormat === 'card'} onClick={() => setGalleryFormat('card')}>Card</button>
+          <button type="button" data-active={galleryFormat === 'carousel'} onClick={() => setGalleryFormat('carousel')}>Carousel slide</button>
+        </div>
+
+        <label style={{ display: 'block', maxWidth: 420, margin: '0 0 24px', font: "700 12px/1.3 'Space Grotesk'" }}>
+          Find a template
+          <input type="search" value={gallerySearch} onChange={(event) => setGallerySearch(event.target.value)} placeholder="Search tutorials, charts, career posts…" style={{ display: 'block', width: '100%', marginTop: 8, padding: '12px 15px', borderRadius: 12, border: '1px solid var(--line-2)', background: 'var(--surface)', color: 'var(--ink)', font: "500 14px/1.2 'Space Grotesk'" }} />
+        </label>
+
         {/* Template Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
-          {TEMPLATE_CATEGORIES.filter((grp) => selectedCategory === 'All' || grp.category === selectedCategory)
-            .flatMap((grp) => grp.items)
-            .map((item) => {
-              const previewSlide: ResolvedSlide = {
-                template: item.id,
-                fields: templateDefaults(item.id),
-                bgImage: null,
-              };
-              const previewColors = resolveColors(item.palette, {});
-
+          {visibleShowcaseItems.map((item) => {
               return (
-                <div
+                <Link
                   key={item.id}
                   className="lp-feature-card lp-lift"
-                  style={{ padding: 18, display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
-                  onClick={() => navigate(cta.to)}
+                  to={`/dashboard?template=${encodeURIComponent(item.id)}&format=${galleryFormat}`}
+                  style={{ padding: 18, display: 'flex', flexDirection: 'column', cursor: 'pointer', textDecoration: 'none', color: 'var(--ink)' }}
                 >
-                  <div
-                    style={{
-                      width: '100%',
-                      aspectRatio: '1 / 1',
-                      borderRadius: 12,
-                      overflow: 'hidden',
-                      position: 'relative',
-                      background: '#111',
-                      marginBottom: 16,
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-                    }}
-                  >
-                    <div style={{ width: 1080, height: 1080, transform: 'scale(0.24)', transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-                      <SlideCanvas slide={previewSlide} colors={previewColors} footer={DEMO_FOOTER} width={1080} height={1080} />
-                    </div>
-                  </div>
+                  <TemplatePreview id={item.id} palette={item.palette} format={galleryFormat} />
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                     <h3 style={{ font: '800 17px/1.2 Archivo', margin: 0 }}>{item.name}</h3>
@@ -752,13 +843,14 @@ export default function LandingPage() {
                   </p>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, font: "700 12px/1 'Space Grotesk'", color: 'var(--ink)' }}>
-                    <span>Use template</span>
-                    <span style={{ color: 'var(--brand)' }}>→</span>
+                    <span>Use in card or carousel</span>
+                    <span style={{ color: 'var(--brand-strong)' }}>→</span>
                   </div>
-                </div>
+                </Link>
               );
             })}
         </div>
+        {visibleShowcaseItems.length === 0 && <p role="status" style={{ padding: '24px 0', color: 'var(--muted-2)', font: "500 14px/1.5 'Space Grotesk'" }}>No templates match your search. Try another topic or choose All.</p>}
       </section>
 
       {/* ==================== 6. ARCHITECTURE & ZERO-SERVER RETENTION ==================== */}
@@ -802,7 +894,7 @@ export default function LandingPage() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.06)', padding: '12px 16px', borderRadius: 10 }}>
                 <span style={{ color: 'var(--brand)', fontSize: 16 }}>3.</span>
-                <span>html2canvas + jsPDF compile PNG/PDF on device</span>
+                <span>Cards and carousels export on your device</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(242,183,5,0.18)', border: '1px solid var(--brand)', padding: '12px 16px', borderRadius: 10, color: 'var(--brand)' }}>
                 <span>✓ Direct browser download — Zero server hops</span>
@@ -975,7 +1067,6 @@ const navPill: CSSProperties = {
 };
 
 const navTextLink: CSSProperties = {
-  display: 'inline-flex',
   alignItems: 'center',
   height: 40,
   padding: '0 6px',

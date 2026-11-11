@@ -1,10 +1,7 @@
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
-
 // Client-side export pipeline. Uses html2canvas (not html-to-image, which
-// hangs on this browser awaiting img.decode() of an SVG data URI). Nodes are
-// captured at their natural size × 2 for crisp output. Carousel pages use
-// JPEG to keep a multi-page PDF's file size manageable.
+// hangs on this browser awaiting img.decode() of an SVG data URI). Cards export
+// at their stated 1080×1080 size; PDF pages rasterize at 2× for sharp text.
+// Carousel pages use JPEG to keep a multi-page PDF's file size manageable.
 const EXPORT_TIMEOUT_MS = 25_000;
 const CAROUSEL_PAGE_JPEG_QUALITY = 0.92;
 
@@ -62,10 +59,11 @@ async function waitForImages(node: HTMLElement): Promise<void> {
   await Promise.race([Promise.all(imgs.map(settleImage)), timeoutAfter(8000)]);
 }
 
-async function renderNodeToCanvas(node: HTMLElement, w: number, h: number): Promise<HTMLCanvasElement> {
+async function renderNodeToCanvas(node: HTMLElement, w: number, h: number, scale: number): Promise<HTMLCanvasElement> {
   await waitForImages(node);
+  const { default: html2canvas } = await import('html2canvas');
   return withTimeout(
-    html2canvas(node, { width: w, height: h, scale: 2, useCORS: true, backgroundColor: null, logging: false }),
+    html2canvas(node, { width: w, height: h, scale, useCORS: true, backgroundColor: null, logging: false }),
     EXPORT_TIMEOUT_MS,
     'Rendering',
   );
@@ -78,18 +76,31 @@ function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 }
 
 export async function exportCardAsPng(node: HTMLElement, w: number, h: number): Promise<Blob> {
-  const canvas = await renderNodeToCanvas(node, w, h);
+  const canvas = await renderNodeToCanvas(node, w, h, 1);
   return canvasToPngBlob(canvas);
 }
 
 export async function exportCarouselAsPdf(slideNodes: HTMLElement[], w: number, h: number): Promise<Blob> {
+  const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ unit: 'px', format: [w, h], orientation: 'portrait', compress: true });
   for (let i = 0; i < slideNodes.length; i++) {
-    const canvas = await renderNodeToCanvas(slideNodes[i], w, h);
+    const canvas = await renderNodeToCanvas(slideNodes[i], w, h, 2);
     if (i > 0) pdf.addPage([w, h], 'portrait');
     pdf.addImage(canvas.toDataURL('image/jpeg', CAROUSEL_PAGE_JPEG_QUALITY), 'JPEG', 0, 0, w, h);
   }
   return pdf.output('blob');
+}
+
+/** PNG slides can be uploaded individually to platforms that do not accept PDF carousels. */
+export async function exportCarouselAsPngZip(slideNodes: HTMLElement[], w: number, h: number): Promise<Blob> {
+  const { default: JSZip } = await import('jszip');
+  const zip = new JSZip();
+  for (let i = 0; i < slideNodes.length; i++) {
+    const canvas = await renderNodeToCanvas(slideNodes[i], w, h, 1);
+    zip.file(`slide-${String(i + 1).padStart(2, '0')}.png`, await canvasToPngBlob(canvas));
+  }
+  // PNG is already compressed; storing avoids slow, redundant recompression.
+  return zip.generateAsync({ type: 'blob', compression: 'STORE' });
 }
 
 export function downloadBlob(blob: Blob, filename: string) {

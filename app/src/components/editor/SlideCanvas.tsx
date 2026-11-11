@@ -1,6 +1,8 @@
-import { forwardRef, type CSSProperties, type ReactNode } from 'react';
+import { Children, forwardRef, type CSSProperties, type ReactNode } from 'react';
 import type { FieldValue, FooterData, ResolvedSlide } from '@/lib/design-types';
 import type { ResolvedColors } from '@/lib/palettes';
+import { CATALOG_BY_ID } from '@/lib/templates';
+import CatalogCanvas from './CatalogCanvas';
 
 // Full-size (1080×h) slide renderer -- faithful port of the r_* templates in
 // ContentPro.dc.html, upgraded with iconography, data-viz and auto-fit. Images
@@ -56,8 +58,9 @@ function list(fields: Record<string, FieldValue>, k: string): string[] {
 }
 
 // Deterministic shrink-to-fit: pick a font size (pre-u px) purely from the
-// character count so long input can never break the layout or push the footer
-// off-canvas. Buckets are [maxChars, sizePx]; last entry is the floor.
+// character count to reduce overflow in common copy lengths. Extremely long
+// input can still clip, so the live preview remains the final check.
+// Buckets are [maxChars, sizePx]; last entry is the floor.
 function autofit(text: string, buckets: Array<[number, number]>): number {
   const len = (text || '').replace(/\s+/g, ' ').trim().length;
   for (const [max, size] of buckets) if (len <= max) return size;
@@ -148,7 +151,7 @@ function frame(c: Ctx, children: ReactNode, opts: { pad?: number; bgImage?: stri
   return (
     <div style={{ position: 'relative', width: c.w, height: c.h, background: c.bg, color: c.text, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: `${padY}px ${padX}px`, fontFamily: 'Archivo, sans-serif', boxSizing: 'border-box' }}>
       {layers}
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>{children}</div>
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>{Children.toArray(children)}</div>
     </div>
   );
 }
@@ -192,7 +195,7 @@ function footer(c: Ctx, fd: FooterData, u: number, compact?: boolean): ReactNode
   const hasCompany = !!(fd.companyName || fd.companyLogo);
   const clip: CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
   return (
-    <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 * u, paddingTop: 26 * u }}>
+    <div key="footer" style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 * u, paddingTop: 26 * u }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 15 * u, minWidth: 0 }}>
         {avatar}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 * u, minWidth: 0, fontFamily: "'Space Grotesk',sans-serif" }}>
@@ -249,7 +252,7 @@ function r_quote(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: numbe
   const q = txt(f, 'quote');
   return frame(c, [
     <div key="m" style={{ font: `900 ${210 * c.uH}px/.6 Archivo`, color: c.accent, height: 120 * u }}>{'“'}</div>,
-    <div key="q" style={{ font: `500 ${autofit(q, [[80, 62], [150, 54], [240, 45], [Infinity, 37]]) * c.uH}px/1.16 Newsreader`, fontStyle: 'italic', letterSpacing: '-.01em', maxWidth: '96%', minHeight: 0, overflow: 'hidden' }}>{highlightNodes(q, txt(f, 'highlight'), c, u)}</div>,
+    <div key="q" style={{ font: `italic 500 ${autofit(q, [[80, 62], [150, 54], [240, 45], [Infinity, 37]]) * c.uH}px/1.16 Newsreader`, letterSpacing: '-.01em', maxWidth: '96%', minHeight: 0, overflow: 'hidden' }}>{highlightNodes(q, txt(f, 'highlight'), c, u)}</div>,
     footer(c, fd, u),
   ], { bgImage: c.bgImage });
 }
@@ -437,7 +440,7 @@ function r_testimonial(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u:
   return frame(c, [
     <div key="w" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0, overflow: 'hidden' }}>
       <div style={{ font: `900 ${150 * c.uH}px/.7 Archivo`, color: c.accent, height: 76 * u }}>{'“'}</div>
-      <div style={{ font: `500 ${autofit(q, [[90, 52], [170, 44], [260, 37], [Infinity, 31]]) * c.uH}px/1.26 Newsreader`, fontStyle: 'italic', letterSpacing: '-.01em', maxWidth: '96%' }}>{q}</div>
+      <div style={{ font: `italic 500 ${autofit(q, [[90, 52], [170, 44], [260, 37], [Infinity, 31]]) * c.uH}px/1.26 Newsreader`, letterSpacing: '-.01em', maxWidth: '96%' }}>{q}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 18 * u, marginTop: 44 * u }}>
         <div style={{ width: 68 * u, height: 68 * u, borderRadius: '50%', background: c.accent, color: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `800 ${26 * c.uB}px/1 Archivo`, flex: 'none' }}>{initials || '—'}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 * u, fontFamily: "'Space Grotesk',sans-serif" }}>
@@ -640,7 +643,7 @@ function r_definition(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: 
     <div key="w" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 24 * u, flexWrap: 'wrap' }}>
         <div style={{ font: `${tt.w} ${ts * c.uH}px/${tt.lh} Archivo`, letterSpacing: tt.ls }}>{term}</div>
-        {pron ? <div style={{ font: `400 ${34 * c.uB}px/1 Newsreader`, fontStyle: 'italic', color: dim(c.text, 55) }}>{pron}</div> : null}
+        {pron ? <div style={{ font: `italic 400 ${34 * c.uB}px/1 Newsreader`, color: dim(c.text, 55) }}>{pron}</div> : null}
       </div>
       <div style={{ width: 90 * u, height: 5 * u, background: c.accent, borderRadius: 999, margin: `${30 * u}px 0` }} />
       <div style={{ font: `500 ${autofit(meaning, [[90, 42], [170, 36], [Infinity, 30]]) * c.uB}px/1.36 Newsreader`, color: dim(c.text, 88), maxWidth: '94%' }}>{meaning}</div>
@@ -696,15 +699,195 @@ function r_roadmap(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: num
   ], { bgImage: c.bgImage });
 }
 
+// The social templates use translucent, lightly outlined panels rather than
+// backdrop-filter. That keeps the glass treatment faithful in html2canvas/PDF.
+function socialPanel(c: Ctx, u: number, children: ReactNode, extra: CSSProperties = {}): ReactNode {
+  return <div style={{ background: dim(c.text, 7), border: `${2 * u}px solid ${dim(c.text, 17)}`, borderRadius: 30 * u, padding: 44 * u, ...extra }}>{children}</div>;
+}
+function socialTag(c: Ctx, u: number, label: string): ReactNode {
+  return <span style={{ display: 'inline-flex', alignSelf: 'flex-start', padding: `${12 * u}px ${20 * u}px`, borderRadius: 999, background: dim(c.accent, 17), color: c.accent, font: `700 ${17 * c.uB}px/1 'Space Grotesk'`, letterSpacing: '.13em', textTransform: 'uppercase' }}>{label}</span>;
+}
+function socialCta(c: Ctx, u: number, label: string): ReactNode {
+  return label ? <div style={{ alignSelf: 'flex-start', borderBottom: `${3 * u}px solid ${c.accent}`, paddingBottom: 10 * u, color: c.accent, font: `700 ${25 * c.uB}px/1.15 'Space Grotesk'` }}>{label}</div> : null;
+}
+function r_birthday(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const name = txt(f, 'name');
+  return frame(c, [
+    <div key="label">{socialTag(c, u, txt(f, 'label') || 'Celebrate')}</div>,
+    <div key="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', minHeight: 0 }}>
+      <div style={{ width: 130 * u, height: 130 * u, borderRadius: '50%', border: `${3 * u}px solid ${dim(c.accent, 60)}`, display: 'grid', placeItems: 'center', color: c.accent, font: `500 ${78 * c.uH}px/1 Newsreader`, marginBottom: 24 * u }}>✦</div>
+      <div style={{ font: `italic 500 ${50 * c.uH}px/1 Newsreader`, color: c.accent }}>Happy birthday</div>
+      <div style={{ font: `800 ${autofit(name, [[18, 94], [32, 72], [Infinity, 54]]) * c.uH}px/1.02 Archivo`, letterSpacing: '-.035em', marginTop: 18 * u }}>{name}</div>
+      <div style={{ maxWidth: 760 * u, marginTop: 34 * u, font: `500 ${autofit(txt(f, 'message'), [[110, 32], [Infinity, 26]]) * c.uB}px/1.35 Newsreader` }}>{txt(f, 'message')}</div>
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_congrats(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const headline = txt(f, 'headline');
+  return frame(c, [
+    <div key="label">{socialTag(c, u, txt(f, 'label') || 'Milestone')}</div>,
+    <div key="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0 }}>
+      <div style={{ width: 110 * u, height: 110 * u, borderRadius: 30 * u, background: c.accent, color: c.bg, display: 'grid', placeItems: 'center', marginBottom: 42 * u }}><Icon name="star" size={60 * u} color={c.bg} /></div>
+      <div style={{ maxWidth: '94%', font: `800 ${autofit(headline, [[28, 94], [52, 74], [Infinity, 56]]) * c.uH}px/1.02 Archivo`, letterSpacing: '-.03em' }}>{headline}</div>
+      <div style={{ width: 120 * u, height: 5 * u, background: c.accent, borderRadius: 999, margin: `${36 * u}px 0` }} />
+      {socialPanel(c, u, <div style={{ font: `500 ${autofit(txt(f, 'achievement'), [[150, 34], [Infinity, 28]]) * c.uB}px/1.34 Newsreader` }}>{txt(f, 'achievement')}</div>, { maxWidth: '92%' })}
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_thankyou(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  return frame(c, [
+    <div key="label">{socialTag(c, u, 'Appreciation')}</div>,
+    <div key="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0 }}>
+      <div style={{ font: `italic 500 ${42 * c.uB}px/1 Newsreader`, color: c.accent, marginBottom: 20 * u }}>{txt(f, 'recipient')}</div>
+      <div style={{ font: `800 ${autofit(txt(f, 'headline'), [[22, 108], [44, 82], [Infinity, 60]]) * c.uH}px/.98 Archivo`, letterSpacing: '-.045em' }}>{txt(f, 'headline')}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18 * u, margin: `${42 * u}px 0` }}><div style={{ width: 100 * u, height: 5 * u, background: c.accent }} /><div style={{ width: 14 * u, height: 14 * u, border: `${3 * u}px solid ${c.accent}`, transform: 'rotate(45deg)' }} /></div>
+      {socialPanel(c, u, <div style={{ font: `500 ${autofit(txt(f, 'message'), [[170, 34], [Infinity, 28]]) * c.uB}px/1.35 Newsreader` }}>{txt(f, 'message')}</div>, { maxWidth: '94%' })}
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_holiday(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  return frame(c, [
+    <div key="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0 }}>
+      {socialPanel(c, u, <div style={{ border: `${2 * u}px solid ${dim(c.accent, 55)}`, borderRadius: 22 * u, padding: `${64 * u}px ${52 * u}px`, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 30 * u }}>
+        <div style={{ font: `700 ${18 * c.uB}px/1 'Space Grotesk'`, color: c.accent, letterSpacing: '.22em', textTransform: 'uppercase' }}>{txt(f, 'occasion')}</div>
+        <div style={{ font: `500 ${autofit(txt(f, 'headline'), [[42, 78], [80, 62], [Infinity, 48]]) * c.uH}px/1.08 Newsreader` }}>{txt(f, 'headline')}</div>
+        <div style={{ width: 74 * u, height: 4 * u, background: c.accent, borderRadius: 999 }} />
+        <div style={{ font: `500 ${autofit(txt(f, 'message'), [[130, 30], [Infinity, 25]]) * c.uB}px/1.35 'Space Grotesk'`, maxWidth: 740 * u }}>{txt(f, 'message')}</div>
+      </div>, { padding: 20 * u })}
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_event(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const title = txt(f, 'title');
+  const detail = (label: string, value: string) => socialPanel(c, u, <>
+    <div style={{ font: `700 ${16 * c.uB}px/1 'Space Grotesk'`, color: c.accent, letterSpacing: '.16em', textTransform: 'uppercase', marginBottom: 16 * u }}>{label}</div>
+    <div style={{ font: `700 ${autofit(value, [[26, 29], [Infinity, 24]]) * c.uB}px/1.22 Archivo` }}>{value}</div>
+  </>, { flex: 1, minWidth: 0, padding: 30 * u });
+  return frame(c, [
+    <div key="label">{socialTag(c, u, txt(f, 'label') || 'Event')}</div>,
+    <div key="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0 }}>
+      <div style={{ font: `800 ${autofit(title, [[40, 84], [75, 66], [Infinity, 50]]) * c.uH}px/1.02 Archivo`, letterSpacing: '-.03em', maxWidth: '96%', marginBottom: 42 * u }}>{title}</div>
+      <div style={{ display: 'flex', gap: 20 * u, marginBottom: 40 * u }}>{detail('When', txt(f, 'date'))}{detail('Where', txt(f, 'place'))}</div>
+      {socialCta(c, u, txt(f, 'cta'))}
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_offer(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const value = txt(f, 'value');
+  return frame(c, [
+    <div key="label">{socialTag(c, u, txt(f, 'label') || 'Offer')}</div>,
+    <div key="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0 }}>
+      <div style={{ color: c.accent, font: `900 ${autofit(value, [[12, 140], [22, 105], [Infinity, 80]]) * c.uH}px/.94 Archivo`, letterSpacing: '-.055em', marginBottom: 30 * u }}>{value}</div>
+      <div style={{ font: `800 ${autofit(txt(f, 'headline'), [[55, 58], [100, 45], [Infinity, 36]]) * c.uH}px/1.08 Archivo`, maxWidth: '94%' }}>{txt(f, 'headline')}</div>
+      <div style={{ font: `500 ${27 * c.uB}px/1.28 'Space Grotesk'`, color: dim(c.text, 72), marginTop: 24 * u }}>{txt(f, 'detail')}</div>
+      <div style={{ marginTop: 48 * u }}>{socialPanel(c, u, <div style={{ font: `700 ${27 * c.uB}px/1.2 'Space Grotesk'`, color: c.accent }}>{txt(f, 'cta')}</div>, { display: 'inline-flex', alignSelf: 'flex-start', padding: `${22 * u}px ${34 * u}px` })}</div>
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_hiring(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const benefits = list(f, 'benefits');
+  return frame(c, [
+    <div key="label">{socialTag(c, u, txt(f, 'label') || 'Hiring')}</div>,
+    <div key="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0 }}>
+      <div style={{ font: `800 ${autofit(txt(f, 'role'), [[30, 90], [60, 70], [Infinity, 52]]) * c.uH}px/1.02 Archivo`, letterSpacing: '-.035em', maxWidth: '94%' }}>{txt(f, 'role')}</div>
+      <div style={{ font: `600 ${29 * c.uB}px/1.2 'Space Grotesk'`, color: c.accent, margin: `${22 * u}px 0 ${34 * u}px` }}>{txt(f, 'details')}</div>
+      {socialPanel(c, u, <div style={{ display: 'flex', flexDirection: 'column', gap: 20 * u }}>
+        {benefits.map((benefit, i) => <div key={i} style={{ display: 'flex', gap: 18 * u, alignItems: 'center', font: `600 ${autofit(benefit, [[70, 26], [Infinity, 22]]) * c.uB}px/1.22 'Space Grotesk'` }}><Icon name="check" size={26 * u} color={c.accent} />{benefit}</div>)}
+      </div>, { maxWidth: '92%', padding: 34 * u })}
+      <div style={{ marginTop: 38 * u }}>{socialCta(c, u, txt(f, 'cta'))}</div>
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_product(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const features = list(f, 'features');
+  return frame(c, [
+    <div key="label">{socialTag(c, u, txt(f, 'label') || 'Product')}</div>,
+    <div key="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0 }}>
+      <div style={{ font: `700 ${32 * c.uB}px/1 'Space Grotesk'`, color: c.accent, marginBottom: 18 * u }}>{txt(f, 'name')}</div>
+      <div style={{ font: `800 ${autofit(txt(f, 'headline'), [[56, 66], [100, 52], [Infinity, 40]]) * c.uH}px/1.04 Archivo`, letterSpacing: '-.025em', maxWidth: '94%' }}>{txt(f, 'headline')}</div>
+      <div style={{ display: 'flex', gap: 15 * u, margin: `${48 * u}px 0` }}>
+        {features.map((feature, i) => <div key={i} style={{ flex: 1, minWidth: 0 }}>{socialPanel(c, u, <><div style={{ color: c.accent, font: `800 ${30 * c.uB}px/1 Archivo`, marginBottom: 18 * u }}>0{i + 1}</div><div style={{ font: `600 ${autofit(feature, [[38, 25], [Infinity, 21]]) * c.uB}px/1.25 'Space Grotesk'` }}>{feature}</div></>, { padding: 26 * u, height: '100%', boxSizing: 'border-box' })}</div>)}
+      </div>
+      {socialCta(c, u, txt(f, 'cta'))}
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_faq(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const q = txt(f, 'question');
+  const a = txt(f, 'answer');
+  return frame(c, [
+    <div key="label">{socialTag(c, u, txt(f, 'label') || 'FAQ')}</div>,
+    <div key="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 35 * u, minHeight: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20 * u }}>
+        <div style={{ flex: 'none', color: c.accent, font: `800 ${78 * c.uH}px/1 Archivo` }}>Q.</div>
+        <div style={{ font: `800 ${autofit(q, [[70, 60], [130, 48], [Infinity, 38]]) * c.uH}px/1.08 Archivo`, letterSpacing: '-.02em' }}>{q}</div>
+      </div>
+      {socialPanel(c, u, <div style={{ display: 'flex', gap: 20 * u, alignItems: 'flex-start' }}><div style={{ flex: 'none', color: c.accent, font: `800 ${44 * c.uH}px/1 Archivo` }}>A.</div><div style={{ font: `500 ${autofit(a, [[160, 34], [260, 28], [Infinity, 24]]) * c.uB}px/1.35 Newsreader` }}>{a}</div></div>, { maxWidth: '96%' })}
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_howto(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const steps = list(f, 'steps');
+  return frame(c, [
+    <div key="label">{socialTag(c, u, 'How to')}</div>,
+    <div key="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0 }}>
+      <div style={{ font: `800 ${autofit(txt(f, 'title'), [[60, 60], [110, 48], [Infinity, 38]]) * c.uH}px/1.06 Archivo`, marginBottom: 34 * u, letterSpacing: '-.02em' }}>{txt(f, 'title')}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 * u }}>
+        {steps.map((step, i) => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 24 * u, padding: `${16 * u}px ${26 * u}px`, borderRadius: 18 * u, border: `${2 * u}px solid ${dim(c.text, 17)}`, background: dim(c.text, 6) }}><span style={{ color: c.accent, flex: 'none', font: `800 ${34 * c.uB}px/1 Archivo` }}>{String(i + 1).padStart(2, '0')}</span><span style={{ font: `600 ${autofit(step, [[80, 28], [Infinity, 23]]) * c.uB}px/1.24 'Space Grotesk'` }}>{step}</span></div>)}
+      </div>
+      <div style={{ color: c.accent, font: `500 ${autofit(txt(f, 'result'), [[100, 30], [Infinity, 25]]) * c.uB}px/1.25 Newsreader`, marginTop: 28 * u }}>{txt(f, 'result')}</div>
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_awareness(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  const headline = txt(f, 'headline');
+  return frame(c, [
+    <div key="label">{socialTag(c, u, txt(f, 'label') || 'Awareness')}</div>,
+    <div key="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0 }}>
+      <div style={{ borderLeft: `${9 * u}px solid ${c.accent}`, paddingLeft: 36 * u, font: `800 ${autofit(headline, [[65, 72], [125, 54], [Infinity, 42]]) * c.uH}px/1.08 Archivo`, letterSpacing: '-.02em', maxWidth: '94%' }}>{headline}</div>
+      <div style={{ margin: `${46 * u}px 0` }}>{socialPanel(c, u, <div style={{ font: `500 ${autofit(txt(f, 'context'), [[180, 34], [Infinity, 28]]) * c.uB}px/1.35 Newsreader` }}>{txt(f, 'context')}</div>, { maxWidth: '94%' })}</div>
+      {socialCta(c, u, txt(f, 'action'))}
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+function r_flexible(c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) {
+  return frame(c, [
+    <div key="label">{socialTag(c, u, txt(f, 'label') || 'Your message')}</div>,
+    <div key="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0 }}>
+      <div style={{ font: `800 ${autofit(txt(f, 'headline'), [[55, 78], [110, 58], [Infinity, 44]]) * c.uH}px/1.05 Archivo`, letterSpacing: '-.03em', maxWidth: '94%' }}>{txt(f, 'headline')}</div>
+      <div style={{ width: 96 * u, height: 5 * u, background: c.accent, borderRadius: 999, margin: `${38 * u}px 0` }} />
+      <div style={{ font: `500 ${autofit(txt(f, 'body'), [[160, 36], [280, 30], [Infinity, 25]]) * c.uB}px/1.36 Newsreader`, maxWidth: '92%' }}>{txt(f, 'body')}</div>
+      <div style={{ marginTop: 44 * u }}>{socialCta(c, u, txt(f, 'closing'))}</div>
+    </div>,
+    footer(c, fd, u, true),
+  ], { bgImage: c.bgImage });
+}
+
 const RENDERERS: Record<string, (c: Ctx, f: Record<string, FieldValue>, fd: FooterData, u: number) => ReactNode> = {
   quote: r_quote, stat: r_stat, tips: r_tips, cover: r_cover, announce: r_announce,
   question: r_question, contrast: r_contrast, framework: r_framework, cta: r_cta, statement: r_statement,
   checklist: r_checklist, timeline: r_timeline, testimonial: r_testimonial, agenda: r_agenda,
   comparison: r_comparison, myth: r_myth, divider: r_divider, bio: r_bio, bignum: r_bignum, closing: r_closing,
   poll: r_poll, takeaway: r_takeaway, stattrio: r_stattrio, definition: r_definition, protip: r_protip, roadmap: r_roadmap,
+  birthday: r_birthday, congrats: r_congrats, thankyou: r_thankyou, holiday: r_holiday,
+  event: r_event, offer: r_offer, hiring: r_hiring, product: r_product,
+  faq: r_faq, howto: r_howto, awareness: r_awareness, flexible: r_flexible,
 };
 
 const SlideCanvas = forwardRef<HTMLDivElement, SlideCanvasProps>(({ slide, colors, footer: fd, width, height, headingScale, bodyScale, footerScale }, ref) => {
+  const catalog = CATALOG_BY_ID.get(slide.template);
+  if (catalog) return <div ref={ref}><CatalogCanvas slide={slide} colors={colors} footer={fd} width={width} height={height} layout={catalog.layout} name={catalog.name} headingScale={headingScale} bodyScale={bodyScale} footerScale={footerScale} /></div>;
   const useImg = !!slide.bgImage;
   const u = height / 1080;
   const s = (v: number | undefined) => (v && v > 0 ? v : 1);

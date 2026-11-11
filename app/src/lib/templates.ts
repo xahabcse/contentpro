@@ -1,4 +1,20 @@
 import type { FieldValue, TemplateId } from './design-types';
+import { LEARNING_TEMPLATES } from './template-catalog-learning';
+import { EVERYDAY_TEMPLATE_DEFINITIONS } from './template-catalog-everyday';
+
+export const CATALOG_DEFINITIONS = [
+  ...LEARNING_TEMPLATES.map((definition) => ({ ...definition, group: definition.group })),
+  ...EVERYDAY_TEMPLATE_DEFINITIONS.map((definition) => ({
+    ...definition,
+    group: definition.category === 'Data & Progress' ? 'Data & Comparisons'
+      : definition.category === 'Career' ? 'Career & Community'
+        : definition.category === 'Community' ? 'Career & Community' : 'Business & Events',
+    palette: definition.category === 'Data & Progress' ? 'cobalt'
+      : definition.category === 'Career' ? 'paper'
+        : definition.category === 'Community' ? 'forest' : 'navy',
+  })),
+];
+export const CATALOG_BY_ID = new Map<string, (typeof CATALOG_DEFINITIONS)[number]>(CATALOG_DEFINITIONS.map((definition) => [definition.id, definition]));
 
 // Template metadata (ported from ContentPro.dc.html): the field set each
 // template exposes in the inspector, plus the default content used when a
@@ -18,7 +34,7 @@ export interface TemplateMeta {
   fields: FieldSpec[];
 }
 
-export const TEMPLATES: Record<TemplateId, TemplateMeta> = {
+const ORIGINAL_TEMPLATES: Record<string, TemplateMeta> = {
   quote: { id: 'quote', name: 'Quote', fields: [{ k: 'quote', l: 'Quote', t: 'area' }, { k: 'highlight', l: 'Highlight (comma-separated)', t: 'text' }] },
   stat: {
     id: 'stat',
@@ -242,10 +258,79 @@ export const TEMPLATES: Record<TemplateId, TemplateMeta> = {
       { k: 'items', l: 'Phases — "Name — desc"', t: 'list' },
     ],
   },
+  birthday: {
+    id: 'birthday', name: 'Birthday Wish',
+    fields: [{ k: 'label', l: 'Occasion label', t: 'text' }, { k: 'name', l: 'Name', t: 'text' }, { k: 'message', l: 'Wish', t: 'area' }],
+  },
+  congrats: {
+    id: 'congrats', name: 'Congratulations',
+    fields: [{ k: 'label', l: 'Occasion label', t: 'text' }, { k: 'headline', l: 'Headline', t: 'area' }, { k: 'achievement', l: 'Achievement', t: 'area' }],
+  },
+  thankyou: {
+    id: 'thankyou', name: 'Thank You',
+    fields: [{ k: 'recipient', l: 'Who you are thanking', t: 'text' }, { k: 'headline', l: 'Headline', t: 'area' }, { k: 'message', l: 'Message', t: 'area' }],
+  },
+  holiday: {
+    id: 'holiday', name: 'Holiday Greeting',
+    fields: [{ k: 'occasion', l: 'Occasion', t: 'text' }, { k: 'headline', l: 'Greeting', t: 'area' }, { k: 'message', l: 'Message', t: 'area' }],
+  },
+  event: {
+    id: 'event', name: 'Event Invite',
+    fields: [{ k: 'label', l: 'Event type', t: 'text' }, { k: 'title', l: 'Event title', t: 'area' }, { k: 'date', l: 'Date & time', t: 'text' }, { k: 'place', l: 'Place / link', t: 'text' }, { k: 'cta', l: 'Call to action', t: 'text' }],
+  },
+  offer: {
+    id: 'offer', name: 'Offer / Sale',
+    fields: [{ k: 'label', l: 'Offer label', t: 'text' }, { k: 'value', l: 'Offer amount', t: 'text' }, { k: 'headline', l: 'What is on offer', t: 'area' }, { k: 'detail', l: 'Validity / details', t: 'text' }, { k: 'cta', l: 'Call to action', t: 'text' }],
+  },
+  hiring: {
+    id: 'hiring', name: 'Hiring / Job',
+    fields: [{ k: 'label', l: 'Hiring label', t: 'text' }, { k: 'role', l: 'Role', t: 'area' }, { k: 'details', l: 'Location / work type', t: 'text' }, { k: 'benefits', l: 'Highlights (one per line)', t: 'list' }, { k: 'cta', l: 'How to apply', t: 'text' }],
+  },
+  product: {
+    id: 'product', name: 'Product Spotlight',
+    fields: [{ k: 'label', l: 'Launch label', t: 'text' }, { k: 'name', l: 'Product name', t: 'text' }, { k: 'headline', l: 'Main promise', t: 'area' }, { k: 'features', l: 'Benefits (one per line)', t: 'list' }, { k: 'cta', l: 'Call to action', t: 'text' }],
+  },
+  faq: {
+    id: 'faq', name: 'FAQ / Answer',
+    fields: [{ k: 'label', l: 'Topic', t: 'text' }, { k: 'question', l: 'Question', t: 'area' }, { k: 'answer', l: 'Answer', t: 'area' }],
+  },
+  howto: {
+    id: 'howto', name: 'How-To',
+    fields: [{ k: 'title', l: 'How-to title', t: 'area' }, { k: 'steps', l: 'Steps (one per line)', t: 'list' }, { k: 'result', l: 'Outcome / takeaway', t: 'area' }],
+  },
+  awareness: {
+    id: 'awareness', name: 'Awareness / Cause',
+    fields: [{ k: 'label', l: 'Cause / campaign', t: 'text' }, { k: 'headline', l: 'Main message', t: 'area' }, { k: 'context', l: 'Why it matters', t: 'area' }, { k: 'action', l: 'Action to take', t: 'text' }],
+  },
+  flexible: {
+    id: 'flexible', name: 'Flexible Message',
+    fields: [{ k: 'label', l: 'Optional label', t: 'text' }, { k: 'headline', l: 'Headline', t: 'area' }, { k: 'body', l: 'Body', t: 'area' }, { k: 'closing', l: 'Closing line', t: 'text' }],
+  },
 };
+
+export const TEMPLATES = {
+  ...ORIGINAL_TEMPLATES,
+  ...Object.fromEntries(CATALOG_DEFINITIONS.map((definition) => [definition.id, {
+    id: definition.id as TemplateId,
+    name: definition.name,
+    fields: definition.fields.map((field) => ({ ...field })),
+  }])),
+} as Record<TemplateId, TemplateMeta>;
 
 export const TEMPLATE_ORDER: TemplateId[] = [
   'cover',
+  'flexible',
+  'birthday',
+  'congrats',
+  'thankyou',
+  'holiday',
+  'event',
+  'offer',
+  'hiring',
+  'product',
+  'awareness',
+  'faq',
+  'howto',
   'quote',
   'statement',
   'takeaway',
@@ -271,9 +356,10 @@ export const TEMPLATE_ORDER: TemplateId[] = [
   'bio',
   'cta',
   'closing',
+  ...CATALOG_DEFINITIONS.map((definition) => definition.id as TemplateId),
 ];
 
-const DEFAULTS: Record<TemplateId, Record<string, FieldValue>> = {
+const ORIGINAL_DEFAULTS: Record<string, Record<string, FieldValue>> = {
   quote: {
     quote: 'The best way to future-proof your career is to build skills nobody can automate.',
     highlight: 'future-proof',
@@ -432,7 +518,24 @@ const DEFAULTS: Record<TemplateId, Record<string, FieldValue>> = {
       'Compound — Double down on what actually landed',
     ],
   },
+  birthday: { label: 'A day to celebrate', name: 'Alex', message: 'Wishing you a year filled with good people, bold ideas and moments worth remembering.' },
+  congrats: { label: 'A well-earned milestone', headline: 'Congratulations!', achievement: 'You did it. Here is to the work behind this moment and everything still ahead.' },
+  thankyou: { recipient: 'To our community', headline: 'Thank you.', message: 'Every conversation, share and kind word helped us get here. We are grateful you are part of the journey.' },
+  holiday: { occasion: 'Seasonal greeting', headline: 'Wishing you a wonderful holiday', message: 'May this season bring a little rest, a lot of joy and time with the people who matter.' },
+  event: { label: 'You are invited', title: 'Creative Community Meetup', date: 'Saturday · 5 PM', place: 'Dhaka + online', cta: 'Save your seat →' },
+  offer: { label: 'Limited-time offer', value: '20% OFF', headline: 'Make your next idea happen for less.', detail: 'Available through the end of the month', cta: 'Explore the offer →' },
+  hiring: { label: 'We are hiring', role: 'Product Designer', details: 'Full-time · Remote-friendly', benefits: ['Own meaningful projects', 'Work with a thoughtful team', 'Grow your craft'], cta: 'Apply or share with a friend →' },
+  product: { label: 'Meet the new release', name: 'Your Product', headline: 'A simpler way to get great work done.', features: ['Less busywork', 'More clarity', 'Built for your team'], cta: 'See what is new →' },
+  faq: { label: 'Quick answer', question: 'How does it work?', answer: 'Start with a template, add your message and make it yours. You can create a card or build a full carousel.' },
+  howto: { title: 'How to share an idea people remember', steps: ['Lead with the problem', 'Show one useful example', 'End with one clear takeaway'], result: 'Keep it simple enough to save and share.' },
+  awareness: { label: 'A cause worth sharing', headline: 'Small actions can make a real difference.', context: 'A conversation can help someone feel seen. Share a resource, listen closely and invite others to join in.', action: 'Start a conversation today →' },
+  flexible: { label: 'A message from us', headline: 'Your story goes here.', body: 'Use this space for a launch, a personal update, a reflection or anything you want your community to know.', closing: 'Keep the conversation going →' },
 };
+
+const DEFAULTS = {
+  ...ORIGINAL_DEFAULTS,
+  ...Object.fromEntries(CATALOG_DEFINITIONS.map((definition) => [definition.id, definition.defaults])),
+} as Record<TemplateId, Record<string, FieldValue>>;
 
 export function templateDefaults(id: TemplateId): Record<string, FieldValue> {
   return JSON.parse(JSON.stringify(DEFAULTS[id]));
