@@ -55,7 +55,7 @@ The web app is implemented under `app/` and `api/`. Its account and profile data
 
 ### Admin lives at admin.xahabcse.me (since 2026-11-14)
 
-Cardstock has no admin UI of its own any more. One admin at **admin.xahabcse.me** (portfolio repo, `Web/portfolio-admin-react`, pages under `src/pages/cardstock/`) runs the portfolio, NewsPortal and Cardstock. Plan and history: `D:\Exp-Work\protfolio\docs\plan\unified-admin.md`; standing rules: `D:\Exp-Work\protfolio\docs\rules\unified-admin.md`.
+Cardstock has no admin UI of its own any more. One admin at **admin.xahabcse.me** (portfolio repo, `Web/portfolio-admin-react`, pages under `src/pages/cardstock/`) runs the portfolio, NewsPortal and Cardstock. Standing rules: `D:\Exp-Work\protfolio\docs\rules\unified-admin.md` (the finished plan is in the portfolio repo's git history: `git show 77f5466:docs/plan/unified-admin.md`).
 
 - **How it reaches Cardstock:** the portfolio API (`portfolio-api-hono`) checks the admin's own login, then calls this Worker over a Cloudflare service binding to the named entrypoint `AdminGateway` (`api/src/index.ts` → `api/src/admin-gateway.ts`), sending `X-Admin-Actor: <admin email>`. The gateway maps that email to a verified account on `ADMIN_EMAILS` and runs the normal `routes/admin.ts` as it. Keep `ADMIN_EMAILS`: the gateway depends on it.
 - **The public API has no `/api/admin`.** `api/src/app.ts` (`createPublicApp`) mounts only auth and profile; `/api/admin/*` is 404 there. Never mount `routes/admin.ts` on the public app again, and never trust `X-Admin-Actor` anywhere except inside `admin-gateway.ts`.

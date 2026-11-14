@@ -5,7 +5,7 @@ import { findUserByEmail } from "./lib/db";
 import adminRoutes from "./routes/admin";
 
 // The admin of portfolio, NewsPortal and Cardstock now lives at admin.xahabcse.me
-// (portfolio repo, docs/plan/unified-admin.md). Its API reaches this Worker only
+// (portfolio repo, docs/rules/unified-admin.md). Its API reaches this Worker only
 // through a Cloudflare service binding to the named entrypoint AdminGateway
 // (index.ts), which the public internet cannot call. The portfolio API checks
 // the admin's own login first and names the admin in X-Admin-Actor; this app maps
