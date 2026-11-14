@@ -98,23 +98,14 @@ async function download(page, button, label) {
       check(metadata.width === 1080 && metadata.height === 1350, `Carousel slide dimensions: ${metadata.width}×${metadata.height}`);
     }
 
-    await page.route('**/api/admin/me', (route) => route.fulfill({ json: { isAdmin: true } }));
-    await page.route('**/api/admin/overview', (route) => route.fulfill({ json: { overview: { totalUsers: 260, verifiedUsers: 200, newUsers24h: 4, newUsers7d: 20, successfulLogins7d: 500, failedLogins7d: 15, failedLoginIps7d: 3 } } }));
-    await page.route('**/api/admin/users', (route) => route.fulfill({ json: { users: [{ id: 'u1', email: 'member@example.test', name: 'Member', emailVerified: true }] } }));
-    await page.route('**/api/admin/logs?limit=200', (route) => route.fulfill({ json: { events: [{ ts: Date.now(), type: 'login', email: 'member@example.test', ip: '127.0.0.1' }] } }));
+    // The admin moved to admin.xahabcse.me (it reaches /api/admin only through the private
+    // AdminGateway). The old /admin address must say plainly that nothing is there.
     await page.goto(`${origin}/admin`, { waitUntil: 'networkidle' });
-    check((await page.locator('body').innerText()).includes('260'), 'Admin overview aggregate missing');
-    await page.screenshot({ path: path.join(output, 'admin-mobile.png') });
-    const adminMobile = await checkWidth(page, 'admin mobile');
-    await page.setViewportSize({ width: 320, height: 700 });
-    const adminNarrow = await checkWidth(page, 'admin narrow mobile');
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.getByRole('button', { name: 'Users', exact: true }).last().click();
-    check((await page.locator('body').innerText()).includes('member@example.test'), 'Mobile admin Users tab not reachable');
-    await page.getByRole('button', { name: 'Security Logs', exact: true }).last().click();
-    check((await page.locator('body').innerText()).includes('member@example.test'), 'Mobile admin Security Logs tab not reachable');
+    check((await page.locator('body').innerText()).includes('Page not found'), 'Old /admin address should show the not-found page');
+    await page.screenshot({ path: path.join(output, 'old-admin-mobile.png') });
+    const oldAdmin = await checkWidth(page, 'old admin address');
     check(pageErrors.length === 0, `Browser errors: ${pageErrors.join('; ')}`);
-    process.stdout.write(JSON.stringify({ galleryDesktop, galleryMobile, galleryNarrow, editorMobile, editorNarrow, adminMobile, adminNarrow, png, pdf, zip, screenshots: output }, null, 2) + '\n');
+    process.stdout.write(JSON.stringify({ galleryDesktop, galleryMobile, galleryNarrow, editorMobile, editorNarrow, oldAdmin, png, pdf, zip, screenshots: output }, null, 2) + '\n');
   } finally {
     await browser.close();
   }

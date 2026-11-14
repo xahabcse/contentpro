@@ -130,6 +130,16 @@ export default app;
 export { RateLimitDO } from './durable-objects/rate-limit';
 ```
 
+The real entry is split since 2026-11-14: `src/app.ts` builds the public app (`createPublicApp()`: secure headers, CORS, `/api/auth`, `/api/profile`), and `src/index.ts` exports it as `default` plus the named `AdminGateway` entrypoint and `RateLimitDO`.
+
+### Admin gateway (admin.xahabcse.me)
+
+The admin UI is not in this repo. admin.xahabcse.me (portfolio repo) calls this Worker through a service binding to the named entrypoint `AdminGateway` (`src/admin-gateway.ts`) with `X-Admin-Actor: <admin email>`. The gateway resolves that email to a verified account on `ADMIN_EMAILS`, sets `viaAdminGateway`, and mounts `routes/admin.ts` at `/api/admin`; `authRequired` skips its cookie check only when `viaAdminGateway` is set.
+
+- Never mount `routes/admin.ts` on the public app; `/api/admin/*` must stay 404 there (`test/admin-gateway.test.ts` checks it).
+- Never read `X-Admin-Actor` outside `admin-gateway.ts`: the header is trusted only because nothing but the binding can reach that entrypoint.
+- After changing an admin route, update the portfolio page that shows it (`Web/portfolio-admin-react/src/pages/cardstock/`, types in `src/lib/hub/types.ts`).
+
 ### Protected + verified route pattern
 
 ```ts

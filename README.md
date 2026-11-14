@@ -192,7 +192,7 @@ For production, set `JWT_SECRET`, `RESEND_API_KEY`, and `TURNSTILE_SECRET_KEY` w
 
 ### Local browser QA
 
-With Docker running, install root and app dependencies (`npm ci` in both directories), then run `node scripts/qa-local-ui.cjs` and `node scripts/qa-template-overflow.cjs` from the repository root. Set `CHROME_PATH` if Chrome is not in its standard Windows location and Playwright's Chromium is not installed. The first script checks responsive gallery/editor/admin navigation and PNG/PDF/ZIP exports; the second checks all 62 newer templates at card and carousel sizes for clipping. Browser QA stubs auth/profile/admin responses; API auth and admin behavior are covered by `npm test` in `api/`.
+With Docker running, install root and app dependencies (`npm ci` in both directories), then run `node scripts/qa-local-ui.cjs` and `node scripts/qa-template-overflow.cjs` from the repository root. Set `CHROME_PATH` if Chrome is not in its standard Windows location and Playwright's Chromium is not installed. The first script checks responsive gallery/editor navigation, that the old `/admin` address shows the not-found page, and PNG/PDF/ZIP exports; the second checks all 62 newer templates at card and carousel sizes for clipping. Browser QA stubs auth/profile responses; API auth and the admin gateway are covered by `npm test` in `api/`.
 
 ---
 

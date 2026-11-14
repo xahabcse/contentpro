@@ -53,6 +53,15 @@ node scripts/render.js posts/2026-07-http-query-method
 
 The web app is implemented under `app/` and `api/`. Its account and profile data use Cloudflare D1, profile images use private R2, and designs stay in account-scoped browser storage. `docker compose up --build` runs D1 and R2 locally, but the build, Google Fonts, Turnstile widget, and login/signup verification require internet access. Node.js 24 is used in Docker and CI. See `README.md` for setup and limitations.
 
+### Admin lives at admin.xahabcse.me (since 2026-11-14)
+
+Cardstock has no admin UI of its own any more. One admin at **admin.xahabcse.me** (portfolio repo, `Web/portfolio-admin-react`, pages under `src/pages/cardstock/`) runs the portfolio, NewsPortal and Cardstock. Plan and history: `D:\Exp-Work\protfolio\docs\plan\unified-admin.md`; standing rules: `D:\Exp-Work\protfolio\docs\rules\unified-admin.md`.
+
+- **How it reaches Cardstock:** the portfolio API (`portfolio-api-hono`) checks the admin's own login, then calls this Worker over a Cloudflare service binding to the named entrypoint `AdminGateway` (`api/src/index.ts` → `api/src/admin-gateway.ts`), sending `X-Admin-Actor: <admin email>`. The gateway maps that email to a verified account on `ADMIN_EMAILS` and runs the normal `routes/admin.ts` as it. Keep `ADMIN_EMAILS`: the gateway depends on it.
+- **The public API has no `/api/admin`.** `api/src/app.ts` (`createPublicApp`) mounts only auth and profile; `/api/admin/*` is 404 there. Never mount `routes/admin.ts` on the public app again, and never trust `X-Admin-Actor` anywhere except inside `admin-gateway.ts`.
+- **The app's `/admin` route** shows a plain "Page not found" (`app/src/pages/NotFoundPage.tsx`).
+- **Changing an admin endpoint:** edit `api/src/routes/admin.ts` here, keep `api/test/admin-gateway.test.ts` green (`npm test` in `api/`), deploy by pushing `main`; then update the matching page in the portfolio repo (`Web/portfolio-admin-react/src/pages/cardstock/`, types in `src/lib/hub/types.ts`).
+
 ### Agents (`.claude/agents/`)
 
 | Agent | Use for |
