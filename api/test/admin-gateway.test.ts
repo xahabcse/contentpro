@@ -67,13 +67,11 @@ function localD1() {
 }
 
 let createGatewayApp: typeof import('../src/admin-gateway.ts').createGatewayApp;
-let adminRoutes: typeof import('../src/routes/admin.ts').default;
-let Hono: typeof import('hono').Hono;
+let createPublicApp: typeof import('../src/app.ts').createPublicApp;
 
 before(async () => {
   ({ createGatewayApp } = await import('../src/admin-gateway.ts'));
-  ({ default: adminRoutes } = await import('../src/routes/admin.ts'));
-  ({ Hono } = await import('hono'));
+  ({ createPublicApp } = await import('../src/app.ts'));
 });
 
 function env() {
@@ -127,11 +125,26 @@ describe('AdminGateway', () => {
   });
 });
 
-describe('public /api/admin', () => {
-  it('ignores X-Admin-Actor: without a session cookie it is still 401', async () => {
-    const app = new Hono().route('/api/admin', adminRoutes);
-    const res = await app.request('/api/admin/overview', { headers: { 'X-Admin-Actor': 'owner@example.com' } }, env(), ctx);
+describe('public app', () => {
+  it('has no /api/admin: the admin is reachable only through the gateway', async () => {
+    const app = createPublicApp();
 
-    assert.equal(res.status, 401);
+    for (const path of ['/api/admin/me', '/api/admin/overview', '/api/admin/users', '/api/admin/logs']) {
+      const res = await app.request(path, { headers: { 'X-Admin-Actor': 'owner@example.com' } }, env(), ctx);
+      assert.equal(res.status, 404, path);
+    }
+
+    const removal = await app.request('/api/admin/users/member', { method: 'DELETE', headers: { 'X-Admin-Actor': 'owner@example.com' } }, env(), ctx);
+    assert.equal(removal.status, 404);
+  });
+
+  it('still serves the rest of the API', async () => {
+    const app = createPublicApp();
+
+    const health = await app.request('/', {}, env(), ctx);
+    const profile = await app.request('/api/profile', {}, env(), ctx);
+
+    assert.equal(health.status, 200);
+    assert.equal(profile.status, 401);
   });
 });

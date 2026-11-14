@@ -1,57 +1,13 @@
-import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { secureHeaders } from "hono/secure-headers";
 import { WorkerEntrypoint } from "cloudflare:workers";
-import type { AppEnv, Env } from "./env";
+import type { Env } from "./env";
+import { createPublicApp } from "./app";
 import { createGatewayApp } from "./admin-gateway";
-import authRoutes from "./routes/auth";
-import profileRoutes from "./routes/profile";
-import adminRoutes from "./routes/admin";
 
-const app = new Hono<AppEnv>();
-
-// Baseline hardening headers (X-Content-Type-Options: nosniff, etc.) -- matters
-// because /api/profile/{photo,logo} stream user-uploaded bytes back out.
-app.use("*", secureHeaders());
-
-// Cookie-based CORS (credentials: true) -- the session JWT travels as an
-// httpOnly cookie, not an Authorization header, so this is NOT the Bearer-token
-// CORS pattern. With credentials, the allow-list must be tight: reflecting any
-// *.pages.dev would trust every Cloudflare Pages project on the internet. Pin
-// to exactly what we own -- localhost/127.0.0.1 (dev), the production custom
-// domain, and only THIS Pages project's origins:
-//   - contentpro.pages.dev            (production Pages deploy)
-//   - <deploy>.contentpro.pages.dev   (branch/preview deploys of THIS project)
-// Nothing else under pages.dev is accepted.
-const ALLOWED_ORIGIN =
-  /^https?:\/\/(localhost(:\d+)?|127\.0\.0\.1(:\d+)?|([a-z0-9-]+\.)?contentpro\.pages\.dev|content\.xahabcse\.me)$/i;
-
-app.use(
-  "*",
-  cors({
-    origin: (origin) => {
-      if (!origin) return undefined;
-      return ALLOWED_ORIGIN.test(origin) ? origin : undefined;
-    },
-    credentials: true,
-    allowHeaders: ["Content-Type"],
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  }),
-);
-
-app.route("/api/auth", authRoutes);
-app.route("/api/profile", profileRoutes);
-app.route("/api/admin", adminRoutes);
-
-app.get("/", (c) => c.json({ ok: true, service: "contentpro-api" }));
-
-app.onError((err, c) => {
-  console.error(err);
-  return c.json({ error: "INTERNAL_ERROR" }, 500);
-});
+// The public API (app.ts) serves content.xahabcse.me/api/*.
+const app = createPublicApp();
 
 // Named entrypoint reachable only through a service binding from portfolio-api-hono
-// (admin.xahabcse.me). See admin-gateway.ts.
+// (admin.xahabcse.me). It is the only way into /api/admin. See admin-gateway.ts.
 const gatewayApp = createGatewayApp();
 
 export class AdminGateway extends WorkerEntrypoint<Env> {
