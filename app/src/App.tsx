@@ -12,7 +12,7 @@ import ProtectedRoute from './components/layout/ProtectedRoute';
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const ProfileSettingsPage = lazy(() => import('./pages/ProfileSettingsPage'));
 const EditorPage = lazy(() => import('./pages/EditorPage'));
-const AdminPage = lazy(() => import('./pages/AdminPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 export default function App() {
   return (
@@ -30,8 +30,10 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/settings/profile" element={<ProfileSettingsPage />} />
         <Route path="/designs/:id" element={<EditorPage />} />
-        <Route path="/admin" element={<AdminPage />} />
       </Route>
+
+      {/* The admin moved to admin.xahabcse.me; the old address is a plain 404. */}
+      <Route path="/admin/*" element={<NotFoundPage />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
