@@ -30,6 +30,13 @@ export const SESSION_COOKIE_NAME = "session";
  * to actually gate on verification.
  */
 export const authRequired = createMiddleware<AppEnv>(async (c, next) => {
+  // The private AdminGateway has already resolved the admin and set userId/emailVerified.
+  // The public app never sets this flag, so nothing from the internet can.
+  if (c.get("viaAdminGateway") === true) {
+    await next();
+    return;
+  }
+
   const token = getCookie(c, SESSION_COOKIE_NAME);
   if (!token) {
     return c.json({ error: "UNAUTHENTICATED" }, 401);

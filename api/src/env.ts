@@ -37,6 +37,11 @@ export type Env = Bindings & Secrets & Vars;
 export interface Variables {
   userId: string;
   emailVerified: boolean;
+  /**
+   * Set only by the private AdminGateway (src/admin-gateway.ts) after it has resolved
+   * the admin actor; authRequired then trusts userId/emailVerified instead of a cookie.
+   */
+  viaAdminGateway?: boolean;
 }
 
 export type AppEnv = { Bindings: Env; Variables: Variables };

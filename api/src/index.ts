@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
-import type { AppEnv } from "./env";
+import { WorkerEntrypoint } from "cloudflare:workers";
+import type { AppEnv, Env } from "./env";
+import { createGatewayApp } from "./admin-gateway";
 import authRoutes from "./routes/auth";
 import profileRoutes from "./routes/profile";
 import adminRoutes from "./routes/admin";
@@ -47,6 +49,16 @@ app.onError((err, c) => {
   console.error(err);
   return c.json({ error: "INTERNAL_ERROR" }, 500);
 });
+
+// Named entrypoint reachable only through a service binding from portfolio-api-hono
+// (admin.xahabcse.me). See admin-gateway.ts.
+const gatewayApp = createGatewayApp();
+
+export class AdminGateway extends WorkerEntrypoint<Env> {
+  async fetch(request: Request): Promise<Response> {
+    return gatewayApp.fetch(request, this.env, this.ctx);
+  }
+}
 
 export default app;
 export { RateLimitDO } from "./durable-objects/rate-limit";
