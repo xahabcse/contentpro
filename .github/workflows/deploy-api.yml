@@ -8,6 +8,12 @@ on:
       - '.github/workflows/deploy-api.yml'
   workflow_dispatch:
 
+# Two merges close together used to deploy side by side, and whichever finished last stayed live,
+# even the older build.
+concurrency:
+  group: worker-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Typecheck & Deploy to Workers

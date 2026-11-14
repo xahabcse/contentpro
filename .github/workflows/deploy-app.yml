@@ -8,6 +8,12 @@ on:
       - '.github/workflows/deploy-app.yml'
   workflow_dispatch:
 
+# Two merges close together used to deploy side by side, and whichever finished last stayed live,
+# even the older build.
+concurrency:
+  group: pages-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Build & Deploy App
