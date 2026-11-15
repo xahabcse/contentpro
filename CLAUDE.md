@@ -49,6 +49,8 @@ node scripts/render.js posts/2026-07-http-query-method
 
 4. **Playwright artifacts go in `.playwright-mcp/`.** The playwright MCP is configured with `--output-dir .playwright-mcp` (see `.mcp.json`), so **pass a BARE filename** to `browser_take_screenshot` (e.g. `post-preview.png`) — never add a `.playwright-mcp/` path prefix yourself (a bare name leaks to the repo root, a prefixed name double-nests).
 
+5. **Credentials — local copy in `.secret/`, never printed.** There is no `.env.example`. The gitignored `.secret/` holds one file per service (`worker.env`, `turnstile.env`, `resend.env`); Cloudflare account credentials are shared with the portfolio and live in `D:/Exp-Work/protfolio/.secret/cloudflare.env`. Load a file into the environment right before the command that needs it and never echo a value. Full table and load commands: [docs/rules/secrets.md](docs/rules/secrets.md).
+
 ## ContentPro Web App
 
 The web app is implemented under `app/` and `api/`. Its account and profile data use Cloudflare D1, profile images use private R2, and designs stay in account-scoped browser storage. `docker compose up --build` runs D1 and R2 locally, but the build, Google Fonts, Turnstile widget, and login/signup verification require internet access. Node.js 24 is used in Docker and CI. See `README.md` for setup and limitations.

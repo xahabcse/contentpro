@@ -6,7 +6,8 @@
 #
 # Turnstile's test widget still calls Cloudflare for login and signup, so those
 # flows need internet access. Email delivery activates only if you supply a
-# real Resend key in a .env file — see .env.example.
+# real Resend key in a .env file (RESEND_API_KEY, RESEND_FROM_EMAIL; the local
+# copy of every credential is in the gitignored .secret/ — docs/rules/secrets.md).
 name: contentpro
 
 services:

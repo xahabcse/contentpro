@@ -12,3 +12,4 @@ posts/*/output
 .dev.vars
 *.local.env
 .secrets.local.env
+.secret

@@ -3,6 +3,11 @@ node_modules/
 .dev.vars
 *.local.env
 .env
+# Local copy of every credential — docs/rules/secrets.md.
+# Real files are ignored; only the *.example templates and the README are tracked.
+.secret/*
+!.secret/*.example
+!.secret/README.md
 dist/
 *.tsbuildinfo
 .wrangler/

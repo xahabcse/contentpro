@@ -32,7 +32,7 @@ Then open **http://localhost:8080** and log in with the seeded demo account:
 
 After logging in, you can design cards and carousels, switch templates and palettes, upload backgrounds, and export PNG/PDF/ZIP in your browser. D1 and R2 run locally in Docker. Google Fonts and Turnstile load from the internet; login and signup also call Cloudflare's Turnstile verification service. Stop with `docker compose down` (add `-v` to also wipe the local database).
 
-**What's optional:** The demo account is already verified. Creating accounts and resetting passwords by email require a Resend API key and sender setup; copy `.env.example` to `.env` to configure them. Profile-photo and company-logo uploads use local R2 emulation without credentials. Turnstile uses Cloudflare's public **test keys** by default, but its widget and server-side verification still require internet access.
+**What's optional:** The demo account is already verified. Creating accounts and resetting passwords by email require a Resend API key and sender setup; put `RESEND_API_KEY` and `RESEND_FROM_EMAIL` in a root `.env` (gitignored; `docker compose` reads it). The local copy of every credential lives in the gitignored `.secret/` folder — see [docs/rules/secrets.md](docs/rules/secrets.md). Profile-photo and company-logo uploads use local R2 emulation without credentials. Turnstile uses Cloudflare's public **test keys** by default, but its widget and server-side verification still require internet access.
 
 > Use a Chromium-based browser (Chrome/Edge) for the local run — the session cookie is `Secure`, which those browsers accept on `http://localhost`.
 

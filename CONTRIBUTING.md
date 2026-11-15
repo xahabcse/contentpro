@@ -35,7 +35,7 @@ cd app && npm run dev
 - **Frontend:** run `npm run build`, `npm run lint`, and `npm test` from `app/`.
 - **Backend:** run `npm run typecheck` and `npm test` from `api/`.
 - Keep changes focused; match the surrounding code style (the codebase favours small, well-commented, idiomatic modules).
-- Don't commit secrets. `.env` and `.dev.vars` are gitignored; use the example files and README setup instructions.
+- Don't commit secrets. `.env`, `.dev.vars` and `.secret/` are gitignored. Keep the local copy of every credential in `.secret/` ([docs/rules/secrets.md](docs/rules/secrets.md)); `api/.dev.vars.example` lists the Worker's local variables.
 
 ## Guidelines
 
