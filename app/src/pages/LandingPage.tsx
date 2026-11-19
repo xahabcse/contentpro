@@ -5,7 +5,9 @@ import { PhoneCta, PublicFooter, PublicHeader } from '@/components/layout/Public
 import SlidePreview from '@/components/editor/SlidePreview';
 import Icon from '@/components/ui/Icon';
 import { resolveColors, PALETTES } from '@/lib/palettes';
-import { CATALOG_BY_ID, templateDefaults, TEMPLATE_ORDER, TEMPLATES } from '@/lib/templates';
+import { templateDefaults } from '@/lib/templates';
+import { SHOWCASE_ITEMS } from '@/lib/showcase';
+import TemplateGallery from '@/components/TemplateGallery';
 import type { ResolvedSlide, TemplateId } from '@/lib/design-types';
 
 const HERO_TEMPLATES: { id: TemplateId; label: string; quickKey: string; initialText: string }[] = [
@@ -71,59 +73,6 @@ const CAROUSEL_DECK_SLIDES: { template: TemplateId; fields: Record<string, strin
   },
 ];
 
-// Every registered template appears in the gallery. The groups only classify
-// them; a newly registered template still appears in Flexible & More until it
-// receives a specific category here.
-const SHOWCASE_GROUPS = [
-  { category: 'Everyday & Social', ids: ['birthday', 'congratulations', 'congrats', 'thankyou', 'thank-you', 'holiday', 'awareness', 'quote', 'testimonial', 'bio', 'closing'], desc: 'A polished card for messages, milestones, and community.' },
-  { category: 'Career & Community', ids: [], desc: 'Celebrate a career milestone or bring your community together.' },
-  { category: 'Business & Events', ids: ['event', 'offer', 'hiring', 'product', 'announce', 'cta'], desc: 'Make an announcement, invitation, or offer easy to notice.' },
-  { category: 'Hooks & Stories', ids: ['cover', 'question', 'statement', 'poll', 'divider'], desc: 'Open a story with a strong visual point of view.' },
-  { category: 'Learning & Guides', ids: ['faq', 'howto', 'how-to', 'tips', 'protip', 'checklist', 'framework', 'roadmap', 'timeline', 'agenda', 'definition', 'myth', 'takeaway'], desc: 'Break a useful idea into clear, memorable parts.' },
-  { category: 'Data & Comparisons', ids: ['stat', 'bignum', 'stattrio', 'comparison', 'contrast'], desc: 'Give a number or comparison room to speak.' },
-  { category: 'Flexible & More', ids: ['custom', 'flexible'], desc: 'An adaptable layout for your own message.' },
-] as const;
-
-const TEMPLATE_DETAILS: Record<string, { palette: string; desc: string }> = {
-  birthday: { palette: 'paper', desc: 'Send a personal birthday wish with space for a name and message.' },
-  congrats: { palette: 'wine', desc: 'Celebrate a promotion, win, or milestone.' },
-  thankyou: { palette: 'slate', desc: 'Thank a colleague, client, or community in a memorable way.' },
-  holiday: { palette: 'forest', desc: 'Share a seasonal greeting without starting from a blank page.' },
-  event: { palette: 'navy', desc: 'Invite people with a clear date, place, and next step.' },
-  offer: { palette: 'cobalt', desc: 'Highlight a sale, special offer, or limited opportunity.' },
-  hiring: { palette: 'ink', desc: 'Present an open role and the essentials at a glance.' },
-  product: { palette: 'plum', desc: 'Introduce a product and its key benefits.' },
-  awareness: { palette: 'sand', desc: 'Explain a cause and invite people to take action.' },
-  faq: { palette: 'paper', desc: 'Answer one common question with clarity.' },
-  howto: { palette: 'forest', desc: 'Teach a practical process in a few steps.' },
-  flexible: { palette: 'charcoal', desc: 'Start with a simple, adaptable message layout.' },
-  cover: { palette: 'ink', desc: 'A bold opening line for a post or the first slide of a deck.' },
-  question: { palette: 'paper', desc: 'Ask a question that invites a thoughtful reply.' },
-  announce: { palette: 'cobalt', desc: 'Share a launch, workshop, or milestone clearly.' },
-  stat: { palette: 'cobalt', desc: 'Put one important number in the spotlight.' },
-  comparison: { palette: 'forest', desc: 'Show two choices side by side.' },
-  tips: { palette: 'plum', desc: 'Turn practical advice into a numbered list.' },
-  framework: { palette: 'wine', desc: 'Explain a repeatable method one step at a time.' },
-  contrast: { palette: 'sand', desc: 'Show what changed from before to after.' },
-  checklist: { palette: 'forest', desc: 'Make an action list people can save and use.' },
-};
-
-const SHOWCASE_ITEMS = TEMPLATE_ORDER.map((id, index) => {
-  const catalog = CATALOG_BY_ID.get(id);
-  const group = SHOWCASE_GROUPS.find((entry) => entry.category === catalog?.group || (entry.ids as readonly string[]).includes(id)) ?? SHOWCASE_GROUPS[SHOWCASE_GROUPS.length - 1];
-  const detail = TEMPLATE_DETAILS[id];
-  return {
-    id,
-    name: TEMPLATES[id].name,
-    category: group.category,
-    palette: catalog?.palette ?? detail?.palette ?? PALETTES[index % PALETTES.length].id,
-    desc: catalog?.description ?? detail?.desc ?? group.desc,
-  };
-}).sort((a, b) =>
-  SHOWCASE_GROUPS.findIndex((group) => group.category === a.category)
-  - SHOWCASE_GROUPS.findIndex((group) => group.category === b.category),
-);
-
 const FAQS: { q: string; a: string }[] = [
   {
     q: 'How do I export for LinkedIn or Facebook?',
@@ -159,8 +108,6 @@ const DECK_STEPS: { title: string; note: string; detail: string }[] = [
   { title: 'Call to action', note: 'What to do next', detail: 'Ask readers to save the post or comment, which is what spreads it further.' },
 ];
 
-const PAGE_SIZE = 12;
-
 export default function LandingPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -177,20 +124,6 @@ export default function LandingPage() {
 
   // FAQ
   const [openFaq, setOpenFaq] = useState<number | null>(0);
-
-  // Template gallery
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [gallerySearch, setGallerySearch] = useState('');
-  const [galleryFormat, setGalleryFormat] = useState<'card' | 'carousel'>('card');
-  const [shown, setShown] = useState(PAGE_SIZE);
-  const matchingItems = SHOWCASE_ITEMS.filter((item) => (selectedCategory === 'All' || item.category === selectedCategory)
-    && `${item.name} ${item.desc} ${item.category}`.toLowerCase().includes(gallerySearch.trim().toLowerCase()));
-  const visibleShowcaseItems = matchingItems.slice(0, shown);
-
-  function pickCategory(category: string) {
-    setSelectedCategory(category);
-    setShown(PAGE_SIZE);
-  }
 
   function handleSelectSandboxTemplate(t: typeof HERO_TEMPLATES[0]) {
     setSandboxTemplate(t.id);
@@ -407,58 +340,7 @@ export default function LandingPage() {
             </div>
             <p className="lede">Each one is built for a single job: a wish, an invite, a launch, a lesson. Use it as a card or as a carousel slide.</p>
           </div>
-          <div className="filters">
-            <div className="filters__chips" role="group" aria-label="Template category">
-              {['All', ...SHOWCASE_GROUPS.map((group) => group.category)].map((cat) => (
-                <button key={cat} type="button" className="chip" aria-pressed={selectedCategory === cat} onClick={() => pickCategory(cat)}>
-                  {cat}{cat === 'All' ? <span className="chip__n">{SHOWCASE_ITEMS.length}</span> : null}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="filters">
-            <div className="seg" role="group" aria-label="Template preview format">
-              <button type="button" aria-pressed={galleryFormat === 'card'} onClick={() => setGalleryFormat('card')}><Icon name="square" />Card</button>
-              <button type="button" aria-pressed={galleryFormat === 'carousel'} onClick={() => setGalleryFormat('carousel')}><Icon name="layers" />Carousel slide</button>
-            </div>
-            <div className="input-wrap">
-              <Icon name="search" />
-              <input type="search" className="input" value={gallerySearch} onChange={(e) => { setGallerySearch(e.target.value); setShown(PAGE_SIZE); }} placeholder="Search 100 templates…" aria-label="Find a template" />
-            </div>
-          </div>
-
-          <div className="tpl-grid">
-            {visibleShowcaseItems.map((item) => {
-              const colors = resolveColors(item.palette, {});
-              return (
-                <Link key={item.id} className="tpl surface" to={`/dashboard?template=${encodeURIComponent(item.id)}&format=${galleryFormat}`}>
-                  <SlidePreview key={galleryFormat} template={item.id} palette={item.palette} format={galleryFormat} lazy />
-                  <div className="tpl__body">
-                    <div className="tpl__row">
-                      <h3 className="tpl__name">{item.name}</h3>
-                      <span className="tpl__pal" title={item.palette} style={{ background: `linear-gradient(135deg, ${colors.bg} 55%, ${colors.accent} 55%)` }} />
-                    </div>
-                    <p className="tpl__desc">{item.desc}</p>
-                    <div className="tpl__foot">
-                      <span className="badge">{item.category}</span>
-                      <span className="tpl__use">Use <Icon name="arrow-right" /></span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-          {matchingItems.length === 0 && <p className="empty-note" role="status">No templates match your search. Try another topic or choose All.</p>}
-          {matchingItems.length > 0 && (
-            <div className="more">
-              <span>Showing {visibleShowcaseItems.length} of {matchingItems.length}</span>
-              {visibleShowcaseItems.length < matchingItems.length && (
-                <button type="button" className="btn btn--glass" onClick={() => setShown((n) => n + 24)}>
-                  Show {Math.min(24, matchingItems.length - visibleShowcaseItems.length)} more <Icon name="chevron-down" />
-                </button>
-              )}
-            </div>
-          )}
+          <TemplateGallery linkFor={(id, format) => `/dashboard?template=${encodeURIComponent(id)}&format=${format}`} />
         </section>
 
         {/* Privacy */}

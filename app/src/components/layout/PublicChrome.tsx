@@ -55,7 +55,7 @@ export function PublicHeader({ current }: { current?: 'about' }) {
           </button>
           <SkySwitch className="top__sky" />
           {user ? (
-            <Link to="/dashboard" className="btn btn--primary">Dashboard <Icon name="arrow-right" /></Link>
+            <Link to="/dashboard" className="btn btn--primary top__cta">Dashboard <Icon name="arrow-right" /></Link>
           ) : (
             <>
               <Link to="/login" className="btn btn--quiet">Log in</Link>

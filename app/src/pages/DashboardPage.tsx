@@ -313,7 +313,7 @@ export default function DashboardPage() {
 
       <div className="block-head">
         <h2>Start from a template</h2>
-        <Link to="/#templates" className="btn btn--quiet">Browse all 100 <Icon name="arrow-right" /></Link>
+        <Link to="/templates" className="btn btn--quiet">Browse all 100 <Icon name="arrow-right" /></Link>
       </div>
       <div className="starter">
         {STARTERS.map(([template, palette, label]) => (

@@ -11,6 +11,7 @@ import ProtectedRoute from './components/layout/ProtectedRoute';
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const ProfileSettingsPage = lazy(() => import('./pages/ProfileSettingsPage'));
+const TemplatesPage = lazy(() => import('./pages/TemplatesPage'));
 const EditorPage = lazy(() => import('./pages/EditorPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
@@ -30,6 +31,7 @@ export default function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/settings/profile" element={<ProfileSettingsPage />} />
         <Route path="/designs/:id" element={<EditorPage />} />
       </Route>

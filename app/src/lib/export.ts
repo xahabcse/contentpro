@@ -80,10 +80,14 @@ export async function exportCardAsPng(node: HTMLElement, w: number, h: number): 
   return canvasToPngBlob(canvas);
 }
 
-export async function exportCarouselAsPdf(slideNodes: HTMLElement[], w: number, h: number): Promise<Blob> {
+/** Called before each slide is drawn: (slide number starting at 1, total slides). */
+export type ExportProgress = (done: number, total: number) => void;
+
+export async function exportCarouselAsPdf(slideNodes: HTMLElement[], w: number, h: number, onProgress?: ExportProgress): Promise<Blob> {
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ unit: 'px', format: [w, h], orientation: 'portrait', compress: true });
   for (let i = 0; i < slideNodes.length; i++) {
+    onProgress?.(i + 1, slideNodes.length);
     const canvas = await renderNodeToCanvas(slideNodes[i], w, h, 2);
     if (i > 0) pdf.addPage([w, h], 'portrait');
     pdf.addImage(canvas.toDataURL('image/jpeg', CAROUSEL_PAGE_JPEG_QUALITY), 'JPEG', 0, 0, w, h);
@@ -92,10 +96,11 @@ export async function exportCarouselAsPdf(slideNodes: HTMLElement[], w: number, 
 }
 
 /** PNG slides can be uploaded individually to platforms that do not accept PDF carousels. */
-export async function exportCarouselAsPngZip(slideNodes: HTMLElement[], w: number, h: number): Promise<Blob> {
+export async function exportCarouselAsPngZip(slideNodes: HTMLElement[], w: number, h: number, onProgress?: ExportProgress): Promise<Blob> {
   const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
   for (let i = 0; i < slideNodes.length; i++) {
+    onProgress?.(i + 1, slideNodes.length);
     const canvas = await renderNodeToCanvas(slideNodes[i], w, h, 1);
     zip.file(`slide-${String(i + 1).padStart(2, '0')}.png`, await canvasToPngBlob(canvas));
   }

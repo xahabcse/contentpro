@@ -78,6 +78,7 @@ export default function AppShell({ title, children }: AppShellProps) {
   const navLinks = (onPick?: () => void) => (
     <>
       <Link className="nav-link" to="/dashboard" aria-current={current('/dashboard')} onClick={onPick}><Icon name="grid" /> Dashboard</Link>
+      <Link className="nav-link" to="/templates" aria-current={current('/templates')} onClick={onPick}><Icon name="sparkle" /> Templates</Link>
       <button type="button" className="nav-link" onClick={() => startNew('card')}><Icon name="square" /> New card</button>
       <button type="button" className="nav-link" onClick={() => startNew('carousel')}><Icon name="layers" /> New carousel</button>
       <span className="nav-label">Account</span>
@@ -139,7 +140,7 @@ export default function AppShell({ title, children }: AppShellProps) {
 
       <nav className="tabbar glass-strong" aria-label="App">
         <Link to="/dashboard" aria-current={current('/dashboard')}><Icon name="grid" />Designs</Link>
-        <Link to="/#templates"><Icon name="sparkle" />Templates</Link>
+        <Link to="/templates" aria-current={current('/templates')}><Icon name="sparkle" />Templates</Link>
         <button type="button" className="tabbar__new" aria-label="New design" onClick={() => setNewOpen(true)}><span><Icon name="plus" /></span></button>
         <Link to="/settings/profile" aria-current={current('/settings/profile')}><Icon name="user" />Profile</Link>
         <button type="button" aria-label="More" onClick={() => setMenuOpen(true)}><Icon name="menu" />More</button>

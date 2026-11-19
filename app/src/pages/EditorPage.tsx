@@ -61,11 +61,15 @@ export default function EditorPage() {
   const ui: 'light' | 'dark' = sky === 'night' ? 'dark' : 'light';
   const setUi = (next: 'light' | 'dark') => setSky(next === 'dark' ? 'night' : 'day');
   const [exporting, setExporting] = useState(false);
+  const [exportStep, setExportStep] = useState<{ done: number; total: number } | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [scale, setScale] = useState(0.35);
   const [mobileStep, setMobileStep] = useState<MobileStep>('write');
   const [tplOpen, setTplOpen] = useState(false);
   const [saveConflict, setSaveConflict] = useState(false);
+  const [filmEl, setFilmEl] = useState<HTMLDivElement | null>(null);
+  const [touchDrag, setTouchDrag] = useState<{ from: number; over: number } | null>(null);
+  const moveRef = useRef<(from: number, to: number) => void>(() => {});
   const isMobile = useMediaQuery('(max-width: 743px)');
 
   useEffect(() => {
@@ -100,6 +104,69 @@ export default function EditorPage() {
     onPickTemplate(tid);
     setTplOpen(false);
   }, [onPickTemplate]);
+
+  // ---- touch reorder: hold a slide ~350ms, then drag it along the strip ----
+  useEffect(() => {
+    if (!filmEl) return;
+    let state: { from: number; over: number; x: number; y: number; active: boolean; timer: number } | null = null;
+    const indexAt = (x: number, y: number): number | null => {
+      const hit = document.elementFromPoint(x, y)?.closest('[data-slide-index]');
+      return hit ? Number(hit.getAttribute('data-slide-index')) : null;
+    };
+    const onStart = (event: TouchEvent) => {
+      const thumb = (event.target as Element).closest('[data-slide-index]');
+      if (!thumb || event.touches.length !== 1) return;
+      const from = Number(thumb.getAttribute('data-slide-index'));
+      const touch = event.touches[0];
+      const next = { from, over: from, x: touch.clientX, y: touch.clientY, active: false, timer: 0 };
+      next.timer = window.setTimeout(() => {
+        next.active = true;
+        setTouchDrag({ from, over: from });
+        navigator.vibrate?.(12);
+      }, 350);
+      state = next;
+    };
+    const onMove = (event: TouchEvent) => {
+      if (!state) return;
+      const touch = event.touches[0];
+      if (!state.active) {
+        // Moved before the hold finished: the user is scrolling the strip.
+        if (Math.hypot(touch.clientX - state.x, touch.clientY - state.y) > 8) {
+          window.clearTimeout(state.timer);
+          state = null;
+        }
+        return;
+      }
+      event.preventDefault();
+      const over = indexAt(touch.clientX, touch.clientY);
+      if (over !== null && over !== state.over) {
+        state.over = over;
+        setTouchDrag({ from: state.from, over });
+      }
+    };
+    const onEnd = (event: TouchEvent) => {
+      const done = state;
+      state = null;
+      if (!done) return;
+      window.clearTimeout(done.timer);
+      if (!done.active) return;
+      // A finished drag must not also count as a tap on the slide.
+      event.preventDefault();
+      setTouchDrag(null);
+      if (done.over !== done.from) moveRef.current(done.from, done.over);
+    };
+    filmEl.addEventListener('touchstart', onStart, { passive: true });
+    filmEl.addEventListener('touchmove', onMove, { passive: false });
+    filmEl.addEventListener('touchend', onEnd, { passive: false });
+    filmEl.addEventListener('touchcancel', onEnd, { passive: false });
+    return () => {
+      if (state) window.clearTimeout(state.timer);
+      filmEl.removeEventListener('touchstart', onStart);
+      filmEl.removeEventListener('touchmove', onMove);
+      filmEl.removeEventListener('touchend', onEnd);
+      filmEl.removeEventListener('touchcancel', onEnd);
+    };
+  }, [filmEl]);
 
   // ---- load design (localStorage) + profile (server) ----
   useEffect(() => {
@@ -298,6 +365,9 @@ export default function EditorPage() {
     patchSlides((s) => { const c = s.slice(); const [x] = c.splice(from, 1); c.splice(to, 0, x); return c; });
     setActive(to); setDragFrom(null);
   }
+  useEffect(() => {
+    moveRef.current = move;
+  });
   function setBg(imageId: string | null, all?: boolean) {
     if (!design) return;
     if (design.type === 'card') { patchSlides((s) => s.map((sl, i) => (i === 0 ? { ...sl, bgImageId: imageId } : sl))); return; }
@@ -330,6 +400,7 @@ export default function EditorPage() {
   async function exportNow(format: 'pdf' | 'png-zip' = 'pdf') {
     if (exporting || !design) return;
     setExporting(true);
+    setExportStep(null);
     try {
       // Let React flush any just-applied change (e.g. a background swapped a
       // moment ago) into the offscreen export pool before we read its nodes.
@@ -351,11 +422,11 @@ export default function EditorPage() {
         downloadBlob(blob, `${base}-${stamp}.png`);
         toast.success('PNG downloaded.');
       } else if (format === 'png-zip') {
-        const blob = await exportCarouselAsPngZip(nodes, cv.w, cv.h);
+        const blob = await exportCarouselAsPngZip(nodes, cv.w, cv.h, (done, total) => setExportStep({ done, total }));
         downloadBlob(blob, `${base}-${stamp}-slides.zip`);
         toast.success(`PNG slides downloaded — ${design.slides.length} image${design.slides.length === 1 ? '' : 's'}.`);
       } else {
-        const blob = await exportCarouselAsPdf(nodes, cv.w, cv.h);
+        const blob = await exportCarouselAsPdf(nodes, cv.w, cv.h, (done, total) => setExportStep({ done, total }));
         downloadBlob(blob, `${base}-${stamp}.pdf`);
         toast.success(`PDF downloaded — ${design.slides.length} slide${design.slides.length === 1 ? '' : 's'}.`);
       }
@@ -363,6 +434,7 @@ export default function EditorPage() {
       toast.error(err instanceof Error ? err.message : 'Export failed. If you use a profile photo or company logo, try re-uploading it, then export again.');
     }
     setExporting(false);
+    setExportStep(null);
   }
 
   if (!loaded) {
@@ -528,11 +600,13 @@ export default function EditorPage() {
         <button onClick={() => move(active, active + 1)} disabled={active >= design.slides.length - 1} aria-label="Move slide later" title="Move slide later" style={filmCtrl(active >= design.slides.length - 1)}>›</button>
         <button onClick={() => delSlide(active)} disabled={design.slides.length <= 1} aria-label="Delete current slide" title="Delete current slide" style={{ ...filmCtrl(design.slides.length <= 1), color: 'var(--c-danger)' }}>×</button>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflowX: 'auto', flex: 1, minWidth: 0 }}>
+      <div ref={setFilmEl} className="cp-film" style={{ display: 'flex', alignItems: 'center', gap: 10, overflowX: 'auto', flex: 1, minWidth: 0 }}>
         {design.slides.map((s, i) => {
           const on = i === active;
+          const dragging = touchDrag?.from === i;
+          const target = touchDrag !== null && touchDrag.over === i && touchDrag.from !== i;
           return (
-            <button key={i} type="button" draggable aria-label={`Slide ${i + 1}${on ? ' (current)' : ''}`} aria-current={on ? true : undefined} onClick={() => setActive(i)} onDragStart={() => setDragFrom(i)} onDragOver={(e) => e.preventDefault()} onDrop={() => dragFrom !== null && move(dragFrom, i)} style={{ position: 'relative', flex: 'none', cursor: 'grab', borderRadius: 7, padding: 3, background: on ? 'var(--c-accent)' : 'transparent', border: on ? 'none' : '1px solid var(--c-line2)' }}>
+            <button key={i} type="button" draggable data-slide-index={i} data-dragging={dragging || undefined} data-drop={target || undefined} aria-label={`Slide ${i + 1}${on ? ' (current)' : ''}`} aria-current={on ? true : undefined} onClick={() => setActive(i)} onDragStart={() => setDragFrom(i)} onDragOver={(e) => e.preventDefault()} onDrop={() => dragFrom !== null && move(dragFrom, i)} style={{ position: 'relative', flex: 'none', cursor: 'grab', borderRadius: 7, padding: 3, background: on ? 'var(--c-accent)' : 'transparent', border: on ? 'none' : '1px solid var(--c-line2)' }}>
               {scaledCanvas(s, 64)}
               <span style={{ position: 'absolute', top: 1, left: 5, font: "700 9px/1 var(--font-ui)", color: on ? 'var(--c-accent-ink)' : '#fff', textShadow: on ? 'none' : '0 1px 3px rgba(0,0,0,.8)' }}>{i + 1}</span>
             </button>
@@ -573,6 +647,7 @@ export default function EditorPage() {
     </div>
   );
 
+  const exportingLabel = exportStep ? `Exporting ${exportStep.done} / ${exportStep.total}…` : 'Exporting…';
   const stepIndex = MOBILE_STEPS.findIndex((step) => step.id === mobileStep);
   const prevStep = stepIndex > 0 ? MOBILE_STEPS[stepIndex - 1] : null;
   const nextStep = stepIndex < MOBILE_STEPS.length - 1 ? MOBILE_STEPS[stepIndex + 1] : null;
@@ -607,6 +682,7 @@ export default function EditorPage() {
         <div className="med__panel" role="tabpanel">
           {mobileStage}
           {filmstripBar ? <div className="med__filmstrip glass-strong">{filmstripBar}</div> : null}
+          {isCar ? <p className="hint" style={{ margin: '-4px 4px 0' }}>Tip: hold a slide, then drag it to a new place.</p> : null}
           <div className="med__sheet glass-strong">
             {contentPanel}
             <details className="fold">
@@ -656,7 +732,7 @@ export default function EditorPage() {
               </button>
             )}
           </div>
-          <p className="hint" style={{ margin: 0 }}>{exporting ? 'Exporting…' : 'Made on your device. Nothing is uploaded.'}</p>
+          <p className="hint" style={{ margin: 0 }}>{exporting ? exportingLabel : 'Made on your device. Nothing is uploaded.'}</p>
         </div>
       )}
 
@@ -670,7 +746,7 @@ export default function EditorPage() {
           <button type="button" className="btn btn--primary btn--lg" onClick={() => setMobileStep(nextStep.id)}>Next: {nextStep.label} <Icon name="arrow-right" /></button>
         ) : (
           <button type="button" className="btn btn--primary btn--lg" disabled={exporting} onClick={() => { void exportNow(isCar ? 'pdf' : undefined); }}>
-            <Icon name="download" /> {exporting ? 'Exporting…' : isCar ? 'Download PDF' : 'Download PNG'}
+            <Icon name="download" /> {exporting ? exportingLabel : isCar ? 'Download PDF' : 'Download PNG'}
           </button>
         )}
       </div>
@@ -708,7 +784,7 @@ export default function EditorPage() {
               onClick={(e) => { if (exporting) e.preventDefault(); }}
               style={{ display: 'flex', alignItems: 'center', gap: 9, listStyle: 'none', border: 'none', cursor: exporting ? 'wait' : 'pointer', font: "700 13px/1 var(--font-ui)", padding: '14px 18px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)', opacity: exporting ? 0.6 : 1 }}
             >
-              {exporting ? 'Exporting…' : 'Export ▾'}
+              {exporting ? exportingLabel : 'Export ▾'}
             </summary>
             <div className="cp-export-menu glass-strong">
               <button type="button" className="cp-export-item" disabled={exporting} onClick={() => { if (exportMenuRef.current) exportMenuRef.current.open = false; void exportNow('pdf'); }}><span><Icon name="file" /></span><span><b>PDF for LinkedIn</b><small>One swipeable document · {design.slides.length} pages</small></span></button>
@@ -718,7 +794,7 @@ export default function EditorPage() {
         ) : (
           <button onClick={() => { void exportNow(); }} disabled={exporting} style={{ display: 'flex', alignItems: 'center', gap: 9, border: 'none', cursor: exporting ? 'wait' : 'pointer', font: "700 13px/1 var(--font-ui)", padding: '12px 18px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)', opacity: exporting ? 0.6 : 1, flex: 'none' }}>
             {exporting ? <span style={{ width: 13, height: 13, border: '2px solid color-mix(in srgb, var(--c-accent-ink) 35%, transparent)', borderTopColor: 'var(--c-accent-ink)', borderRadius: '50%', animation: 'cp-spin .7s linear infinite' }} /> : <span style={{ fontSize: 14 }}>↓</span>}
-            {exporting ? 'Exporting…' : 'Export PNG'}
+            {exporting ? exportingLabel : 'Export PNG'}
           </button>
         )}
         </div>
