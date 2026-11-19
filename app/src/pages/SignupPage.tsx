@@ -50,7 +50,7 @@ export default function SignupPage() {
   }
 
   return (
-    <AuthShell title="Create your account" subtitle="Design LinkedIn cards &amp; carousels yourself.">
+    <AuthShell eyebrow="Create your account" title={<>Design it <em>yourself.</em></>} subtitle="LinkedIn cards &amp; carousels in minutes. Your designs stay on your device.">
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: 16 }}>
           <label className="label" htmlFor="email">Email</label>

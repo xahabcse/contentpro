@@ -36,7 +36,7 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <AuthShell title="Invalid link" subtitle="This password reset link is missing its token.">
+      <AuthShell icon="info" eyebrow="Reset password" title="Invalid link" subtitle="This password reset link is missing its token.">
         <Link to="/forgot-password" className="btn btn-primary" style={{ textDecoration: 'none' }}>
           Request a new link
         </Link>
@@ -45,7 +45,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <AuthShell title="Set a new password" subtitle="Choose something you haven't used before.">
+    <AuthShell icon="lock" eyebrow="Reset password" title={<>Set a new <em>password.</em></>} subtitle="Choose something you haven't used before.">
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: 16 }}>
           <label className="label" htmlFor="password">New password</label>

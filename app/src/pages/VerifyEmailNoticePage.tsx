@@ -47,7 +47,7 @@ function VerifyTokenScreen({ token }: { token: string }) {
 
   if (state === 'verifying') {
     return (
-      <AuthShell title="Verifying…" subtitle="One moment while we confirm your email.">
+      <AuthShell icon="mail" eyebrow="Verify email" title="Verifying…" subtitle="One moment while we confirm your email.">
         <p style={{ fontSize: 15, color: 'var(--muted)' }}>Verifying your email address…</p>
       </AuthShell>
     );
@@ -55,7 +55,7 @@ function VerifyTokenScreen({ token }: { token: string }) {
 
   if (state === 'failed') {
     return (
-      <AuthShell title="Verification failed" subtitle={error ?? 'This link is invalid or expired.'}>
+      <AuthShell icon="info" eyebrow="Verify email" title="Verification failed" subtitle={error ?? 'This link is invalid or expired.'}>
         <Link to="/login" className="btn btn-primary" style={{ textDecoration: 'none' }}>
           Back to login
         </Link>
@@ -64,7 +64,7 @@ function VerifyTokenScreen({ token }: { token: string }) {
   }
 
   return (
-    <AuthShell title="Email verified" subtitle="Please log in again to continue.">
+    <AuthShell icon="check" eyebrow="All set" title={<>Email <em>verified.</em></>} subtitle="Please log in again to continue.">
       <p style={{ fontSize: 15, lineHeight: 1.6, marginBottom: 20 }}>
         Your email is verified. Log in again to get a fresh session and start designing.
       </p>
@@ -126,7 +126,7 @@ export default function VerifyEmailNoticePage() {
   }
 
   return (
-    <AuthShell title="Check your email" subtitle="One more step before you can start designing.">
+    <AuthShell icon="mail" eyebrow="One more step" title={<>Check your <em>email.</em></>} subtitle="One more step before you can start designing.">
       <p style={{ fontSize: 15, lineHeight: 1.6, marginBottom: 20 }}>
         We sent a verification link{email ? <> to <strong>{email}</strong></> : ''}. Click it, then log in
         again to continue — you'll be redirected to your dashboard once verified.

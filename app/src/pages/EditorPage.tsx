@@ -2,6 +2,8 @@ import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } fr
 import { useNavigate, useParams } from 'react-router-dom';
 import SlideCanvas from '@/components/editor/SlideCanvas';
 import { CardstockMark } from '@/components/Logo';
+import Icon from '@/components/ui/Icon';
+import { useSky } from '@/lib/sky';
 import { canvasSize, type FieldValue, type FooterData, type LocalDesign, type ResolvedSlide, type Slide, type TemplateId } from '@/lib/design-types';
 import { PALETTES, resolveColors } from '@/lib/palettes';
 import { CATALOG_BY_ID, TEMPLATE_ORDER, TEMPLATES, templateDefaults } from '@/lib/templates';
@@ -12,25 +14,13 @@ import { useAuth } from '@/lib/auth-context';
 
 const MAX_SLIDES = 15;
 
-const carouselExportOptionStyle: CSSProperties = {
-  width: '100%',
-  padding: '11px 12px',
-  border: 0,
-  borderRadius: 8,
-  background: 'transparent',
-  color: 'var(--c-text)',
-  font: "700 13px/1.2 'Space Grotesk'",
-  textAlign: 'left',
-  cursor: 'pointer',
-};
-
-type MobileTab = 'templates' | 'content' | 'theme' | 'author' | 'background';
-const MOBILE_TABS: { id: MobileTab; label: string }[] = [
-  { id: 'templates', label: 'Templates' },
-  { id: 'content', label: 'Content' },
-  { id: 'theme', label: 'Theme' },
-  { id: 'author', label: 'Author' },
-  { id: 'background', label: 'Image' },
+// Phone editor: four steps (owner, 14 Nov 2026): pick a template, write, check, export.
+type MobileStep = 'template' | 'write' | 'preview' | 'export';
+const MOBILE_STEPS: { id: MobileStep; label: string }[] = [
+  { id: 'template', label: 'Template' },
+  { id: 'write', label: 'Write' },
+  { id: 'preview', label: 'Preview' },
+  { id: 'export', label: 'Export' },
 ];
 
 function useMediaQuery(query: string): boolean {
@@ -66,13 +56,17 @@ export default function EditorPage() {
   const [profile, setProfile] = useState<Profile>({});
   const [imgUrls, setImgUrls] = useState<Record<string, string>>({});
   const [active, setActive] = useState(0);
-  const [ui, setUi] = useState<'light' | 'dark'>('light');
+  // The editor's light/dark follows the app-wide sky (src/lib/sky.ts).
+  const [sky, setSky] = useSky();
+  const ui: 'light' | 'dark' = sky === 'night' ? 'dark' : 'light';
+  const setUi = (next: 'light' | 'dark') => setSky(next === 'dark' ? 'night' : 'day');
   const [exporting, setExporting] = useState(false);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [scale, setScale] = useState(0.35);
-  const [mobileTab, setMobileTab] = useState<MobileTab>('content');
+  const [mobileStep, setMobileStep] = useState<MobileStep>('write');
+  const [tplOpen, setTplOpen] = useState(false);
   const [saveConflict, setSaveConflict] = useState(false);
-  const isMobile = useMediaQuery('(max-width: 900px)');
+  const isMobile = useMediaQuery('(max-width: 743px)');
 
   useEffect(() => {
     if (!ownerId) return;
@@ -102,6 +96,10 @@ export default function EditorPage() {
   const onPickTemplate = useCallback((tid: TemplateId) => {
     setDesign((d) => (d ? { ...d, slides: d.slides.map((sl, i) => (i === activeRef.current ? { ...sl, template: tid, fields: templateDefaults(tid) } : sl)) } : d));
   }, []);
+  const onPickTemplateAndClose = useCallback((tid: TemplateId) => {
+    onPickTemplate(tid);
+    setTplOpen(false);
+  }, [onPickTemplate]);
 
   // ---- load design (localStorage) + profile (server) ----
   useEffect(() => {
@@ -254,7 +252,7 @@ export default function EditorPage() {
     const on = () => measure();
     window.addEventListener('resize', on);
     return () => window.removeEventListener('resize', on);
-  }, [measure, loaded]);
+  }, [measure, loaded, mobileStep]);
 
   // ---- helpers ----
   function patch(p: Partial<LocalDesign>) { setDesign((d) => (d ? { ...d, ...p } : d)); }
@@ -374,7 +372,7 @@ export default function EditorPage() {
     return (
       <div className="cp" data-ui={ui} style={{ ...centerBox, flexDirection: 'column', gap: 16, textAlign: 'center', padding: 24 }}>
         <div style={{ font: '800 20px/1.3 Archivo' }}>Design not found</div>
-        <div style={{ font: "500 14px/1.5 'Space Grotesk'", color: 'var(--c-dim2)', maxWidth: 420 }}>Designs live in this browser. This one may have been created on another device or removed.</div>
+        <div style={{ font: "500 14px/1.5 var(--font-ui)", color: 'var(--c-dim2)', maxWidth: 420 }}>Designs live in this browser. This one may have been created on another device or removed.</div>
         <button onClick={() => navigate('/dashboard')} style={accentPill}>Back to dashboard</button>
       </div>
     );
@@ -419,7 +417,7 @@ export default function EditorPage() {
       companyLogo={footerData.companyLogo ?? null}
       cvW={cv.w}
       cvH={cv.h}
-      onPick={onPickTemplate}
+      onPick={onPickTemplateAndClose}
     />
   );
 
@@ -430,7 +428,7 @@ export default function EditorPage() {
         <button
           onClick={clearFields}
           title="Clear the example text so you can type your own"
-          style={{ border: '1px solid var(--c-line2)', background: 'var(--c-chip)', color: 'var(--c-dim2)', font: "600 10px/1 'Space Grotesk'", letterSpacing: '.04em', cursor: 'pointer', padding: '6px 10px', borderRadius: 7 }}
+          style={{ border: '1px solid var(--c-line2)', background: 'var(--c-chip)', color: 'var(--c-dim2)', font: "600 10px/1 var(--font-ui)", letterSpacing: '.04em', cursor: 'pointer', padding: '6px 10px', borderRadius: 7 }}
         >
           Clear ✕
         </button>
@@ -443,20 +441,20 @@ export default function EditorPage() {
       ))}
       <div style={{ marginTop: 4, paddingTop: 14, borderTop: '1px dashed var(--c-line2)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={{ font: "600 10px/1 'Space Grotesk'", letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-dim)' }}>Text size</span>
+          <span style={{ font: "600 10px/1 var(--font-ui)", letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-dim)' }}>Text size</span>
           {(headingScale !== 1 || bodyScale !== 1 || footerScale !== 1)
             ? <button onClick={() => patch({ headingScale: 1, bodyScale: 1, footerScale: 1 })} style={linkBtn} title="Reset all to 100%">Reset all ↺</button>
             : null}
         </div>
         {([['headingScale', 'Heading', headingScale], ['bodyScale', 'Body', bodyScale], ['footerScale', 'Footer', footerScale]] as [ScaleKey, string, number][]).map(([key, label, val]) => (
           <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <span style={{ width: 58, flex: 'none', font: "600 12px/1 'Space Grotesk'", color: 'var(--c-dim2)' }}>{label}</span>
+            <span style={{ width: 58, flex: 'none', font: "600 12px/1 var(--font-ui)", color: 'var(--c-dim2)' }}>{label}</span>
             <button onClick={() => bumpScale(key, -0.05)} disabled={val <= 0.7} aria-label={`Decrease ${label} size`} style={txtStepBtn(val <= 0.7)}>A−</button>
-            <span style={{ flex: 1, textAlign: 'center', font: "700 12px/1 'Space Grotesk'", color: 'var(--c-dim2)' }}>{Math.round(val * 100)}%</span>
+            <span style={{ flex: 1, textAlign: 'center', font: "700 12px/1 var(--font-ui)", color: 'var(--c-dim2)' }}>{Math.round(val * 100)}%</span>
             <button onClick={() => bumpScale(key, 0.05)} disabled={val >= 1.4} aria-label={`Increase ${label} size`} style={txtStepBtn(val >= 1.4)}>A+</button>
           </div>
         ))}
-        <div style={{ marginTop: 6, font: "500 11px/1.4 'Space Grotesk'", color: 'var(--c-dim)' }}>Heading, body and footer scale independently.</div>
+        <div style={{ marginTop: 6, font: "500 11px/1.4 var(--font-ui)", color: 'var(--c-dim)' }}>Heading, body and footer scale independently.</div>
       </div>
     </Section>
   );
@@ -486,7 +484,7 @@ export default function EditorPage() {
 
   const authorPanel = (
     <Section title="AUTHOR">
-      <div style={{ font: "500 11px/1.5 'Space Grotesk'", color: 'var(--c-dim)', marginBottom: 12 }}>
+      <div style={{ font: "500 11px/1.5 var(--font-ui)", color: 'var(--c-dim)', marginBottom: 12 }}>
         {usingProfileAuthor ? 'Signed from your profile. Edit here to override just this design.' : 'Overridden for this design.'}
       </div>
       <Labeled label="Name">
@@ -494,13 +492,13 @@ export default function EditorPage() {
       </Labeled>
       <Labeled label="Handle">
         <div style={{ display: 'flex', alignItems: 'center', background: 'var(--c-input)', border: '1px solid var(--c-line2)', borderRadius: 9, padding: '0 12px' }}>
-          <span style={{ color: 'var(--c-dim)', font: "500 14px/1 'Space Grotesk'" }}>@</span>
-          <input type="text" value={footerData.handle} placeholder="yourhandle" onChange={(e) => setAuthorOverride('handle', e.target.value.replace(/^@/, ''))} style={{ flex: 1, background: 'none', border: 'none', color: 'var(--c-text)', font: "500 14px/1 'Space Grotesk'", padding: '10px 6px' }} />
+          <span style={{ color: 'var(--c-dim)', font: "500 14px/1 var(--font-ui)" }}>@</span>
+          <input type="text" value={footerData.handle} placeholder="yourhandle" onChange={(e) => setAuthorOverride('handle', e.target.value.replace(/^@/, ''))} style={{ flex: 1, background: 'none', border: 'none', color: 'var(--c-text)', font: "500 14px/1 var(--font-ui)", padding: '10px 6px' }} />
         </div>
       </Labeled>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <label className="file-trigger" style={{ flex: 1 }}>
-          <span style={{ display: 'block', padding: '9px 0', textAlign: 'center', border: '1px dashed var(--c-line2)', borderRadius: 9, color: 'var(--c-dim2)', font: "600 12px/1 'Space Grotesk'", cursor: 'pointer' }}>Override photo</span>
+          <span style={{ display: 'block', padding: '9px 0', textAlign: 'center', border: '1px dashed var(--c-line2)', borderRadius: 9, color: 'var(--c-dim2)', font: "600 12px/1 var(--font-ui)", cursor: 'pointer' }}>Override photo</span>
           <input type="file" accept="image/*" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const iid = await storeImage(f); if (iid) setDesign((d) => (d ? { ...d, authorOverride: { ...d.authorOverride, avatarImageId: iid } } : d)); } }} className="visually-hidden" />
         </label>
         {!usingProfileAuthor ? <button onClick={resetAuthor} style={{ ...linkBtn, flex: 'none' }}>Use profile</button> : null}
@@ -513,13 +511,13 @@ export default function EditorPage() {
       {a.bgImageId && imgUrls[a.bgImageId] ? <div style={{ height: 80, borderRadius: 10, backgroundImage: `url(${imgUrls[a.bgImageId]})`, backgroundSize: 'cover', backgroundPosition: 'center', marginBottom: 10, position: 'relative' }}><div style={{ position: 'absolute', inset: 0, background: 'var(--c-scrim)', borderRadius: 10 }} /></div> : null}
       <div style={{ display: 'flex', gap: 8 }}>
         <label className="file-trigger" style={{ flex: 1 }}>
-          <span style={{ display: 'block', padding: '9px 0', textAlign: 'center', border: '1px dashed var(--c-line2)', borderRadius: 9, color: 'var(--c-dim2)', font: "600 12px/1 'Space Grotesk'", cursor: 'pointer' }}>{a.bgImageId ? 'Replace' : 'Upload image'}</span>
+          <span style={{ display: 'block', padding: '9px 0', textAlign: 'center', border: '1px dashed var(--c-line2)', borderRadius: 9, color: 'var(--c-dim2)', font: "600 12px/1 var(--font-ui)", cursor: 'pointer' }}>{a.bgImageId ? 'Replace' : 'Upload image'}</span>
           <input type="file" accept="image/*" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const iid = await storeImage(f); if (iid) setBg(iid, false); } }} className="visually-hidden" />
         </label>
-        {a.bgImageId ? <button onClick={() => setBg(null, false)} style={{ flex: 'none', padding: '0 14px', border: '1px solid var(--c-line2)', borderRadius: 9, background: 'none', color: 'var(--c-dim2)', cursor: 'pointer', font: "600 12px/1 'Space Grotesk'" }}>Remove</button> : null}
+        {a.bgImageId ? <button onClick={() => setBg(null, false)} style={{ flex: 'none', padding: '0 14px', border: '1px solid var(--c-line2)', borderRadius: 9, background: 'none', color: 'var(--c-dim2)', cursor: 'pointer', font: "600 12px/1 var(--font-ui)" }}>Remove</button> : null}
       </div>
-      {isCar && a.bgImageId ? <button onClick={() => setBg(a.bgImageId!, true)} style={{ marginTop: 8, width: '100%', padding: '8px 0', border: 'none', borderRadius: 9, background: 'var(--c-chip)', color: 'var(--c-dim2)', cursor: 'pointer', font: "600 11px/1 'Space Grotesk'" }}>Apply to all slides</button> : null}
-      <div style={{ marginTop: 10, font: "500 11px/1.4 'Space Grotesk'", color: 'var(--c-dim)' }}>A dark scrim is added automatically so text stays readable.</div>
+      {isCar && a.bgImageId ? <button onClick={() => setBg(a.bgImageId!, true)} style={{ marginTop: 8, width: '100%', padding: '8px 0', border: 'none', borderRadius: 9, background: 'var(--c-chip)', color: 'var(--c-dim2)', cursor: 'pointer', font: "600 11px/1 var(--font-ui)" }}>Apply to all slides</button> : null}
+      <div style={{ marginTop: 10, font: "500 11px/1.4 var(--font-ui)", color: 'var(--c-dim)' }}>A dark scrim is added automatically so text stays readable.</div>
     </Section>
   );
 
@@ -536,7 +534,7 @@ export default function EditorPage() {
           return (
             <button key={i} type="button" draggable aria-label={`Slide ${i + 1}${on ? ' (current)' : ''}`} aria-current={on ? true : undefined} onClick={() => setActive(i)} onDragStart={() => setDragFrom(i)} onDragOver={(e) => e.preventDefault()} onDrop={() => dragFrom !== null && move(dragFrom, i)} style={{ position: 'relative', flex: 'none', cursor: 'grab', borderRadius: 7, padding: 3, background: on ? 'var(--c-accent)' : 'transparent', border: on ? 'none' : '1px solid var(--c-line2)' }}>
               {scaledCanvas(s, 64)}
-              <span style={{ position: 'absolute', top: 1, left: 5, font: "700 9px/1 'Space Grotesk'", color: on ? 'var(--c-accent-ink)' : '#fff', textShadow: on ? 'none' : '0 1px 3px rgba(0,0,0,.8)' }}>{i + 1}</span>
+              <span style={{ position: 'absolute', top: 1, left: 5, font: "700 9px/1 var(--font-ui)", color: on ? 'var(--c-accent-ink)' : '#fff', textShadow: on ? 'none' : '0 1px 3px rgba(0,0,0,.8)' }}>{i + 1}</span>
             </button>
           );
         })}
@@ -547,8 +545,12 @@ export default function EditorPage() {
 
   const desktopBody = (
     <div className="cp-body">
-      <aside className="cp-left" style={{ background: 'var(--c-panel)', borderRight: '1px solid var(--c-line)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <div style={{ padding: '16px 18px 12px', font: "700 11px/1 'Space Grotesk'", letterSpacing: '.16em', color: 'var(--c-dim)' }}>TEMPLATES</div>
+      <button type="button" className={'cp-scrim' + (tplOpen ? ' is-open' : '')} aria-label="Close templates" onClick={() => setTplOpen(false)} />
+      <aside className={'cp-left' + (tplOpen ? ' is-open' : '')} style={{ background: 'var(--c-panel)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div style={{ padding: '14px 14px 10px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', font: "700 11px/1 var(--font-ui)", letterSpacing: '.16em', color: 'var(--c-dim)' }}>
+          TEMPLATES
+          <button type="button" className="btn btn--sm btn--glass btn--icon cp-left-close" aria-label="Close templates" onClick={() => setTplOpen(false)}><Icon name="x" /></button>
+        </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 14px 18px' }}>{templatePicker}</div>
       </aside>
 
@@ -557,12 +559,12 @@ export default function EditorPage() {
           {isCar && active > 0 ? <button onClick={() => setActive(active - 1)} style={arrowStyle('left')}>‹</button> : null}
           {isCar && active < design.slides.length - 1 ? <button onClick={() => setActive(active + 1)} style={arrowStyle('right')}>›</button> : null}
           {stageCanvas}
-          {isCar ? <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', font: "600 12px/1 'Space Grotesk'", color: 'var(--c-dim)', letterSpacing: '.08em' }}>{active + 1 + ' / ' + design.slides.length}</div> : null}
+          {isCar ? <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', font: "600 12px/1 var(--font-ui)", color: 'var(--c-dim)', letterSpacing: '.08em' }}>{active + 1 + ' / ' + design.slides.length}</div> : null}
         </div>
         {filmstripBar}
       </main>
 
-      <aside className="cp-right" style={{ background: 'var(--c-panel)', borderLeft: '1px solid var(--c-line)', overflowY: 'auto' }}>
+      <aside className="cp-right" style={{ background: 'var(--c-panel)', overflowY: 'auto' }}>
         {contentPanel}
         {themePanel}
         {authorPanel}
@@ -571,31 +573,107 @@ export default function EditorPage() {
     </div>
   );
 
-  const mobilePanel =
-    mobileTab === 'templates' ? <div style={{ padding: '16px 14px 40px' }}>{templatePicker}</div>
-    : mobileTab === 'content' ? contentPanel
-    : mobileTab === 'theme' ? themePanel
-    : mobileTab === 'author' ? authorPanel
-    : backgroundPanel;
+  const stepIndex = MOBILE_STEPS.findIndex((step) => step.id === mobileStep);
+  const prevStep = stepIndex > 0 ? MOBILE_STEPS[stepIndex - 1] : null;
+  const nextStep = stepIndex < MOBILE_STEPS.length - 1 ? MOBILE_STEPS[stepIndex + 1] : null;
+  const paletteName = design.customBg || design.customText || design.customAccent ? 'Custom' : (PALETTES.find((p) => p.id === design.paletteId)?.name ?? '');
+
+  const mobileStage = (
+    <div className="cp-mstage" ref={mobileStageRef}>
+      {isCar && active > 0 ? <button onClick={() => setActive(active - 1)} aria-label="Previous slide" style={mArrow('left')}>‹</button> : null}
+      {isCar && active < design.slides.length - 1 ? <button onClick={() => setActive(active + 1)} aria-label="Next slide" style={mArrow('right')}>›</button> : null}
+      {stageCanvas}
+      {isCar ? <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', font: '600 11px/1 var(--font-ui)', color: 'var(--c-dim)', letterSpacing: '.08em' }}>{active + 1 + ' / ' + design.slides.length}</div> : null}
+    </div>
+  );
 
   const mobileBody = (
-    <div className="cp-mbody">
-      <div className="cp-mstage" ref={mobileStageRef}>
-        {isCar && active > 0 ? <button onClick={() => setActive(active - 1)} aria-label="Previous slide" style={mArrow('left')}>‹</button> : null}
-        {isCar && active < design.slides.length - 1 ? <button onClick={() => setActive(active + 1)} aria-label="Next slide" style={mArrow('right')}>›</button> : null}
-        {stageCanvas}
-        {isCar ? <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', font: "600 11px/1 'Space Grotesk'", color: 'var(--c-dim)', letterSpacing: '.08em' }}>{active + 1 + ' / ' + design.slides.length}</div> : null}
+    <div className="med">
+      <div className="med__steps glass" role="tablist" aria-label="Steps">
+        {MOBILE_STEPS.map((step, i) => (
+          <button key={step.id} type="button" role="tab" aria-selected={mobileStep === step.id} onClick={() => setMobileStep(step.id)}>
+            <b>{i + 1}</b>{step.label}
+          </button>
+        ))}
       </div>
-      {filmstripBar}
-      <div className="cp-mtabs" role="tablist" aria-label="Editor panels">
-        {MOBILE_TABS.map((t) => {
-          const on = mobileTab === t.id;
-          return (
-            <button key={t.id} className="cp-mtab" data-on={on} role="tab" aria-selected={on} onClick={() => setMobileTab(t.id)}>{t.label}</button>
-          );
-        })}
+
+      {mobileStep === 'template' && (
+        <div className="med__panel" role="tabpanel">
+          <div className="med__sheet glass-strong" style={{ padding: 14 }}>{templatePicker}</div>
+        </div>
+      )}
+
+      {mobileStep === 'write' && (
+        <div className="med__panel" role="tabpanel">
+          {mobileStage}
+          {filmstripBar ? <div className="med__filmstrip glass-strong">{filmstripBar}</div> : null}
+          <div className="med__sheet glass-strong">
+            {contentPanel}
+            <details className="fold">
+              <summary><Icon name="palette" /> Theme <small>{paletteName}</small><Icon name="chevron-down" /></summary>
+              {themePanel}
+            </details>
+            <details className="fold">
+              <summary><Icon name="user" /> Author <small>{usingProfileAuthor ? 'From your profile' : 'Overridden'}</small><Icon name="chevron-down" /></summary>
+              {authorPanel}
+            </details>
+            <details className="fold">
+              <summary><Icon name="image" /> Background <small>{a.bgImageId ? 'Photo' : 'None'}</small><Icon name="chevron-down" /></summary>
+              {backgroundPanel}
+            </details>
+          </div>
+        </div>
+      )}
+
+      {mobileStep === 'preview' && (
+        <div className="med__panel med__panel--preview" role="tabpanel">
+          {mobileStage}
+          <p className="hint" style={{ textAlign: 'center', margin: 0 }}>{isCar ? 'Check every slide before you export.' : 'This is exactly what downloads.'}</p>
+        </div>
+      )}
+
+      {mobileStep === 'export' && (
+        <div className="med__panel" role="tabpanel">
+          <div className="exp">
+            {isCar ? (
+              <>
+                <button type="button" className="surface" disabled={exporting} onClick={() => { void exportNow('pdf'); }}>
+                  <span><Icon name="file" /></span>
+                  <span><b>PDF for LinkedIn</b><small>One swipeable document · {design.slides.length} pages</small></span>
+                  <Icon name="download" />
+                </button>
+                <button type="button" className="surface" disabled={exporting} onClick={() => { void exportNow('png-zip'); }}>
+                  <span><Icon name="zip" /></span>
+                  <span><b>PNG slides ZIP</b><small>For Facebook · images in slide order</small></span>
+                  <Icon name="download" />
+                </button>
+              </>
+            ) : (
+              <button type="button" className="surface" disabled={exporting} onClick={() => { void exportNow(); }}>
+                <span><Icon name="image" /></span>
+                <span><b>PNG image</b><small>1080 × 1080 · ready for any feed</small></span>
+                <Icon name="download" />
+              </button>
+            )}
+          </div>
+          <p className="hint" style={{ margin: 0 }}>{exporting ? 'Exporting…' : 'Made on your device. Nothing is uploaded.'}</p>
+        </div>
+      )}
+
+      <div className="med__act glass-strong">
+        {prevStep ? (
+          <button type="button" className="btn btn--glass btn--lg" onClick={() => setMobileStep(prevStep.id)}><Icon name="arrow-left" /> {prevStep.label}</button>
+        ) : (
+          <button type="button" className="btn btn--glass btn--lg" onClick={() => navigate('/dashboard')}><Icon name="arrow-left" /> Designs</button>
+        )}
+        {nextStep ? (
+          <button type="button" className="btn btn--primary btn--lg" onClick={() => setMobileStep(nextStep.id)}>Next: {nextStep.label} <Icon name="arrow-right" /></button>
+        ) : (
+          <button type="button" className="btn btn--primary btn--lg" disabled={exporting} onClick={() => { void exportNow(isCar ? 'pdf' : undefined); }}>
+            <Icon name="download" /> {exporting ? 'Exporting…' : isCar ? 'Download PDF' : 'Download PNG'}
+          </button>
+        )}
       </div>
-      <div className="cp-mpanel" role="tabpanel">{mobilePanel}</div>
     </div>
   );
 
@@ -603,11 +681,12 @@ export default function EditorPage() {
     <div className="cp" data-ui={ui} style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--c-app)', color: 'var(--c-text)', overflow: 'hidden' }}>
       {/* top bar */}
       <div className="cp-topbar" style={{ position: 'relative', zIndex: 50, display: 'flex', alignItems: 'center', gap: 16, height: 60, flex: '0 0 60px', padding: '0 20px', background: 'var(--c-bar)', borderBottom: '1px solid var(--c-line)' }}>
-        <button onClick={() => navigate('/dashboard')} title="Back to dashboard" aria-label="Back to dashboard" style={{ display: 'flex', alignItems: 'center', gap: 11, border: 'none', background: 'none', cursor: 'pointer' }}>
+        <button onClick={() => navigate('/dashboard')} title="Back to dashboard" aria-label="Back to dashboard" style={{ display: 'flex', alignItems: 'center', gap: 10, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--c-text)', padding: '0 4px', minHeight: 44 }}>
+          <Icon name="arrow-left" />
           <CardstockMark size={30} />
           <div className="cp-brand-name" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, textAlign: 'left' }}>
             <span style={{ font: '800 16px/1 Archivo', color: 'var(--c-text)' }}>Cardstock</span>
-            <span className="cp-logosub" style={{ font: "600 9px/1.4 'Space Grotesk'", letterSpacing: '.22em', color: 'var(--c-dim)' }}>CARD &amp; CAROUSEL STUDIO</span>
+            <span className="cp-logosub" style={{ font: "600 9px/1.4 var(--font-ui)", letterSpacing: '.22em', color: 'var(--c-dim)' }}>CARD &amp; CAROUSEL STUDIO</span>
           </div>
         </button>
         <input
@@ -616,30 +695,33 @@ export default function EditorPage() {
           onChange={(e) => patch({ title: e.target.value })}
           placeholder="Untitled design"
           aria-label="Design title"
-          style={{ flex: 1, minWidth: 0, background: 'transparent', border: '1px solid var(--c-line2)', borderRadius: 8, color: 'var(--c-text)', font: "700 14px/1 'Space Grotesk'", padding: '10px 12px' }}
+          style={{ flex: 1, minWidth: 0, background: 'transparent', border: '1px solid var(--c-line2)', borderRadius: 8, color: 'var(--c-text)', font: "700 14px/1 var(--font-ui)", padding: '10px 12px' }}
         />
-        <span className="cp-topstatus" style={{ font: "500 13px/1 'Space Grotesk'", color: 'var(--c-dim)', flex: 'none', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name + (isCar ? ' · ' + design.slides.length + ' slides · 1080×1350' : ' · 1080×1080')}</span>
-        <button className="cp-theme-toggle" onClick={() => setUi(ui === 'light' ? 'dark' : 'light')} title={ui === 'light' ? 'Switch to dark' : 'Switch to light'} aria-label={ui === 'light' ? 'Switch to dark theme' : 'Switch to light theme'} style={{ width: 44, height: 44, borderRadius: 10, border: '1px solid var(--c-line2)', background: 'transparent', color: 'var(--c-dim2)', cursor: 'pointer', font: '16px/1', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{ui === 'light' ? '☽' : '☀'}</button>
+        <span className="cp-topstatus" style={{ font: "500 13px/1 var(--font-ui)", color: 'var(--c-dim)', flex: 'none', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name + (isCar ? ' · ' + design.slides.length + ' slides · 1080×1350' : ' · 1080×1080')}</span>
+        <button type="button" className="btn btn--glass cp-tpl-toggle" aria-expanded={tplOpen} onClick={() => setTplOpen(true)}><Icon name="grid" /> Templates</button>
+        <button className="cp-theme-toggle" onClick={() => setUi(ui === 'light' ? 'dark' : 'light')} title={ui === 'light' ? 'Switch to dark' : 'Switch to light'} aria-label={ui === 'light' ? 'Switch to dark theme' : 'Switch to light theme'} style={{ width: 44, height: 44, borderRadius: 10, border: '1px solid var(--c-line2)', background: 'transparent', color: 'var(--c-dim2)', cursor: 'pointer', font: '16px/1', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{ui === 'light' ? <Icon name="moon" /> : <Icon name="sun" />}</button>
+        <div className="cp-export">
         {isCar ? (
           <details ref={exportMenuRef} style={{ position: 'relative', flex: 'none', zIndex: 40 }}>
             <summary
               aria-label="Export carousel"
               onClick={(e) => { if (exporting) e.preventDefault(); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 9, listStyle: 'none', border: 'none', cursor: exporting ? 'wait' : 'pointer', font: "700 13px/1 'Space Grotesk'", padding: '14px 18px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)', opacity: exporting ? 0.6 : 1 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 9, listStyle: 'none', border: 'none', cursor: exporting ? 'wait' : 'pointer', font: "700 13px/1 var(--font-ui)", padding: '14px 18px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)', opacity: exporting ? 0.6 : 1 }}
             >
               {exporting ? 'Exporting…' : 'Export ▾'}
             </summary>
-            <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', width: 252, padding: 6, borderRadius: 12, border: '1px solid var(--c-line2)', background: 'var(--c-panel)', boxShadow: '0 18px 44px rgba(15, 27, 25, 0.2)' }}>
-              <button type="button" disabled={exporting} onClick={() => { if (exportMenuRef.current) exportMenuRef.current.open = false; void exportNow('pdf'); }} style={carouselExportOptionStyle}>PDF for LinkedIn <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--c-dim)', marginTop: 4 }}>One swipeable document</span></button>
-              <button type="button" disabled={exporting} onClick={() => { if (exportMenuRef.current) exportMenuRef.current.open = false; void exportNow('png-zip'); }} style={carouselExportOptionStyle}>PNG slides ZIP for Facebook <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--c-dim)', marginTop: 4 }}>Separate images in slide order</span></button>
+            <div className="cp-export-menu glass-strong">
+              <button type="button" className="cp-export-item" disabled={exporting} onClick={() => { if (exportMenuRef.current) exportMenuRef.current.open = false; void exportNow('pdf'); }}><span><Icon name="file" /></span><span><b>PDF for LinkedIn</b><small>One swipeable document · {design.slides.length} pages</small></span></button>
+              <button type="button" className="cp-export-item" disabled={exporting} onClick={() => { if (exportMenuRef.current) exportMenuRef.current.open = false; void exportNow('png-zip'); }}><span><Icon name="zip" /></span><span><b>PNG slides ZIP for Facebook</b><small>Separate images in slide order</small></span></button>
             </div>
           </details>
         ) : (
-          <button onClick={() => { void exportNow(); }} disabled={exporting} style={{ display: 'flex', alignItems: 'center', gap: 9, border: 'none', cursor: exporting ? 'wait' : 'pointer', font: "700 13px/1 'Space Grotesk'", padding: '12px 18px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)', opacity: exporting ? 0.6 : 1, flex: 'none' }}>
+          <button onClick={() => { void exportNow(); }} disabled={exporting} style={{ display: 'flex', alignItems: 'center', gap: 9, border: 'none', cursor: exporting ? 'wait' : 'pointer', font: "700 13px/1 var(--font-ui)", padding: '12px 18px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)', opacity: exporting ? 0.6 : 1, flex: 'none' }}>
             {exporting ? <span style={{ width: 13, height: 13, border: '2px solid color-mix(in srgb, var(--c-accent-ink) 35%, transparent)', borderTopColor: 'var(--c-accent-ink)', borderRadius: '50%', animation: 'cp-spin .7s linear infinite' }} /> : <span style={{ fontSize: 14 }}>↓</span>}
             {exporting ? 'Exporting…' : 'Export PNG'}
           </button>
         )}
+        </div>
       </div>
 
       {saveConflict && (
@@ -665,16 +747,16 @@ export default function EditorPage() {
   );
 }
 
-const centerBox: CSSProperties = { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--c-app)', color: 'var(--c-dim)', font: "600 14px/1 'Space Grotesk'" };
-const inputStyle: CSSProperties = { width: '100%', background: 'var(--c-input)', border: '1px solid var(--c-line2)', borderRadius: 9, color: 'var(--c-text)', font: "500 14px/1.4 'Space Grotesk'", padding: '10px 12px', boxSizing: 'border-box' };
+const centerBox: CSSProperties = { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--c-app)', color: 'var(--c-dim)', font: "600 14px/1 var(--font-ui)" };
+const inputStyle: CSSProperties = { width: '100%', background: 'var(--c-input)', border: '1px solid var(--c-line2)', borderRadius: 9, color: 'var(--c-text)', font: "500 14px/1.4 var(--font-ui)", padding: '10px 12px', boxSizing: 'border-box' };
 function filmCtrl(disabled: boolean): CSSProperties {
   return { width: 40, height: 40, flex: 'none', borderRadius: 9, border: '1px solid var(--c-line2)', background: 'var(--c-chip)', color: 'var(--c-text)', cursor: disabled ? 'not-allowed' : 'pointer', font: '20px/1 Archivo', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.4 : 1 };
 }
-const linkBtn: CSSProperties = { border: 'none', background: 'none', color: 'var(--c-dim)', font: "600 11px/1 'Space Grotesk'", cursor: 'pointer', padding: 0, marginTop: 4 };
+const linkBtn: CSSProperties = { border: 'none', background: 'none', color: 'var(--c-dim)', font: "600 11px/1 var(--font-ui)", cursor: 'pointer', padding: 0, marginTop: 4 };
 function txtStepBtn(disabled: boolean): CSSProperties {
-  return { flex: 'none', width: 40, height: 34, borderRadius: 8, border: '1px solid var(--c-line2)', background: 'var(--c-chip)', color: 'var(--c-text)', cursor: disabled ? 'not-allowed' : 'pointer', font: "700 13px/1 'Space Grotesk'", opacity: disabled ? 0.4 : 1 };
+  return { flex: 'none', width: 40, height: 34, borderRadius: 8, border: '1px solid var(--c-line2)', background: 'var(--c-chip)', color: 'var(--c-text)', cursor: disabled ? 'not-allowed' : 'pointer', font: "700 13px/1 var(--font-ui)", opacity: disabled ? 0.4 : 1 };
 }
-const accentPill: CSSProperties = { border: 'none', cursor: 'pointer', font: "700 13px/1 'Space Grotesk'", padding: '12px 20px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)' };
+const accentPill: CSSProperties = { border: 'none', cursor: 'pointer', font: "700 13px/1 var(--font-ui)", padding: '12px 20px', borderRadius: 10, background: 'var(--c-accent)', color: 'var(--c-accent-ink)' };
 function arrowStyle(dir: 'left' | 'right'): CSSProperties {
   return { position: 'absolute', [dir]: 18, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', border: '1px solid var(--c-line2)', background: 'var(--c-panel)', color: 'var(--c-text)', cursor: 'pointer', font: '20px/1 Archivo', zIndex: 3, boxShadow: '0 6px 20px rgba(0,0,0,.12)' } as CSSProperties;
 }
@@ -685,7 +767,7 @@ function Section({ title, action, children }: { title: string; action?: React.Re
   return (
     <div style={{ padding: '18px 18px', borderBottom: '1px solid var(--c-line)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14 }}>
-        <div style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.16em', color: 'var(--c-dim2)' }}>{title}</div>
+        <div style={{ font: "700 11px/1 var(--font-ui)", letterSpacing: '.16em', color: 'var(--c-dim2)' }}>{title}</div>
         {action}
       </div>
       {children}
@@ -695,7 +777,7 @@ function Section({ title, action, children }: { title: string; action?: React.Re
 function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label style={{ display: 'block', marginBottom: 14 }}>
-      <span style={{ display: 'block', font: "600 10px/1 'Space Grotesk'", letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-dim)', marginBottom: 7 }}>{label}</span>
+      <span style={{ display: 'block', font: "600 10px/1 var(--font-ui)", letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-dim)', marginBottom: 7 }}>{label}</span>
       {children}
     </label>
   );
@@ -712,8 +794,8 @@ function ColorRow({ label, value, onChange }: { label: string; value: string; on
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
       <input type="color" value={hex} onChange={(e) => onChange(e.target.value)} aria-label={label + ' colour'} style={{ width: 34, height: 34, borderRadius: 8, flex: 'none' }} />
-      <span style={{ font: "500 12px/1 'Space Grotesk'", color: 'var(--c-dim2)', flex: 1 }}>{label}</span>
-      <span style={{ font: "500 12px/1 'Space Grotesk'", color: 'var(--c-dim)' }}>{String(value).toUpperCase()}</span>
+      <span style={{ font: "500 12px/1 var(--font-ui)", color: 'var(--c-dim2)', flex: 1 }}>{label}</span>
+      <span style={{ font: "500 12px/1 var(--font-ui)", color: 'var(--c-dim)' }}>{String(value).toUpperCase()}</span>
     </div>
   );
 }
@@ -758,12 +840,12 @@ const TemplatePicker = memo(function TemplatePicker(props: TemplatePickerProps) 
         return (
           <button key={tid} onClick={() => onPick(tid)} title={TEMPLATES[tid].name} aria-pressed={on} style={{ border: on ? '2px solid var(--c-accent)' : '1px solid var(--c-line2)', background: 'var(--c-chip)', borderRadius: 10, padding: 5, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, textAlign: 'left' }}>
             <TemplateThumbnail tid={tid} bg={bg} text={text} accent={accent} name={name} handle={handle} avatar={avatar} designation={designation} companyName={companyName} companyLogo={companyLogo} cvW={cvW} cvH={cvH} />
-            <span style={{ font: "600 10px/1.1 'Space Grotesk'", color: on ? 'var(--c-accent-ink)' : 'var(--c-dim)', paddingLeft: 2 }}>{TEMPLATES[tid].name}</span>
+            <span style={{ font: "600 10px/1.1 var(--font-ui)", color: on ? 'var(--c-accent-ink)' : 'var(--c-dim)', paddingLeft: 2 }}>{TEMPLATES[tid].name}</span>
           </button>
         );
       })}
       </div>
-      {visibleTemplates.length === 0 && <p style={{ font: "500 12px/1.4 'Space Grotesk'", color: 'var(--c-dim)' }}>No templates match this search.</p>}
+      {visibleTemplates.length === 0 && <p style={{ font: "500 12px/1.4 var(--font-ui)", color: 'var(--c-dim)' }}>No templates match this search.</p>}
     </div>
   );
 });

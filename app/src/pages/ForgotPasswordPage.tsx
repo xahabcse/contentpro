@@ -34,14 +34,14 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <AuthShell title="Check your email" subtitle="If an account exists for that address, a reset link is on its way.">
+      <AuthShell icon="mail" eyebrow="Reset link sent" title={<>Check your <em>email.</em></>} subtitle="If an account exists for that address, a reset link is on its way.">
         <Link to="/login" className="btn btn-outline" style={{ textDecoration: 'none' }}>Back to login</Link>
       </AuthShell>
     );
   }
 
   return (
-    <AuthShell title="Forgot password" subtitle="We'll email you a reset link.">
+    <AuthShell icon="key" eyebrow="Forgot password" title={<>It happens. <em>Let's reset it.</em></>} subtitle="Enter the email you signed up with and we'll send you a reset link.">
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: 16 }}>
           <label className="label" htmlFor="email">Email</label>

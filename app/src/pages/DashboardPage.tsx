@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import AppShell from '@/components/layout/AppShell';
 import SlideCanvas from '@/components/editor/SlideCanvas';
+import SlidePreview from '@/components/editor/SlidePreview';
+import Icon from '@/components/ui/Icon';
+import SkySwitch from '@/components/ui/SkySwitch';
 import { resolveColors } from '@/lib/palettes';
 import { canvasSize, type FooterData, type LocalDesign, type ResolvedSlide, type TemplateId } from '@/lib/design-types';
 import { TEMPLATES } from '@/lib/templates';
@@ -13,20 +16,64 @@ import { useToast } from '@/lib/toast';
 
 interface Profile { name?: string; handle?: string; photoUrl?: string | null; designation?: string; companyName?: string; companyLogoUrl?: string | null }
 
+type Filter = 'all' | 'card' | 'carousel';
+
+const STARTERS: [TemplateId, string, string][] = [
+  ['birthday', 'paper', 'Birthday Wish'],
+  ['event', 'navy', 'Event Invite'],
+  ['congrats', 'wine', 'Congratulations'],
+  ['hiring', 'charcoal', 'Hiring / Job'],
+  ['contrast', 'sand', 'Before / After'],
+  ['question', 'paper', 'Bold Question'],
+];
+
+function greeting(): string {
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Dhaka' }).format(new Date()));
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+
+  return 'Good evening';
+}
+
+function firstName(name?: string): string {
+  const parts = (name ?? '').replace(/^md\.?\s+/i, '').trim().split(/\s+/);
+
+  return parts[0] ?? '';
+}
+
+function initials(name?: string): string {
+  const parts = (name ?? '').replace(/^md\.?\s+/i, '').trim().split(/\s+/).filter(Boolean);
+
+  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?';
+}
+
+function editedLabel(time: number): string {
+  const diff = Date.now() - time;
+  if (diff < 60_000) return 'just now';
+  if (diff < 3_600_000) return `${Math.round(diff / 60_000)} min ago`;
+  if (diff < 86_400_000) return `${Math.round(diff / 3_600_000)} h ago`;
+
+  return new Date(time).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const toast = useToast();
   const { user } = useAuth();
   const ownerId = user?.id;
   const requestedTemplate = searchParams.get('template');
   const selectedTemplate = requestedTemplate && Object.hasOwn(TEMPLATES, requestedTemplate) ? requestedTemplate as TemplateId : null;
   const selectedFormat = searchParams.get('format');
+  const createRequest = searchParams.get('create');
   const [designs, setDesigns] = useState<LocalDesign[]>([]);
   const [profile, setProfile] = useState<Profile>({});
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [bgUrls, setBgUrls] = useState<Record<string, string>>({});
   const [pendingDelete, setPendingDelete] = useState<LocalDesign | null>(null);
   const [legacyAvailable, setLegacyAvailable] = useState(false);
+  const [filter, setFilter] = useState<Filter>('all');
+  const [query, setQuery] = useState('');
   const restoreInput = useRef<HTMLInputElement>(null);
 
   function reload() {
@@ -48,7 +95,11 @@ export default function DashboardPage() {
         toast.error(error instanceof Error ? error.message : 'Could not read saved designs.');
       }
     });
-    fetch('/api/profile', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)).then((p) => { if (!cancelled && p) setProfile(p); }).catch(() => {});
+    fetch('/api/profile', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((p) => { if (!cancelled && p) setProfile(p); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setProfileLoaded(true); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerId]);
@@ -80,6 +131,16 @@ export default function DashboardPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [pendingDelete]);
+
+  // "New card" / "New carousel" from the app chrome arrive as ?create=...
+  useEffect(() => {
+    if (!profileLoaded || (createRequest !== 'card' && createRequest !== 'carousel')) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('create');
+    setSearchParams(next, { replace: true });
+    handleCreate(createRequest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileLoaded, createRequest]);
 
   const footerData: FooterData = {
     name: profile.name ?? '',
@@ -170,149 +231,215 @@ export default function DashboardPage() {
 
   const cardCount = designs.filter((d) => d.type === 'card').length;
   const carouselCount = designs.filter((d) => d.type === 'carousel').length;
-  const countLine = designs.length
-    ? [cardCount ? `${cardCount} card${cardCount === 1 ? '' : 's'}` : '', carouselCount ? `${carouselCount} carousel${carouselCount === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')
-    : '';
+  const visible = designs.filter((d) => (filter === 'all' || d.type === filter)
+    && (d.title || 'Untitled').toLowerCase().includes(query.trim().toLowerCase()));
+  const who = firstName(profile.name);
+  const profileReady = Boolean(profile.name && profile.handle);
+  const today = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Dhaka' }).format(new Date());
 
   return (
-    <AppShell title="Your designs">
-      {selectedTemplate && (
-        <div className="card-surface" role="note" style={{ padding: 16, marginBottom: 18 }}>
-          <strong>{TEMPLATES[selectedTemplate].name} template selected</strong>
-          <p style={{ margin: '5px 0 0', fontSize: 13, color: 'var(--muted)' }}>
-            Start a card or carousel below. This template will be the first slide; you can change it in the editor.
-          </p>
-        </div>
-      )}
-      {/* create actions */}
-      <div className="dash-create">
-        <button className="dash-tile dash-tile-primary" onClick={() => handleCreate('card')} style={selectedFormat === 'card' ? { boxShadow: '0 0 0 2px var(--brand)' } : undefined}>
-          <span className="dash-tile-ic" style={{ background: 'rgba(27,22,14,0.12)' }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" /><path d="M7.5 15.5l3-3.5 2.3 2.5L16 11" /></svg>
-          </span>
-          <span style={{ minWidth: 0 }}>
-            <span style={{ display: 'block', font: '800 17px/1.1 var(--font-display)', color: 'var(--ink)' }}>{selectedTemplate ? `New ${TEMPLATES[selectedTemplate].name} card` : 'New card'}</span>
-            <span style={{ display: 'block', marginTop: 3, font: '500 12px/1.3 var(--font-ui)', color: 'rgba(27,22,14,0.62)' }}>Single square post · 1080×1080</span>
-          </span>
-        </button>
-        <button className="dash-tile" onClick={() => handleCreate('carousel')} style={selectedFormat === 'carousel' ? { boxShadow: '0 0 0 2px var(--brand)' } : undefined}>
-          <span className="dash-tile-ic" style={{ background: 'var(--surface)', border: '1px solid var(--line)' }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="7.5" y="4.5" width="13" height="15" rx="2.5" /><path d="M4.5 7v10" opacity="0.5" /><path d="M2 9v6" opacity="0.28" /></svg>
-          </span>
-          <span style={{ minWidth: 0 }}>
-            <span style={{ display: 'block', font: '800 17px/1.1 var(--font-display)', color: 'var(--ink)' }}>{selectedTemplate ? `New ${TEMPLATES[selectedTemplate].name} carousel` : 'New carousel'}</span>
-            <span style={{ display: 'block', marginTop: 3, font: '500 12px/1.3 var(--font-ui)', color: 'var(--muted)' }}>Multi-slide swipe deck · up to 15</span>
-          </span>
-        </button>
-      </div>
-
-      {/* saved-designs header + toolbar */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 6 }}>
+    <AppShell title="Designs">
+      <header className="page-head rise">
         <div>
-          <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0, fontFamily: 'var(--font-display)' }}>Saved designs</h2>
-          {countLine ? <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 3 }}>{countLine}</div> : null}
+          <span className="eyebrow">{today}</span>
+          <h1 className="display">{greeting()}{who ? <>, <em>{who}.</em></> : '.'}</h1>
+          <p className="lede">Pick up where you left off, or start something new.</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="dash-ghost" onClick={handleBackup} title="Download a JSON backup of all designs">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12" /><path d="M7 11l5 5 5-5" /><path d="M4 20h16" /></svg>
-            Back up
-          </button>
-          <button className="dash-ghost" onClick={() => restoreInput.current?.click()} title="Restore designs from a backup file">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21V9" /><path d="M7 13l5-5 5 5" /><path d="M4 4h16" /></svg>
-            Restore
-          </button>
+        <div className="page-head__tools">
+          <SkySwitch />
+          <button type="button" className="btn btn--glass" onClick={() => restoreInput.current?.click()} title="Restore designs from a backup file"><Icon name="upload" /> Restore</button>
+          <button type="button" className="btn btn--glass" onClick={handleBackup} title="Download a JSON backup of all designs"><Icon name="download" /> Backup</button>
           <input ref={restoreInput} type="file" accept="application/json" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRestore(f); e.currentTarget.value = ''; }} />
         </div>
-      </div>
-      <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 20px' }}>
-        Saved <strong>in this browser only</strong> — they don't sync across devices. Back up to keep or move them.
-      </p>
+      </header>
 
-      {legacyAvailable && (
-        <div role="note" className="card-surface" style={{ padding: 16, marginBottom: 20 }}>
-          <strong>Older browser designs found</strong>
-          <p style={{ margin: '6px 0 12px', fontSize: 13, color: 'var(--muted)' }}>
-            These designs were saved before accounts had separate browser storage. Their owner is unknown, so import them only if they belong to you. The originals will stay on this browser.
-          </p>
-          <button className="dash-ghost" onClick={handleLegacyImport}>Import my older designs</button>
+      {selectedTemplate && (
+        <div className="note glass" role="note">
+          <Icon name="sparkle" />
+          <div>
+            <b>{TEMPLATES[selectedTemplate].name} template selected</b>
+            <p>Start a card or carousel below. This template will be the first slide; you can change it in the editor.</p>
+          </div>
         </div>
       )}
 
-      {!designs.length ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center', padding: '52px 24px', border: '1.5px dashed var(--line-2)', borderRadius: 18, color: 'var(--muted)' }}>
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" /><path d="M8 14l2.5-3 2 2.2L15 10l1.5 1.8" /></svg>
-          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>No designs yet</div>
-          <div style={{ fontSize: 13.5, maxWidth: 320 }}>Create your first card or carousel above — it takes about a minute.</div>
+      <section className="create rise rise-2" aria-label="Start a design">
+        <button type="button" className="new glass" data-selected={selectedFormat === 'card'} onClick={() => handleCreate('card')}>
+          <div>
+            <span className="new__icon"><Icon name="square" /></span>
+            <h2>{selectedTemplate ? `New ${TEMPLATES[selectedTemplate].name} card` : 'New card'}</h2>
+            <p>Single square post · 1080 × 1080</p>
+            <span className="new__go">Start a card <Icon name="arrow-right" /></span>
+          </div>
+          <div className="new__art" aria-hidden="true">
+            <SlidePreview template={selectedTemplate ?? 'quote'} palette="forest" footer={footerData} />
+          </div>
+        </button>
+        <button type="button" className="new glass" data-selected={selectedFormat === 'carousel'} onClick={() => handleCreate('carousel')}>
+          <div>
+            <span className="new__icon"><Icon name="layers" /></span>
+            <h2>{selectedTemplate ? `New ${TEMPLATES[selectedTemplate].name} carousel` : 'New carousel'}</h2>
+            <p>Multi-slide swipe deck · up to 15</p>
+            <span className="new__go">Start a deck <Icon name="arrow-right" /></span>
+          </div>
+          <div className="new__art new__art--deck" aria-hidden="true">
+            <SlidePreview template="stat" palette="cobalt" format="carousel" footer={footerData} />
+            <SlidePreview template={selectedTemplate ?? 'cover'} palette="cobalt" format="carousel" footer={footerData} />
+            <SlidePreview template="tips" palette="cobalt" format="carousel" footer={footerData} />
+          </div>
+        </button>
+        <aside className="sig surface">
+          <div className="sig__head">
+            <span className="eyebrow">Your signature</span>
+            <Link to="/settings/profile" className="btn btn--sm btn--quiet">Edit <Icon name="chevron-right" /></Link>
+          </div>
+          <div className="sig__who">
+            <span className="avatar" style={{ width: 52, height: 52, fontSize: 15 }}>
+              {profile.photoUrl ? <img src={profile.photoUrl} alt="" /> : initials(profile.name)}
+            </span>
+            <div><b>{profile.name || 'Add your name'}</b><span>{profile.designation || 'Add your designation'}</span></div>
+          </div>
+          {profileReady ? (
+            <div className="sig__rows">
+              <div>Handle <b>@{profile.handle}</b></div>
+              <div>Company <b>{profile.companyName || '—'}</b></div>
+              <div>Logo <b>{profile.companyLogoUrl ? <span className="badge badge--ok"><Icon name="check" /> Added</span> : '—'}</b></div>
+            </div>
+          ) : (
+            <p className="hint" style={{ margin: 0 }}>Designs are signed with your name and handle. Add them once before you start.</p>
+          )}
+        </aside>
+      </section>
+
+      <div className="block-head">
+        <h2>Start from a template</h2>
+        <Link to="/#templates" className="btn btn--quiet">Browse all 100 <Icon name="arrow-right" /></Link>
+      </div>
+      <div className="starter">
+        {STARTERS.map(([template, palette, label]) => (
+          <Link key={template} to={`/dashboard?template=${template}`}>
+            <SlidePreview template={template} palette={palette} footer={footerData} lazy />
+            {label}
+          </Link>
+        ))}
+      </div>
+
+      {legacyAvailable && (
+        <div className="note glass" role="note" style={{ marginTop: 24 }}>
+          <Icon name="info" />
+          <div>
+            <b>Older browser designs found</b>
+            <p>These designs were saved before accounts had separate browser storage. Their owner is unknown, so import them only if they belong to you. The originals will stay on this browser.</p>
+            <button type="button" className="btn btn--sm btn--glass" style={{ marginTop: 10 }} onClick={handleLegacyImport}>Import my older designs</button>
+          </div>
         </div>
+      )}
+
+      <div className="block-head">
+        <h2>Saved designs <span className="badge">{designs.length}</span></h2>
+        <div className="block-head__tools">
+          <div className="seg" role="group" aria-label="Filter designs">
+            <button type="button" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>All</button>
+            <button type="button" aria-pressed={filter === 'card'} onClick={() => setFilter('card')}>Cards {cardCount ? <span className="chip__n">{cardCount}</span> : null}</button>
+            <button type="button" aria-pressed={filter === 'carousel'} onClick={() => setFilter('carousel')}>Carousels {carouselCount ? <span className="chip__n">{carouselCount}</span> : null}</button>
+          </div>
+          <div className="input-wrap" style={{ width: 240 }}>
+            <Icon name="search" />
+            <input className="input" style={{ minHeight: 40 }} type="search" placeholder="Search designs" aria-label="Search designs" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+        </div>
+      </div>
+
+      {!designs.length ? (
+        <div className="empty">
+          <Icon name="image" size={34} />
+          <b>No designs yet</b>
+          <span>Create your first card or carousel above — it takes about a minute.</span>
+        </div>
+      ) : !visible.length ? (
+        <p className="empty-note" role="status">No designs match this filter.</p>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 208px)', gap: 16, justifyContent: 'flex-start' }}>
-          {designs.map((d) => {
+        <div className="saved-grid">
+          {visible.map((d) => {
             const cv = canvasSize(d.type);
             const colors = resolveColors(d.paletteId, { bg: d.customBg, text: d.customText, accent: d.customAccent });
             const first = d.slides[0];
             const slide: ResolvedSlide = { template: first.template, fields: first.fields, bgImage: first.bgImageId ? bgUrls[first.bgImageId] ?? null : null };
-            const THUMB_W = 208;
             return (
-              <div key={d.id} className="dash-card">
-                <button className="dash-thumb" onClick={() => navigate('/designs/' + d.id)} aria-label={`Open ${d.title || 'Untitled'}`}>
-                  <span className="dash-badge">{d.type === 'card' ? 'Card' : `Deck · ${d.slides.length}`}</span>
-                  <div style={{ width: THUMB_W, height: THUMB_W * (cv.h / cv.w), position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ width: cv.w, height: cv.h, transform: `scale(${THUMB_W / cv.w})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-                      <SlideCanvas slide={slide} colors={colors} footer={footerData} width={cv.w} height={cv.h} />
-                    </div>
-                  </div>
-                  <span className="dash-thumb-overlay">Open ↗</span>
+              <article key={d.id} className="saved surface">
+                <button type="button" className="saved__art" data-type={d.type} onClick={() => navigate('/designs/' + d.id)} aria-label={`Open ${d.title || 'Untitled'}`}>
+                  {d.type === 'carousel' && <span className="saved__stack" aria-hidden="true" />}
+                  <ThumbCanvas slide={slide} colors={colors} footer={footerData} w={cv.w} h={cv.h} />
                 </button>
-                <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title || 'Untitled'}</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{new Date(d.updatedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 7 }}>
-                    <button className="dash-act" title="Make a copy" onClick={() => handleDuplicate(d.id)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>
-                      Duplicate
-                    </button>
-                    <button className="dash-act dash-act-danger" title="Delete this design" onClick={() => setPendingDelete(d)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /></svg>
-                      Delete
-                    </button>
-                  </div>
+                <div className="saved__body">
+                  <h3 className="saved__name">{d.title || 'Untitled'}</h3>
+                  <p className="saved__meta">
+                    <Icon name={d.type === 'card' ? 'square' : 'layers'} />
+                    <span>{d.type === 'card' ? 'Card · 1080²' : `Carousel · ${d.slides.length} slide${d.slides.length === 1 ? '' : 's'}`}</span>
+                    <span>{editedLabel(d.updatedAt)}</span>
+                  </p>
                 </div>
-              </div>
+                <div className="saved__acts">
+                  <button type="button" className="btn btn--sm btn--glass" onClick={() => navigate('/designs/' + d.id)}>Open</button>
+                  <button type="button" className="btn btn--sm btn--quiet btn--icon" title="Make a copy" aria-label="Make a copy" onClick={() => handleDuplicate(d.id)}><Icon name="copy" /></button>
+                  <button type="button" className="btn btn--sm btn--quiet btn--icon" title="Delete this design" aria-label="Delete this design" onClick={() => setPendingDelete(d)}><Icon name="trash" /></button>
+                </div>
+              </article>
             );
           })}
         </div>
       )}
 
+      <div className="store-note glass">
+        <Icon name="drive" />
+        <span><b>Saved in this browser only.</b> Designs don't sync across devices; clearing site data removes them. Back up to keep or move them.</span>
+        <button type="button" className="btn btn--sm btn--primary" onClick={handleBackup}><Icon name="download" /> Download backup</button>
+      </div>
+
       {pendingDelete && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="del-title"
-          onClick={() => setPendingDelete(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(27,22,14,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'dash-fade .15s ease' }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ width: '100%', maxWidth: 400, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 18, padding: 24, boxShadow: '0 30px 80px rgba(27,22,14,0.3)' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <span style={{ width: 40, height: 40, borderRadius: 11, flex: 'none', background: 'rgba(225,64,43,0.12)', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /></svg>
-              </span>
-              <h3 id="del-title" style={{ margin: 0, fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-display)' }}>Delete this design?</h3>
+        <div role="dialog" aria-modal="true" aria-labelledby="del-title" className="modal" onClick={() => setPendingDelete(null)}>
+          <div className="modal__card glass-strong" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span className="new__icon" style={{ background: 'rgba(225,64,43,0.14)', color: 'var(--danger)' }}><Icon name="trash" /></span>
+              <h3 id="del-title">Delete this design?</h3>
             </div>
-            <p style={{ margin: '0 0 20px', fontSize: 14, lineHeight: 1.5, color: 'var(--muted)' }}>
+            <p>
               <strong style={{ color: 'var(--ink)' }}>{pendingDelete.title || 'Untitled'}</strong> will be permanently removed from this browser. This can't be undone.
             </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn btn-outline" style={{ width: 'auto', height: 42, padding: '0 18px', fontSize: 14 }} onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button className="btn" style={{ width: 'auto', height: 42, padding: '0 20px', fontSize: 14, background: 'var(--danger)', color: '#fff' }} onClick={confirmDelete} autoFocus>Delete</button>
+            <div className="modal__acts">
+              <button type="button" className="btn btn--glass" onClick={() => setPendingDelete(null)}>Cancel</button>
+              <button type="button" className="btn btn--danger" onClick={confirmDelete} autoFocus>Delete</button>
             </div>
           </div>
         </div>
       )}
     </AppShell>
+  );
+}
+
+// A saved design's first slide, fitted to the tile's width.
+function ThumbCanvas({ slide, colors, footer, w, h }: { slide: ResolvedSlide; colors: ReturnType<typeof resolveColors>; footer: FooterData; w: number; h: number }) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const node = boxRef.current;
+    if (!node) return;
+    const update = () => setWidth(Math.round(node.getBoundingClientRect().width));
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={boxRef} className="slide-preview" style={{ aspectRatio: `${w} / ${h}`, background: colors.bg }}>
+      {width > 0 && (
+        <div style={{ width: w, height: h, transform: `scale(${width / w})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+          <SlideCanvas slide={slide} colors={colors} footer={footer} width={w} height={h} />
+        </div>
+      )}
+    </div>
   );
 }

@@ -58,7 +58,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthShell title="Log in" subtitle="Welcome back.">
+    <AuthShell eyebrow="Welcome back" title={<>Log in to your <em>studio.</em></>} subtitle="Your designs are waiting in this browser.">
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: 16 }}>
           <label className="label" htmlFor="email">Email</label>

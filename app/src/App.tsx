@@ -16,6 +16,8 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 export default function App() {
   return (
+    <>
+    <div className="sky" aria-hidden="true" />
     <Suspense fallback={<div role="status" style={{ padding: 32, textAlign: 'center' }}>Loading…</div>}>
       <Routes>
       <Route path="/" element={<LandingPage />} />
@@ -38,5 +40,6 @@ export default function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
+    </>
   );
 }

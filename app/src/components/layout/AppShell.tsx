@@ -1,158 +1,186 @@
-import { useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
+import { listDesigns, storagePressure } from '@/lib/local-store';
 import { CardstockLogo } from '@/components/Logo';
+import Icon from '@/components/ui/Icon';
+import SkySwitch from '@/components/ui/SkySwitch';
 import versionData from '@/version.json';
 
 interface AppShellProps {
+  // Short page name for the tablet/phone app bar; the page draws its own heading.
   title: string;
   children: ReactNode;
 }
 
-// Mobile-first top bar: hamburger (left) + wordmark, condensed avatar action
-// (right); the nav links collapse into the hamburger menu on all viewports.
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function initials(name: string | undefined, email: string | undefined): string {
+  const source = (name ?? '').trim();
+  if (source) {
+    const parts = source.replace(/^md\.?\s+/i, '').split(/\s+/).filter(Boolean);
+    return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?';
+  }
+
+  return email?.[0]?.toUpperCase() ?? '?';
+}
+
+// Signed-in chrome. Desktop: a floating glass rail. Tablet: an app bar with a
+// menu drawer. Phone: an app bar plus a bottom tab bar (studio.css decides).
 export default function AppShell({ title, children }: AppShellProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [usage, setUsage] = useState<{ used: number; ratio: number } | null>(null);
+  const designCount = user ? safeCount(user.id) : 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    storagePressure()
+      .then((pressure) => { if (!cancelled && pressure) setUsage({ used: pressure.usage, ratio: pressure.ratio }); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen && !newOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        setNewOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menuOpen, newOpen]);
 
   async function handleLogout() {
     await logout();
     navigate('/login');
   }
 
-  return (
-    <div className="app-shell" style={{ minHeight: '100vh' }}>
-      <header
-        className="card-surface app-header"
-        style={{
-          borderRadius: 0,
-          borderLeft: 'none',
-          borderRight: 'none',
-          borderTop: 'none',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1120,
-            margin: '0 auto',
-            padding: '12px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <button
-              className="app-burger"
-              aria-label="Menu"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((v) => !v)}
-              style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 10, color: 'var(--ink)' }}
-            >
-              ☰
-            </button>
-            <Link to="/dashboard" aria-label="Cardstock dashboard" style={{ textDecoration: 'none', display: 'flex' }}>
-              <CardstockLogo size={28} wordSize={18} color="var(--ink)" />
-            </Link>
-          </div>
+  function startNew(type: 'card' | 'carousel') {
+    setNewOpen(false);
+    setMenuOpen(false);
+    navigate(`/dashboard?create=${type}`);
+  }
 
-          {/* desktop inline nav */}
-          <nav className="app-nav-inline">
-            <Link to="/" style={inlineLinkStyle}>Home</Link>
-            <Link to="/dashboard" style={inlineLinkStyle}>Dashboard</Link>
-            <Link to="/settings/profile" style={inlineLinkStyle}>Profile &amp; Company</Link>
-            <Link to="/about" style={inlineLinkStyle}>About</Link>
-            <button onClick={handleLogout} style={{ ...inlineLinkStyle, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>Log out</button>
-            <div
-              style={{ width: 34, height: 34, borderRadius: 9999, background: 'var(--brand)', color: 'var(--brand-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flex: 'none' }}
-              title={user?.email}
-            >
-              {user?.email?.[0]?.toUpperCase() ?? '?'}
+  const name = user?.profile?.name;
+  const mark = initials(name, user?.email);
+  const current = (path: string) => (pathname === path ? 'page' as const : undefined);
+
+  const navLinks = (onPick?: () => void) => (
+    <>
+      <Link className="nav-link" to="/dashboard" aria-current={current('/dashboard')} onClick={onPick}><Icon name="grid" /> Dashboard</Link>
+      <button type="button" className="nav-link" onClick={() => startNew('card')}><Icon name="square" /> New card</button>
+      <button type="button" className="nav-link" onClick={() => startNew('carousel')}><Icon name="layers" /> New carousel</button>
+      <span className="nav-label">Account</span>
+      <Link className="nav-link" to="/settings/profile" aria-current={current('/settings/profile')} onClick={onPick}><Icon name="user" /> Profile &amp; Company</Link>
+      <Link className="nav-link" to="/about" onClick={onPick}><Icon name="info" /> About</Link>
+      <Link className="nav-link" to="/" onClick={onPick}><Icon name="home" /> Home</Link>
+    </>
+  );
+
+  const storeBox = (
+    <div className="store surface">
+      <div className="store__row"><b>This browser</b><span className="badge"><Icon name="drive" /> Local</span></div>
+      <div className="meter" aria-hidden="true"><span style={{ width: `${Math.max(2, Math.min(100, (usage?.ratio ?? 0) * 100))}%` }} /></div>
+      <span>{designCount} design{designCount === 1 ? '' : 's'}{usage ? ` · ${formatBytes(usage.used)} used` : ''}</span>
+    </div>
+  );
+
+  const me = (
+    <div className="me">
+      <span className="avatar">{mark}</span>
+      <div><b>{name || 'Your account'}</b><span>{user?.email}</span></div>
+      <button type="button" className="btn btn--sm btn--quiet btn--icon" aria-label="Log out" title="Log out" onClick={handleLogout}><Icon name="logout" /></button>
+    </div>
+  );
+
+  return (
+    <div className="app">
+      <aside className="rail glass-strong" aria-label="Cardstock dashboard">
+        <Link to="/dashboard" className="logo-link" aria-label="Cardstock dashboard">
+          <CardstockLogo size={32} wordSize={18} color="var(--ink)" />
+        </Link>
+        {navLinks()}
+        {storeBox}
+        <SkySwitch />
+        {me}
+      </aside>
+
+      <div>
+        <header className="appbar glass-strong">
+          <button type="button" className="btn btn--glass btn--icon appbar__menu" aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
+            <Icon name="menu" />
+          </button>
+          <Link to="/dashboard" className="logo-link" aria-label="Cardstock dashboard">
+            <CardstockLogo size={28} wordSize={17} color="var(--ink)" />
+          </Link>
+          <span className="appbar__title">/ {title}</span>
+          <div className="appbar__end">
+            <button type="button" className="btn btn--primary appbar__new" onClick={() => setNewOpen(true)}><Icon name="plus" /> New design</button>
+            <span className="avatar" title={user?.email}>{mark}</span>
+          </div>
+        </header>
+
+        <main className="main">{children}</main>
+
+        <footer className="app-foot">
+          Cardstock v{versionData.version} · © 2026 <a href="https://www.xahabcse.me/" target="_blank" rel="noopener noreferrer">xahabcse.me</a>
+        </footer>
+      </div>
+
+      <nav className="tabbar glass-strong" aria-label="App">
+        <Link to="/dashboard" aria-current={current('/dashboard')}><Icon name="grid" />Designs</Link>
+        <Link to="/#templates"><Icon name="sparkle" />Templates</Link>
+        <button type="button" className="tabbar__new" aria-label="New design" onClick={() => setNewOpen(true)}><span><Icon name="plus" /></span></button>
+        <Link to="/settings/profile" aria-current={current('/settings/profile')}><Icon name="user" />Profile</Link>
+        <button type="button" aria-label="More" onClick={() => setMenuOpen(true)}><Icon name="menu" />More</button>
+      </nav>
+
+      {menuOpen && (
+        <>
+          <button type="button" className="scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />
+          <nav className="drawer glass-strong" aria-label="Menu">
+            <div className="drawer__head">
+              <CardstockLogo size={30} wordSize={17} color="var(--ink)" />
+              <button type="button" className="btn btn--glass btn--icon" aria-label="Close menu" onClick={() => setMenuOpen(false)}><Icon name="x" /></button>
+            </div>
+            {navLinks(() => setMenuOpen(false))}
+            <div className="drawer__foot">
+              {storeBox}
+              <SkySwitch />
+              {me}
             </div>
           </nav>
+        </>
+      )}
 
-          {/* mobile avatar (inline nav is hidden here) */}
-          <div
-            className="app-avatar-mobile"
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 9999,
-              background: 'var(--brand)',
-              color: 'var(--brand-ink)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: 13,
-            }}
-            title={user?.email}
-          >
-            {user?.email?.[0]?.toUpperCase() ?? '?'}
+      {newOpen && (
+        <>
+          <button type="button" className="scrim" aria-label="Close" onClick={() => setNewOpen(false)} />
+          <div className="sheet glass-strong" role="dialog" aria-label="New design">
+            <span className="eyebrow">Start something new</span>
+            <button type="button" className="nav-link" onClick={() => startNew('card')}><Icon name="square" /> New card <span className="hint" style={{ marginLeft: 'auto' }}>1080 × 1080</span></button>
+            <button type="button" className="nav-link" onClick={() => startNew('carousel')}><Icon name="layers" /> New carousel <span className="hint" style={{ marginLeft: 'auto' }}>up to 15 slides</span></button>
           </div>
-        </div>
-
-        {menuOpen && (
-          <nav
-            className="app-nav-drop"
-            style={{
-              maxWidth: 960,
-              margin: '0 auto',
-              padding: '0 16px 12px 16px',
-              flexDirection: 'column',
-              gap: 4,
-            }}
-          >
-            <Link to="/" onClick={() => setMenuOpen(false)} style={navLinkStyle}>Home</Link>
-            <Link to="/dashboard" onClick={() => setMenuOpen(false)} style={navLinkStyle}>Dashboard</Link>
-            <Link to="/settings/profile" onClick={() => setMenuOpen(false)} style={navLinkStyle}>Profile &amp; Company Settings</Link>
-            <Link to="/about" onClick={() => setMenuOpen(false)} style={navLinkStyle}>About</Link>
-            <button onClick={handleLogout} style={{ ...navLinkStyle, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
-              Log out
-            </button>
-          </nav>
-        )}
-      </header>
-
-      <main style={{ maxWidth: 1120, margin: '0 auto', padding: '32px 18px 48px' }}>
-        <h1 style={{ fontSize: 27, fontWeight: 800, letterSpacing: '-0.035em', margin: '0 0 22px' }}>{title}</h1>
-        {children}
-      </main>
-
-      <footer style={{ maxWidth: 1120, margin: '0 auto', padding: '0 18px 40px' }}>
-        <span style={{ fontSize: 12, color: 'var(--muted)', opacity: 0.8 }}>
-          Cardstock v{versionData.version} · © 2026{' '}
-          <a href="https://www.xahabcse.me/" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>xahabcse.me</a>
-        </span>
-      </footer>
+        </>
+      )}
     </div>
   );
 }
 
-const navLinkStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  minHeight: 44,
-  padding: '0 12px',
-  borderRadius: 10,
-  fontSize: 15,
-  fontWeight: 600,
-  color: 'var(--ink)',
-  textDecoration: 'none',
-};
-
-const inlineLinkStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  height: 38,
-  padding: '0 10px',
-  borderRadius: 9,
-  fontSize: 14,
-  fontWeight: 600,
-  color: 'var(--ink)',
-  textDecoration: 'none',
-  whiteSpace: 'nowrap' as const,
-};
+function safeCount(ownerId: string): number {
+  try {
+    return listDesigns(ownerId).length;
+  } catch {
+    return 0;
+  }
+}

@@ -1,20 +1,12 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
-import { CardstockLogo } from '@/components/Logo';
-import SlideCanvas from '@/components/editor/SlideCanvas';
+import { PhoneCta, PublicFooter, PublicHeader } from '@/components/layout/PublicChrome';
+import SlidePreview from '@/components/editor/SlidePreview';
+import Icon from '@/components/ui/Icon';
 import { resolveColors, PALETTES } from '@/lib/palettes';
 import { CATALOG_BY_ID, templateDefaults, TEMPLATE_ORDER, TEMPLATES } from '@/lib/templates';
-import type { FooterData, ResolvedSlide, TemplateId } from '@/lib/design-types';
-import versionData from '@/version.json';
-
-// Demo author signature for live landing previews
-const DEMO_FOOTER: FooterData = {
-  name: 'Md Sahabuddin Hossain',
-  handle: 'xahabcse',
-  designation: 'Software Engineer',
-  avatar: null,
-};
+import type { ResolvedSlide, TemplateId } from '@/lib/design-types';
 
 const HERO_TEMPLATES: { id: TemplateId; label: string; quickKey: string; initialText: string }[] = [
   { id: 'cover', label: 'Cover Hook', quickKey: 'headline', initialText: 'How We Scaled Our Edge API to 50M Requests/Day' },
@@ -132,90 +124,6 @@ const SHOWCASE_ITEMS = TEMPLATE_ORDER.map((id, index) => {
   - SHOWCASE_GROUPS.findIndex((group) => group.category === b.category),
 );
 
-// The gallery can contain dozens of templates. Render a slide only when its
-// preview approaches the viewport, and fit its full-size canvas to the card.
-function TemplatePreview({ id, palette, format }: { id: TemplateId; palette: string; format: 'card' | 'carousel' }) {
-  const previewRef = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  const [previewWidth, setPreviewWidth] = useState(260);
-  const height = format === 'card' ? 1080 : 1350;
-  const colors = resolveColors(palette, {});
-
-  useEffect(() => {
-    const node = previewRef.current;
-    if (!node) return;
-    const updateWidth = () => {
-      const next = Math.max(1, Math.round(node.getBoundingClientRect().width));
-      setPreviewWidth((old) => old === next ? old : next);
-    };
-    updateWidth();
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(updateWidth);
-      observer.observe(node);
-      return () => observer.disconnect();
-    }
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
-
-  useEffect(() => {
-    const node = previewRef.current;
-    if (!node || visible) return;
-    if (typeof IntersectionObserver === 'undefined') {
-      const timer = window.setTimeout(() => setVisible(true), 0);
-      return () => window.clearTimeout(timer);
-    }
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        setVisible(true);
-        observer.disconnect();
-      }
-    }, { rootMargin: '500px' });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [visible]);
-
-  const slide: ResolvedSlide = { template: id, fields: templateDefaults(id), bgImage: null };
-  return (
-    <div ref={previewRef} aria-hidden="true" className="lp-template-preview" style={{ aspectRatio: `1080 / ${height}`, background: colors.bg }}>
-      {visible && (
-        <div style={{ width: 1080, height, transform: `scale(${previewWidth / 1080})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-          <SlideCanvas slide={slide} colors={colors} footer={DEMO_FOOTER} width={1080} height={height} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DeckSlidePreview({ slide, colors }: { slide: ResolvedSlide; colors: ReturnType<typeof resolveColors> }) {
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.24);
-
-  useEffect(() => {
-    const frame = canvasRef.current?.parentElement;
-    if (!frame) return;
-    const fit = () => {
-      const { width, height } = frame.getBoundingClientRect();
-      const next = Math.min(width / 1080, height / 1350);
-      setScale((old) => Math.abs(old - next) < 0.001 ? old : next);
-    };
-    fit();
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(fit);
-      observer.observe(frame);
-      return () => observer.disconnect();
-    }
-    window.addEventListener('resize', fit);
-    return () => window.removeEventListener('resize', fit);
-  }, []);
-
-  return (
-    <div ref={canvasRef} style={{ width: 1080, height: 1350, transform: `scale(${scale})`, transformOrigin: 'center center', pointerEvents: 'none', flex: 'none' }}>
-      <SlideCanvas slide={slide} colors={colors} footer={DEMO_FOOTER} width={1080} height={1350} />
-    </div>
-  );
-}
-
 const FAQS: { q: string; a: string }[] = [
   {
     q: 'How do I export for LinkedIn or Facebook?',
@@ -243,841 +151,384 @@ const FAQS: { q: string; a: string }[] = [
   },
 ];
 
+const DECK_STEPS: { title: string; note: string; detail: string }[] = [
+  { title: 'Hook cover', note: 'One line that earns the first swipe', detail: 'A clear, high-contrast title with a highlighted hook, so a reader on a phone gets the point in under a second.' },
+  { title: 'Big stat', note: 'A number that makes it real', detail: 'Follow the hook with one metric that builds credibility and curiosity.' },
+  { title: 'Numbered tips', note: 'The value, in steps people save', detail: 'Three short, high-signal rules with no filler, so readers start bookmarking.' },
+  { title: 'Framework', note: 'The model to remember', detail: 'A named model (Tension, Turn, Take) that makes the advice easy to recall and apply.' },
+  { title: 'Call to action', note: 'What to do next', detail: 'Ask readers to save the post or comment, which is what spreads it further.' },
+];
+
+const PAGE_SIZE = 12;
+
 export default function LandingPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Scroll collapse for logo
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  // Sandbox State
+  // Sandbox
   const [sandboxTemplate, setSandboxTemplate] = useState<TemplateId>('cover');
   const [sandboxPalette, setSandboxPalette] = useState<string>('ink');
   const [sandboxFormat, setSandboxFormat] = useState<'card' | 'carousel'>('card');
   const [customText, setCustomText] = useState('How We Scaled Our Edge API to 50M Requests/Day');
 
-  // Carousel Deck State
+  // Carousel deck
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [feedSimulation, setFeedSimulation] = useState(false);
 
-  // FAQ Accordion State
+  // FAQ
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-  // Template Showcase Filter
+  // Template gallery
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [gallerySearch, setGallerySearch] = useState('');
   const [galleryFormat, setGalleryFormat] = useState<'card' | 'carousel'>('card');
-  const visibleShowcaseItems = SHOWCASE_ITEMS.filter((item) => (selectedCategory === 'All' || item.category === selectedCategory)
+  const [shown, setShown] = useState(PAGE_SIZE);
+  const matchingItems = SHOWCASE_ITEMS.filter((item) => (selectedCategory === 'All' || item.category === selectedCategory)
     && `${item.name} ${item.desc} ${item.category}`.toLowerCase().includes(gallerySearch.trim().toLowerCase()));
+  const visibleShowcaseItems = matchingItems.slice(0, shown);
 
-  // When changing sandbox template, set appropriate default editable text
+  function pickCategory(category: string) {
+    setSelectedCategory(category);
+    setShown(PAGE_SIZE);
+  }
+
   function handleSelectSandboxTemplate(t: typeof HERO_TEMPLATES[0]) {
     setSandboxTemplate(t.id);
     setCustomText(t.initialText);
   }
 
-  // Construct live resolved slide for sandbox
   const currentHeroConfig = HERO_TEMPLATES.find((t) => t.id === sandboxTemplate) || HERO_TEMPLATES[0];
   const baseFields = templateDefaults(sandboxTemplate);
-  const liveFields = {
-    ...baseFields,
-    [currentHeroConfig.quickKey]: customText || baseFields[currentHeroConfig.quickKey],
-  };
   const sandboxSlide: ResolvedSlide = {
     template: sandboxTemplate,
-    fields: liveFields,
+    fields: { ...baseFields, [currentHeroConfig.quickKey]: customText || baseFields[currentHeroConfig.quickKey] },
     bgImage: null,
   };
   const sandboxColors = resolveColors(sandboxPalette, {});
 
-  const currentDeckItem = CAROUSEL_DECK_SLIDES[activeSlideIndex];
-  const currentDeckSlide: ResolvedSlide = {
-    template: currentDeckItem.template,
-    fields: currentDeckItem.fields,
-    bgImage: null,
-  };
-  const currentDeckColors = resolveColors(currentDeckItem.palette, {});
+  const deckSlides = CAROUSEL_DECK_SLIDES.map((item) => ({
+    slide: { template: item.template, fields: item.fields, bgImage: null } as ResolvedSlide,
+    colors: resolveColors(item.palette, {}),
+  }));
+  const currentDeck = deckSlides[activeSlideIndex];
 
-  const cta = user ? { to: '/dashboard', label: 'Go to Studio Dashboard →' } : { to: '/signup', label: 'Start Designing Free →' };
+  const cta = user ? { to: '/dashboard', label: 'Go to your dashboard' } : { to: '/signup', label: 'Start designing free' };
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', background: 'transparent', color: 'var(--ink)', overflowX: 'clip' }}>
-      <div className="lp-grain" />
+    <div className="page page--cta">
+      <PublicHeader />
 
-      {/* ==================== 1. TOP NAVIGATION ==================== */}
-      <header
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 40,
-          background: 'rgba(250, 252, 249, 0.76)',
-          backdropFilter: 'blur(18px) saturate(1.2)',
-          borderBottom: '1px solid var(--glass-line)',
-          boxShadow: '0 8px 24px rgba(30, 48, 44, 0.06)',
-        }}
-      >
-        <div className="lp-nav-inner" style={{ maxWidth: 1240, margin: '0 auto', display: 'flex', alignItems: 'center' }}>
-          <Link to="/" aria-label="Cardstock home" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <CardstockLogo size={32} wordSize={19} color="var(--ink)" collapsed={scrolled} />
-          </Link>
-
-          <div style={{ flex: 1 }} />
-
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <a href="#playground" className="lp-underline lp-nav-about" style={navTextLink}>Playground</a>
-            <a href="#carousel-deck" className="lp-underline lp-nav-about" style={navTextLink}>Carousels</a>
-            <a href="#templates" className="lp-underline lp-nav-about" style={navTextLink}>Templates</a>
-            <Link to="/about" className="lp-underline lp-nav-about" style={navTextLink}>About</Link>
-            {user ? (
-              <Link to="/dashboard" style={navPill}>Dashboard →</Link>
-            ) : (
-              <>
-                <Link to="/login" className="lp-underline lp-nav-login" style={navTextLink}>Log in</Link>
-                <Link to="/signup" style={navPill}>Start Free</Link>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
-
-      {/* ==================== 2. HERO & LIVE PLAYGROUND ==================== */}
-      <section id="playground" style={{ position: 'relative', zIndex: 1, maxWidth: 1240, margin: '0 auto', padding: '64px 22px 48px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.05fr) minmax(0, 0.95fr)', gap: 48, alignItems: 'center' }} className="lp-hero-grid">
-          {/* Left Hero Copy */}
-          <div>
-            <div className="lp-reveal" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-              <span className="lp-glow-tag">✦ ZERO DESIGN TOOLS REQUIRED</span>
-              <span style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.18em', color: 'var(--muted)' }}>100% IN-BROWSER</span>
-            </div>
-
-            <h1 className="lp-reveal" style={{ margin: '0 0 22px', animationDelay: '0.08s' }}>
-              <span style={{ display: 'block', font: '900 clamp(38px, 4.8vw, 64px)/1.04 Archivo', letterSpacing: '-0.035em' }}>
-                Cards for{' '}
-                <em style={{ fontFamily: 'Newsreader, serif', fontWeight: 500, fontStyle: 'italic', color: 'var(--ink)', position: 'relative', whiteSpace: 'nowrap' }}>
-                  <span style={{ position: 'relative', zIndex: 1 }}>every day.</span>
-                  <span style={{ position: 'absolute', left: '-2%', right: '-2%', bottom: '0.08em', height: '0.32em', background: 'var(--brand)', zIndex: 0, borderRadius: 2 }} />
-                </em>
-              </span>
-              <span style={{ display: 'block', font: '900 clamp(38px, 4.8vw, 64px)/1.04 Archivo', letterSpacing: '-0.035em' }}>
-                Carousels worth a swipe.
-              </span>
-            </h1>
-
-            <p className="lp-reveal" style={{ font: "400 clamp(16px, 1.8vw, 19px)/1.6 'Space Grotesk'", color: 'var(--muted-2)', maxWidth: 540, margin: '0 0 32px', animationDelay: '0.16s' }}>
-              Make a birthday wish, event invite, work update, or useful guide for Facebook and LinkedIn. Pick a template, write your message, and export a PNG card, PDF carousel, or PNG slide pack.
-            </p>
-
-            <div className="lp-reveal" style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 30, animationDelay: '0.24s' }}>
-              <Link to={cta.to} style={{ ...ctaBtn, height: 52, padding: '0 32px', fontSize: 16 }}>{cta.label}</Link>
+      <main className="wrap">
+        {/* Hero + live sandbox */}
+        <section className="hero" id="playground">
+          <div className="rise">
+            <span className="hero-pill glass"><span className="dot dot--ok" /><b>Free</b> · Runs in your browser · No watermark</span>
+            <h1 className="display">Cards for <em>every day.</em><br /> Carousels worth a&nbsp;swipe.</h1>
+            <p className="lede">Make a birthday wish, event invite, work update, or useful guide for Facebook and LinkedIn. Pick a template, write your message, and export a PNG card, PDF carousel, or PNG slide pack.</p>
+            <div className="hero__cta">
+              <Link to={cta.to} className="btn btn--primary btn--lg">{cta.label} <Icon name="arrow-right" /></Link>
               {!user && (
-                <button
-                  type="button"
-                  onClick={() => navigate('/login')}
-                  style={{ ...ghostBtn, height: 52, padding: '0 24px', fontSize: 15 }}
-                >
-                  Demo Account →
+                <button type="button" className="btn btn--glass btn--lg" onClick={() => navigate('/login')}>
+                  <Icon name="eye" /> Demo account
                 </button>
               )}
             </div>
-
-            <div className="lp-reveal" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 22px', animationDelay: '0.32s' }}>
-              {[
-                '✓ Drafts Stay on Your Device',
-                '✓ 1080×1080 PNG Export',
-                '✓ No Watermarks Ever',
-                '✓ Auto Profile Footers',
-              ].map((item) => (
-                <span key={item} style={{ font: "600 12.5px/1 'Space Grotesk'", color: 'var(--muted-2)', display: 'inline-flex', alignItems: 'center' }}>
-                  {item}
-                </span>
-              ))}
+            <div className="hero__trust">
+              <span><Icon name="check" /> Drafts stay on your device</span>
+              <span><Icon name="check" /> 1080 × 1080 PNG export</span>
+              <span><Icon name="check" /> No watermarks, ever</span>
+              <span><Icon name="check" /> Profile footer added for you</span>
             </div>
           </div>
 
-          {/* Right: Live Interactive Sandbox */}
-          <div className="lp-reveal lp-sandbox" style={{ animationDelay: '0.2s', padding: 22 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--line-2)', paddingBottom: 14, marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#27c93f', display: 'inline-block' }} />
-                <span style={{ font: "700 12px/1 'Space Grotesk'", letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ink)' }}>Live Studio Sandbox</span>
-              </div>
-              <div style={{ display: 'flex', gap: 4, background: 'var(--surface)', padding: 3, borderRadius: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setSandboxFormat('card')}
-                  style={{
-                    border: 'none',
-                    background: sandboxFormat === 'card' ? 'var(--ink)' : 'transparent',
-                    color: sandboxFormat === 'card' ? 'var(--brand)' : 'var(--muted)',
-                    font: "700 11px/1 'Space Grotesk'",
-                    padding: '5px 9px',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                  }}
-                >
-                  1:1 Card
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSandboxFormat('carousel')}
-                  style={{
-                    border: 'none',
-                    background: sandboxFormat === 'carousel' ? 'var(--ink)' : 'transparent',
-                    color: sandboxFormat === 'carousel' ? 'var(--brand)' : 'var(--muted)',
-                    font: "700 11px/1 'Space Grotesk'",
-                    padding: '5px 9px',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                  }}
-                >
-                  4:5 Slide
-                </button>
+          <div className="studio glass-strong rise rise-2" aria-label="Live studio sandbox">
+            <div className="studio__head">
+              <span className="eyebrow"><span className="dot dot--ok" />Live studio</span>
+              <div className="seg" role="group" aria-label="Format">
+                <button type="button" aria-pressed={sandboxFormat === 'card'} onClick={() => setSandboxFormat('card')}><Icon name="square" />1:1 Card</button>
+                <button type="button" aria-pressed={sandboxFormat === 'carousel'} onClick={() => setSandboxFormat('carousel')}><Icon name="layers" />4:5 Slide</button>
               </div>
             </div>
-
-            {/* Template Selector Pills */}
-            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 10, marginBottom: 12, scrollbarWidth: 'none' }}>
+            <div className="studio__chips" role="group" aria-label="Template">
               {HERO_TEMPLATES.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className="lp-tab-btn"
-                  data-active={sandboxTemplate === t.id}
-                  onClick={() => handleSelectSandboxTemplate(t)}
-                  style={{ fontSize: 12, padding: '6px 11px', whiteSpace: 'nowrap' }}
-                >
-                  {t.label}
-                </button>
+                <button key={t.id} type="button" className="chip" aria-pressed={sandboxTemplate === t.id} onClick={() => handleSelectSandboxTemplate(t)}>{t.label}</button>
               ))}
             </div>
-
-            {/* Live Interactive Canvas Screen */}
-            <div
-              style={{
-                width: '100%',
-                aspectRatio: sandboxFormat === 'card' ? '1 / 1' : '1080 / 1350',
-                maxHeight: 380,
-                borderRadius: 14,
-                overflow: 'hidden',
-                position: 'relative',
-                background: '#0e0e0e',
-                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08), 0 18px 40px rgba(0,0,0,0.18)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 16px',
-              }}
-            >
-              <div
-                style={{
-                  width: 1080,
-                  height: sandboxFormat === 'card' ? 1080 : 1350,
-                  transform: `scale(${sandboxFormat === 'card' ? 380 / 1080 : 380 / 1350})`,
-                  transformOrigin: 'center center',
-                  pointerEvents: 'none',
-                  flex: 'none',
-                }}
-              >
-                <SlideCanvas
-                  slide={sandboxSlide}
-                  colors={sandboxColors}
-                  footer={DEMO_FOOTER}
-                  width={1080}
-                  height={sandboxFormat === 'card' ? 1080 : 1350}
-                />
+            <div className="studio__stage">
+              <SlidePreview key={sandboxFormat} slide={sandboxSlide} colors={sandboxColors} format={sandboxFormat} />
+            </div>
+            <div className="studio__edit">
+              <input type="text" className="input" value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="Type your words live…" aria-label="Your words" />
+              <div className="swatches" role="group" aria-label="Palette">
+                {PALETTES.slice(0, 6).map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="swatch"
+                    aria-label={`Palette ${p.name}`}
+                    aria-pressed={sandboxPalette === p.id}
+                    onClick={() => setSandboxPalette(p.id)}
+                    style={{ background: p.bg, ['--sw-accent' as string]: p.accent } as CSSProperties}
+                  />
+                ))}
               </div>
             </div>
-
-            {/* Quick Live Text Edit + Palette Bar */}
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
-              <input
-                type="text"
-                value={customText}
-                onChange={(e) => setCustomText(e.target.value)}
-                placeholder="Type your words live…"
-                className="input"
-                style={{ height: 38, fontSize: 13, flex: 1 }}
-              />
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: 'none' }}>
-                {PALETTES.slice(0, 6).map((p) => {
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      aria-label={`Palette ${p.name}`}
-                      className="lp-palette-chip"
-                      data-active={sandboxPalette === p.id}
-                      onClick={() => setSandboxPalette(p.id)}
-                      style={{ background: p.bg, border: `1px solid ${p.accent}` }}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ font: "500 12px/1 'Space Grotesk'", color: 'var(--muted)' }}>
-                ⚡ Real-time browser rendering via HTML/CSS
-              </span>
-              <Link to={cta.to} style={{ font: "700 12px/1 'Space Grotesk'", color: 'var(--ink)', textDecoration: 'none' }} className="lp-underline">
-                Open in Full Studio →
-              </Link>
+            <div className="studio__foot">
+              <span><Icon name="bolt" /> Rendered live in your browser</span>
+              <Link to={cta.to}>Open in full studio <Icon name="arrow-right" /></Link>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ==================== 3. MULTI-SLIDE CAROUSEL DECK SIMULATOR ==================== */}
-      <section id="carousel-deck" style={{ position: 'relative', zIndex: 1, background: 'var(--ink)', color: 'var(--bar)', padding: '72px 22px', borderTop: '2px solid var(--ink)', borderBottom: '2px solid var(--ink)' }}>
-        <div style={{ maxWidth: 1240, margin: '0 auto' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 36 }}>
+        <section className="stats glass rise rise-3" aria-label="At a glance">
+          <div><b>{SHOWCASE_ITEMS.length}</b><span>templates for real messages</span></div>
+          <div><b>{PALETTES.length}</b><span>tuned colour palettes</span></div>
+          <div><b>15</b><span>slides per carousel</span></div>
+          <div><b>0</b><span>watermarks, ever</span></div>
+        </section>
+
+        {/* Carousel deck */}
+        <section className="sec" id="carousels">
+          <div className="deck">
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <span style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.28em', color: 'var(--brand)' }}>INTERACTIVE DECK SIMULATOR</span>
-                <span style={{ color: 'var(--brand)', fontSize: 14 }}>✦</span>
-              </div>
-              <h2 style={{ font: '900 clamp(28px, 4.4vw, 48px)/1.05 Archivo', letterSpacing: '-0.03em', margin: 0, color: 'var(--bar)', maxWidth: 680 }}>
-                Build high-retention multi-slide decks that readers actually swipe through.
-              </h2>
-            </div>
-
-            {/* Stepper + Feed Simulation Toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => setFeedSimulation(!feedSimulation)}
-                style={{
-                  height: 42,
-                  padding: '0 16px',
-                  borderRadius: 999,
-                  background: feedSimulation ? 'var(--brand)' : 'rgba(255,255,255,0.1)',
-                  color: feedSimulation ? 'var(--ink)' : 'var(--bar)',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  font: "700 13px/1 'Space Grotesk'",
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
-                <span>{feedSimulation ? '✓ LinkedIn Feed View' : '👁️ Preview LinkedIn Feed'}</span>
-              </button>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
-                  type="button"
-                  aria-label="Previous Slide"
-                  onClick={() => setActiveSlideIndex((prev) => Math.max(0, prev - 1))}
-                  disabled={activeSlideIndex === 0}
-                  style={{ ...darkArrow, opacity: activeSlideIndex === 0 ? 0.3 : 1 }}
-                >
-                  ‹
-                </button>
-                <span style={{ font: "800 14px/1 'Space Grotesk'", color: 'var(--brand)', minWidth: 54, textAlign: 'center' }}>
-                  {`0${activeSlideIndex + 1} / 0${CAROUSEL_DECK_SLIDES.length}`}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Next Slide"
-                  onClick={() => setActiveSlideIndex((prev) => Math.min(CAROUSEL_DECK_SLIDES.length - 1, prev + 1))}
-                  disabled={activeSlideIndex === CAROUSEL_DECK_SLIDES.length - 1}
-                  style={{ ...darkArrow, opacity: activeSlideIndex === CAROUSEL_DECK_SLIDES.length - 1 ? 0.3 : 1 }}
-                >
-                  ›
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Carousel Stage Container */}
-          <div className="lp-deck-stage" style={{ display: 'grid', gridTemplateColumns: feedSimulation ? '1fr' : 'minmax(0, 1.2fr) minmax(0, 0.8fr)', gap: 36, alignItems: 'center' }}>
-            {/* Slide Stage / LinkedIn Mockup */}
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              {feedSimulation ? (
-                /* Simulated LinkedIn Feed Post Container */
-                <div style={{ width: '100%', maxWidth: 580, background: '#ffffff', color: '#191919', borderRadius: 16, padding: '16px 20px 20px', boxShadow: '0 30px 80px rgba(0,0,0,0.5)', fontFamily: '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                  {/* LinkedIn Post Header */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#0a66c2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 16 }}>
-                      SH
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontWeight: 700, fontSize: 14, color: '#191919' }}>Md Sahabuddin Hossain</span>
-                        <span style={{ color: '#666', fontSize: 12 }}>• 1st</span>
-                      </div>
-                      <div style={{ color: '#666', fontSize: 12, lineHeight: 1.2 }}>Software Engineer · In-Browser Tools Creator</div>
-                      <div style={{ color: '#888', fontSize: 11 }}>1h • 🌐</div>
-                    </div>
-                    <button type="button" style={{ border: 'none', background: 'transparent', color: '#0a66c2', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-                      + Follow
+              <span className="eyebrow eyebrow--accent">Carousel studio</span>
+              <h2 className="h2">Decks readers actually <em>swipe through.</em></h2>
+              <p className="lede">A carousel is five to fifteen slides that tell one story. Each slide has one job, so the deck keeps moving. {DECK_STEPS[activeSlideIndex].detail}</p>
+              <ol className="steps">
+                {DECK_STEPS.map((step, idx) => (
+                  <li key={step.title}>
+                    <button type="button" className="step" aria-pressed={activeSlideIndex === idx} onClick={() => setActiveSlideIndex(idx)}>
+                      <b>{String(idx + 1).padStart(2, '0')}</b>
+                      <span><strong>{step.title}</strong><small>{step.note}</small></span>
+                      {activeSlideIndex === idx ? <Icon name="chevron-right" /> : <span />}
                     </button>
+                  </li>
+                ))}
+              </ol>
+              <div className="deck__cta">
+                <Link to={cta.to} className="btn btn--primary btn--lg">Create a carousel <Icon name="arrow-right" /></Link>
+                <button type="button" className="btn btn--glass btn--lg" aria-pressed={feedSimulation} onClick={() => setFeedSimulation(!feedSimulation)}>
+                  <Icon name="linkedin" /> {feedSimulation ? 'Show the deck' : 'Preview in feed'}
+                </button>
+              </div>
+            </div>
+
+            <div className="deck__view glass-strong">
+              {feedSimulation ? (
+                <div className="feed">
+                  <div className="feed__head">
+                    <span className="avatar" style={{ background: '#0a66c2', color: '#fff', boxShadow: 'none' }}>MS</span>
+                    <div><b>Md Sahabuddin Hossain</b>Software Engineer · 1h</div>
                   </div>
-
-                  <p style={{ fontSize: 14, lineHeight: 1.5, margin: '0 0 12px', color: '#191919' }}>
-                    Most engineering posts fail to gain traction not because the insight is weak, but because it&apos;s trapped in a block of unformatted text. Here is our 5-step framework to document complex architecture in clean swipeable carousels:
-                  </p>
-
-                  {/* Document Carousel Container */}
-                  <div style={{ position: 'relative', width: '100%', aspectRatio: '1080 / 1350', maxHeight: 440, background: '#000', borderRadius: 10, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <DeckSlidePreview slide={currentDeckSlide} colors={currentDeckColors} />
-                    {/* LinkedIn document page pill */}
-                    <div style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.65)', color: '#fff', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
-                      {activeSlideIndex + 1} / {CAROUSEL_DECK_SLIDES.length}
-                    </div>
-                  </div>
-
-                  {/* LinkedIn Reaction Bar */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e0e0e0', marginTop: 14, paddingTop: 10, color: '#666', fontSize: 13, fontWeight: 600 }}>
-                    <span>👍 428 Likes</span>
-                    <span>💬 64 Comments · 18 Reposts</span>
+                  <p>Most engineering posts fail to travel because the insight is trapped in a block of text. Here is a 5-slide way to document architecture in swipeable carousels:</p>
+                  <div className="feed__doc">
+                    <SlidePreview slide={currentDeck.slide} colors={currentDeck.colors} format="carousel" />
+                    <span className="feed__page">{activeSlideIndex + 1} / {deckSlides.length}</span>
                   </div>
                 </div>
               ) : (
-                /* Raw Slide Stage View */
-                <div style={{ width: '100%', maxWidth: 440, aspectRatio: '1080 / 1350', background: '#0e0e0e', borderRadius: 18, overflow: 'hidden', position: 'relative', boxShadow: '0 24px 60px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <DeckSlidePreview slide={currentDeckSlide} colors={currentDeckColors} />
+                <div className="deck__stage">
+                  {deckSlides.map((item, idx) => {
+                    const offset = idx - activeSlideIndex;
+                    const distance = Math.abs(offset);
+                    if (distance > 2) return null;
+                    const transform = `translateX(${offset * 96}px) scale(${1 - distance * 0.11}) rotate(${offset * 3}deg)`;
+                    return (
+                      <div
+                        key={idx}
+                        className="deck__slide"
+                        data-offset={offset}
+                        style={{ transform, opacity: 1 - distance * 0.25, zIndex: 5 - distance }}
+                        onClick={() => setActiveSlideIndex(idx)}
+                      >
+                        <SlidePreview slide={item.slide} colors={item.colors} format="carousel" />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
-            </div>
-
-            {/* Slide Navigation Filmstrip & Breakdown */}
-            {!feedSimulation && (
-              <div>
-                <span style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.2em', color: 'var(--brand)', textTransform: 'uppercase' }}>
-                  SLIDE {activeSlideIndex + 1} OF {CAROUSEL_DECK_SLIDES.length} — {TEMPLATES[currentDeckItem.template]?.name}
-                </span>
-
-                <h3 style={{ font: '800 24px/1.2 Archivo', color: 'var(--bar)', margin: '10px 0 14px' }}>
-                  {activeSlideIndex === 0 && '1. The Hook Cover (Slide 1)'}
-                  {activeSlideIndex === 1 && '2. The Data Anchor (Slide 2)'}
-                  {activeSlideIndex === 2 && '3. The Step-by-Step Breakdown (Slide 3)'}
-                  {activeSlideIndex === 3 && '4. The Actionable Framework (Slide 4)'}
-                  {activeSlideIndex === 4 && '5. The Engagement Call-to-Action (Slide 5)'}
-                </h3>
-
-                <p style={{ font: "400 15px/1.65 'Space Grotesk'", color: 'color-mix(in srgb, var(--bar) 75%, transparent)', margin: '0 0 24px' }}>
-                  {activeSlideIndex === 0 && 'A clear, high-contrast title with a highlighted hook. Mobile readers immediately understand the value proposition within 0.8 seconds.'}
-                  {activeSlideIndex === 1 && 'Follow up the hook with an indisputable metric or percentage that builds instant credibility and curiosity.'}
-                  {activeSlideIndex === 2 && 'Give three concise, high-signal rules with zero filler words so readers begin bookmarking the post.'}
-                  {activeSlideIndex === 3 && 'Provide a concrete named model (Tension → Turn → Take) that makes the advice easy to remember and apply.'}
-                  {activeSlideIndex === 4 && 'Direct readers to save the post or comment below, maximizing LinkedIn algorithm distribution.'}
-                </p>
-
-                {/* Filmstrip Selector */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 26 }}>
-                  {CAROUSEL_DECK_SLIDES.map((slide, idx) => (
-                    <button
-                      key={slide.template + idx}
-                      type="button"
-                      onClick={() => setActiveSlideIndex(idx)}
-                      style={{
-                        padding: '10px 6px',
-                        borderRadius: 10,
-                        border: activeSlideIndex === idx ? '2px solid var(--brand)' : '1px solid rgba(255,255,255,0.15)',
-                        background: activeSlideIndex === idx ? 'rgba(242,183,5,0.15)' : 'rgba(255,255,255,0.04)',
-                        color: activeSlideIndex === idx ? 'var(--brand)' : 'var(--bar)',
-                        font: "700 12px/1 'Space Grotesk'",
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div style={{ fontSize: 10, opacity: 0.7, marginBottom: 4 }}>Slide {idx + 1}</div>
-                      <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{TEMPLATES[slide.template]?.name.split(' ')[0]}</div>
-                    </button>
-                  ))}
+              <div className="deck__nav">
+                <button type="button" className="btn btn--glass btn--icon" aria-label="Previous slide" disabled={activeSlideIndex === 0} onClick={() => setActiveSlideIndex((i) => Math.max(0, i - 1))}><Icon name="chevron-left" /></button>
+                <div className="pager" aria-label={`Slide ${activeSlideIndex + 1} of ${deckSlides.length}`}>
+                  {deckSlides.map((_, idx) => <i key={idx} data-on={idx === activeSlideIndex} />)}
                 </div>
-
-                <Link
-                  to={cta.to}
-                  style={{
-                    ...ctaBtn,
-                    background: 'var(--brand)',
-                    color: 'var(--ink)',
-                    border: '1px solid var(--brand)',
-                    height: 48,
-                    padding: '0 24px',
-                    fontSize: 15,
-                  }}
-                >
-                  Create Your Own Carousel Deck →
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ==================== 4. CANVA / NOTES VS. CARDSTOCK COMPARISON ==================== */}
-      <section style={{ position: 'relative', zIndex: 1, maxWidth: 1240, margin: '0 auto', padding: '80px 22px 56px' }}>
-        <div style={{ textAlign: 'center', maxWidth: 760, margin: '0 auto 48px' }}>
-          <span className="lp-glow-tag" style={{ marginBottom: 12 }}>THE CONTENT CREATION MATRIX</span>
-          <h2 style={{ font: '900 clamp(28px, 4.2vw, 46px)/1.08 Archivo', letterSpacing: '-0.03em', margin: '10px 0 16px' }}>
-            Why typical LinkedIn graphics take 45 minutes and still look sloppy.
-          </h2>
-          <p style={{ font: "400 16px/1.6 'Space Grotesk'", color: 'var(--muted-2)' }}>
-            Free-form canvas tools offer infinite choices that slow you down. Cardstock provides fixed typographical guardrails designed specifically for technical and professional LinkedIn content.
-          </p>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
-          {/* Card 1: Phone Notes Screenshot */}
-          <div className="lp-feature-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <span style={{ fontSize: 24 }}>📱</span>
-              <div>
-                <h3 style={{ font: '800 18px/1.2 Archivo', margin: 0, color: 'var(--ink)' }}>Phone Notes Screenshots</h3>
-                <span style={{ font: "600 11px/1 'Space Grotesk'", color: 'var(--danger)', textTransform: 'uppercase' }}>Amateur &amp; Low Reach</span>
+                <button type="button" className="btn btn--glass btn--icon" aria-label="Next slide" disabled={activeSlideIndex === deckSlides.length - 1} onClick={() => setActiveSlideIndex((i) => Math.min(deckSlides.length - 1, i + 1))}><Icon name="chevron-right" /></button>
               </div>
             </div>
-            <ul style={{ paddingLeft: 18, margin: 0, font: "400 14px/1.7 'Space Grotesk'", color: 'var(--muted-2)' }}>
-              <li>JPEG compression creates fuzzy, unreadable text on retina screens</li>
-              <li>No author or company footer signature</li>
-              <li>Cannot export as a multi-page interactive PDF document</li>
-              <li>Inconsistent line spacing that reads like an informal scratchpad</li>
-            </ul>
           </div>
+        </section>
 
-          {/* Card 2: Canva / Freeform Canvas */}
-          <div className="lp-feature-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <span style={{ fontSize: 24 }}>🎨</span>
-              <div>
-                <h3 style={{ font: '800 18px/1.2 Archivo', margin: 0, color: 'var(--ink)' }}>Canva / Free-form Tools</h3>
-                <span style={{ font: "600 11px/1 'Space Grotesk'", color: '#b58000', textTransform: 'uppercase' }}>High Friction &amp; Time Sink</span>
-              </div>
+        {/* Why */}
+        <section className="sec">
+          <div className="sec__head">
+            <div>
+              <span className="eyebrow">The problem</span>
+              <h2 className="h2">Most LinkedIn graphics take 45 minutes and <em>still</em> look rushed.</h2>
             </div>
-            <ul style={{ paddingLeft: 18, margin: 0, font: "400 14px/1.7 'Space Grotesk'", color: 'var(--muted-2)' }}>
-              <li>30–45 minutes of manual dragging, aligning text boxes, and layer tweaking</li>
-              <li>Templates are designed for Instagram and look mismatched on LinkedIn</li>
-              <li>Font sizes easily break when switching between mobile and desktop feeds</li>
-              <li>Making a multi-page PDF carousel requires tedious multi-step setups</li>
-            </ul>
+            <p className="lede">Fixed layouts that are already right beat a blank canvas you have to fix.</p>
           </div>
+          <div className="why">
+            <article className="surface is-bad">
+              <span className="why__icon"><Icon name="phone" /></span>
+              <h3>Phone-notes screenshots</h3>
+              <ul>
+                <li><Icon name="x" /> Compression makes text fuzzy on sharp screens</li>
+                <li><Icon name="x" /> No author or company signature</li>
+                <li><Icon name="x" /> Can't become a multi-page PDF document</li>
+              </ul>
+            </article>
+            <article className="surface is-bad">
+              <span className="why__icon"><Icon name="layout" /></span>
+              <h3>Free-form canvas tools</h3>
+              <ul>
+                <li><Icon name="x" /> 30–45 minutes of dragging and aligning boxes</li>
+                <li><Icon name="x" /> Templates sized for other platforms</li>
+                <li><Icon name="x" /> Multi-page carousels take extra setup</li>
+              </ul>
+            </article>
+            <article className="glass-strong is-good">
+              <span className="why__icon"><Icon name="sparkle" /></span>
+              <h3>The Cardstock standard</h3>
+              <ul>
+                <li><Icon name="check" /> Type sizes that fit automatically</li>
+                <li><Icon name="check" /> PDF carousels made in your browser</li>
+                <li><Icon name="check" /> Your name, role and photo on every slide</li>
+              </ul>
+            </article>
+          </div>
+        </section>
 
-          {/* Card 3: Cardstock (Winner) */}
-          <div className="lp-feature-card" style={{ border: '1px solid rgba(190, 139, 20, 0.4)', boxShadow: '0 20px 48px -12px rgba(148,108,13,0.17)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <span style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--brand)', color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>✓</span>
-              <div>
-                <h3 style={{ font: '800 18px/1.2 Archivo', margin: 0, color: 'var(--ink)' }}>The Cardstock Standard</h3>
-                <span style={{ font: "700 11px/1 'Space Grotesk'", color: '#0a703f', textTransform: 'uppercase' }}>3 Minutes · Publication Ready</span>
-              </div>
+        {/* Templates */}
+        <section className="sec" id="templates">
+          <div className="sec__head">
+            <div>
+              <span className="eyebrow">{SHOWCASE_ITEMS.length} templates · cards + carousels</span>
+              <h2 className="h2">A template for every <em>message.</em></h2>
             </div>
-            <ul style={{ paddingLeft: 18, margin: 0, font: "500 14px/1.7 'Space Grotesk'", color: 'var(--ink)' }}>
-              <li><strong>Mathematical Type Lock:</strong> Headlines, bodies, and stats never overlap or clip</li>
-              <li><strong>Instant Multi-page PDF:</strong> Stitched entirely in-browser ready for LinkedIn</li>
-              <li><strong>Auto Profile Signature:</strong> Avatar, name, handle, and company logo sign every slide</li>
-              <li><strong>100% Client-Side Privacy:</strong> Zero designs or sensitive copy uploaded to any server</li>
-            </ul>
+            <p className="lede">Each one is built for a single job: a wish, an invite, a launch, a lesson. Use it as a card or as a carousel slide.</p>
           </div>
-        </div>
-      </section>
-
-      {/* ==================== 5. CATEGORIZED TEMPLATE CATALOG ==================== */}
-      <section id="templates" style={{ position: 'relative', zIndex: 1, maxWidth: 1240, margin: '0 auto', padding: '40px 22px 72px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 32, borderBottom: '2px solid var(--ink)', paddingBottom: 20 }}>
-          <div>
-            <span style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.28em', color: 'var(--muted)' }}>{SHOWCASE_ITEMS.length} CURATED TEMPLATES · CARDS + CAROUSELS</span>
-            <h2 style={{ font: '900 clamp(26px, 4vw, 42px)/1.04 Archivo', letterSpacing: '-0.03em', margin: '8px 0 0' }}>
-              Every template crafted for specific communication goals.
-            </h2>
+          <div className="filters">
+            <div className="filters__chips" role="group" aria-label="Template category">
+              {['All', ...SHOWCASE_GROUPS.map((group) => group.category)].map((cat) => (
+                <button key={cat} type="button" className="chip" aria-pressed={selectedCategory === cat} onClick={() => pickCategory(cat)}>
+                  {cat}{cat === 'All' ? <span className="chip__n">{SHOWCASE_ITEMS.length}</span> : null}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="filters">
+            <div className="seg" role="group" aria-label="Template preview format">
+              <button type="button" aria-pressed={galleryFormat === 'card'} onClick={() => setGalleryFormat('card')}><Icon name="square" />Card</button>
+              <button type="button" aria-pressed={galleryFormat === 'carousel'} onClick={() => setGalleryFormat('carousel')}><Icon name="layers" />Carousel slide</button>
+            </div>
+            <div className="input-wrap">
+              <Icon name="search" />
+              <input type="search" className="input" value={gallerySearch} onChange={(e) => { setGallerySearch(e.target.value); setShown(PAGE_SIZE); }} placeholder="Search 100 templates…" aria-label="Find a template" />
+            </div>
           </div>
 
-          {/* Category Filter Pills */}
-          <div className="lp-category-filters">
-            {['All', ...SHOWCASE_GROUPS.map((group) => group.category)].map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                className="lp-tab-btn"
-                data-active={selectedCategory === cat}
-                onClick={() => setSelectedCategory(cat)}
-                style={{ fontSize: 13 }}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="lp-format-switch" role="group" aria-label="Template preview format">
-          <span>Preview every design as</span>
-          <button type="button" data-active={galleryFormat === 'card'} onClick={() => setGalleryFormat('card')}>Card</button>
-          <button type="button" data-active={galleryFormat === 'carousel'} onClick={() => setGalleryFormat('carousel')}>Carousel slide</button>
-        </div>
-
-        <label style={{ display: 'block', maxWidth: 420, margin: '0 0 24px', font: "700 12px/1.3 'Space Grotesk'" }}>
-          Find a template
-          <input type="search" value={gallerySearch} onChange={(event) => setGallerySearch(event.target.value)} placeholder="Search tutorials, charts, career posts…" style={{ display: 'block', width: '100%', marginTop: 8, padding: '12px 15px', borderRadius: 12, border: '1px solid var(--line-2)', background: 'var(--surface)', color: 'var(--ink)', font: "500 14px/1.2 'Space Grotesk'" }} />
-        </label>
-
-        {/* Template Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
-          {visibleShowcaseItems.map((item) => {
+          <div className="tpl-grid">
+            {visibleShowcaseItems.map((item) => {
+              const colors = resolveColors(item.palette, {});
               return (
-                <Link
-                  key={item.id}
-                  className="lp-feature-card lp-lift"
-                  to={`/dashboard?template=${encodeURIComponent(item.id)}&format=${galleryFormat}`}
-                  style={{ padding: 18, display: 'flex', flexDirection: 'column', cursor: 'pointer', textDecoration: 'none', color: 'var(--ink)' }}
-                >
-                  <TemplatePreview id={item.id} palette={item.palette} format={galleryFormat} />
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <h3 style={{ font: '800 17px/1.2 Archivo', margin: 0 }}>{item.name}</h3>
-                    <span style={{ font: "700 11px/1 'Space Grotesk'", color: 'var(--muted)', textTransform: 'uppercase' }}>
-                      {item.palette}
-                    </span>
-                  </div>
-
-                  <p style={{ font: "400 13px/1.5 'Space Grotesk'", color: 'var(--muted-2)', margin: '0 0 14px', flex: 1 }}>
-                    {item.desc}
-                  </p>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, font: "700 12px/1 'Space Grotesk'", color: 'var(--ink)' }}>
-                    <span>Use in card or carousel</span>
-                    <span style={{ color: 'var(--brand-strong)' }}>→</span>
+                <Link key={item.id} className="tpl surface" to={`/dashboard?template=${encodeURIComponent(item.id)}&format=${galleryFormat}`}>
+                  <SlidePreview key={galleryFormat} template={item.id} palette={item.palette} format={galleryFormat} lazy />
+                  <div className="tpl__body">
+                    <div className="tpl__row">
+                      <h3 className="tpl__name">{item.name}</h3>
+                      <span className="tpl__pal" title={item.palette} style={{ background: `linear-gradient(135deg, ${colors.bg} 55%, ${colors.accent} 55%)` }} />
+                    </div>
+                    <p className="tpl__desc">{item.desc}</p>
+                    <div className="tpl__foot">
+                      <span className="badge">{item.category}</span>
+                      <span className="tpl__use">Use <Icon name="arrow-right" /></span>
+                    </div>
                   </div>
                 </Link>
               );
             })}
-        </div>
-        {visibleShowcaseItems.length === 0 && <p role="status" style={{ padding: '24px 0', color: 'var(--muted-2)', font: "500 14px/1.5 'Space Grotesk'" }}>No templates match your search. Try another topic or choose All.</p>}
-      </section>
-
-      {/* ==================== 6. ARCHITECTURE & ZERO-SERVER RETENTION ==================== */}
-      <section style={{ position: 'relative', zIndex: 1, background: 'var(--surface-2)', borderTop: '1px solid var(--line-2)', borderBottom: '1px solid var(--line-2)', padding: '64px 22px' }}>
-        <div style={{ maxWidth: 1240, margin: '0 auto', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 40, alignItems: 'center' }} className="lp-hero-grid">
-          <div>
-            <span className="lp-glow-tag" style={{ marginBottom: 12 }}>ARCHITECTURAL PRIVACY</span>
-            <h2 style={{ font: '900 clamp(26px, 3.8vw, 42px)/1.08 Archivo', letterSpacing: '-0.03em', margin: '10px 0 16px' }}>
-              Your unpublished thoughts &amp; client designs never touch our server.
-            </h2>
-            <p style={{ font: "400 15.5px/1.65 'Space Grotesk'", color: 'var(--muted-2)', margin: '0 0 24px' }}>
-              Unlike generic cloud apps that index and store every graphic draft, Cardstock runs completely client-side. The server only handles authentication and your public profile handle.
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div style={{ background: 'var(--surface)', padding: '16px 18px', borderRadius: 14, border: '1px solid var(--line)' }}>
-                <div style={{ font: '800 15px/1.2 Archivo', marginBottom: 4 }}>LocalStorage + IndexedDB</div>
-                <p style={{ font: "400 12.5px/1.5 'Space Grotesk'", color: 'var(--muted-2)', margin: 0 }}>Design states and background images stay strictly in your local browser sandbox.</p>
-              </div>
-              <div style={{ background: 'var(--surface)', padding: '16px 18px', borderRadius: 14, border: '1px solid var(--line)' }}>
-                <div style={{ font: '800 15px/1.2 Archivo', marginBottom: 4 }}>1-Click JSON Backup</div>
-                <p style={{ font: "400 12.5px/1.5 'Space Grotesk'", color: 'var(--muted-2)', margin: 0 }}>Export all your cards and carousel decks as a single JSON file and re-import anywhere.</p>
-              </div>
-            </div>
           </div>
-
-          {/* Architecture Visual Box */}
-          <div style={{ background: 'var(--ink)', color: 'var(--bar)', borderRadius: 20, padding: '28px 24px', border: '1px solid var(--ink)', boxShadow: '0 20px 50px rgba(27,22,14,0.18)' }}>
-            <div style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.2em', color: 'var(--brand)', marginBottom: 16, textTransform: 'uppercase' }}>
-              CLIENT-SIDE RENDERING PIPELINE
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, font: "600 13px/1.4 'Space Grotesk'" }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.06)', padding: '12px 16px', borderRadius: 10 }}>
-                <span style={{ color: 'var(--brand)', fontSize: 16 }}>1.</span>
-                <span>User edits template text in React Live Studio</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.06)', padding: '12px 16px', borderRadius: 10 }}>
-                <span style={{ color: 'var(--brand)', fontSize: 16 }}>2.</span>
-                <span>SlideCanvas computes typography &amp; auto-scrims locally</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.06)', padding: '12px 16px', borderRadius: 10 }}>
-                <span style={{ color: 'var(--brand)', fontSize: 16 }}>3.</span>
-                <span>Cards and carousels export on your device</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(242,183,5,0.18)', border: '1px solid var(--brand)', padding: '12px 16px', borderRadius: 10, color: 'var(--brand)' }}>
-                <span>✓ Direct browser download — Zero server hops</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ==================== 7. INTERACTIVE FAQ ACCORDION ==================== */}
-      <section style={{ position: 'relative', zIndex: 1, maxWidth: 960, margin: '0 auto', padding: '80px 22px 64px' }}>
-        <div style={{ textAlign: 'center', marginBottom: 44 }}>
-          <span style={{ font: "700 11px/1 'Space Grotesk'", letterSpacing: '.28em', color: 'var(--muted)' }}>FREQUENTLY ASKED QUESTIONS</span>
-          <h2 style={{ font: '900 clamp(28px, 4.2vw, 44px)/1.08 Archivo', letterSpacing: '-0.03em', margin: '8px 0 0' }}>
-            Everything you need to know about Cardstock.
-          </h2>
-        </div>
-
-        <div style={{ borderTop: '2px solid var(--ink)' }}>
-          {FAQS.map((faq, idx) => (
-            <div key={faq.q} style={{ borderBottom: '1px solid var(--line-2)' }}>
-              <button
-                type="button"
-                className="lp-accordion-btn"
-                aria-expanded={openFaq === idx}
-                onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-              >
-                <span>{faq.q}</span>
-                <span className="lp-accordion-icon">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </span>
-              </button>
-
-              {openFaq === idx && (
-                <div style={{ paddingBottom: 22, font: "400 15px/1.7 'Space Grotesk'", color: 'var(--muted-2)' }}>
-                  {faq.a}
-                </div>
+          {matchingItems.length === 0 && <p className="empty-note" role="status">No templates match your search. Try another topic or choose All.</p>}
+          {matchingItems.length > 0 && (
+            <div className="more">
+              <span>Showing {visibleShowcaseItems.length} of {matchingItems.length}</span>
+              {visibleShowcaseItems.length < matchingItems.length && (
+                <button type="button" className="btn btn--glass" onClick={() => setShown((n) => n + 24)}>
+                  Show {Math.min(24, matchingItems.length - visibleShowcaseItems.length)} more <Icon name="chevron-down" />
+                </button>
               )}
             </div>
-          ))}
-        </div>
-      </section>
+          )}
+        </section>
 
-      {/* ==================== 8. CLOSING EDITORIAL CTA ==================== */}
-      <section style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto 60px', padding: '0 22px' }}>
-        <div
-          style={{
-            background: 'var(--ink)',
-            color: 'var(--bar)',
-            borderRadius: 28,
-            padding: '72px 24px',
-            textAlign: 'center',
-            boxShadow: '0 30px 80px rgba(27,22,14,0.22)',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
-          <p style={{ font: "italic 500 clamp(18px,2.5vw,23px)/1.4 Newsreader", color: 'var(--brand)', margin: '0 0 12px' }}>
-            Stop fighting complex design tools.
-          </p>
-          <h2 style={{ font: '900 clamp(32px, 5.5vw, 58px)/1.02 Archivo', letterSpacing: '-0.035em', margin: '0 0 26px', color: 'var(--bar)' }}>
-            Publish your next LinkedIn post in{' '}
-            <span style={{ position: 'relative', whiteSpace: 'nowrap' }}>
-              <span style={{ position: 'absolute', left: 0, right: 0, bottom: '0.06em', height: '0.28em', background: 'var(--brand)', zIndex: 0 }} />
-              <span style={{ position: 'relative', zIndex: 1, color: 'var(--ink)' }}>three minutes</span>
-            </span>
-            .
-          </h2>
-
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
-            <Link
-              to={cta.to}
-              style={{
-                ...ctaBtn,
-                background: 'var(--brand)',
-                color: 'var(--ink)',
-                border: '1px solid var(--brand)',
-                height: 56,
-                padding: '0 36px',
-                fontSize: 16,
-              }}
-            >
-              {cta.label}
-            </Link>
+        {/* Privacy */}
+        <section className="sec" id="privacy">
+          <div className="privacy glass">
+            <div>
+              <span className="eyebrow eyebrow--accent">Private by design</span>
+              <h2 className="h2">Your drafts never leave <em>this device.</em></h2>
+              <p className="lede">Cardstock runs in your browser. The server only handles your login and the profile details that sign your cards.</p>
+              <div className="points">
+                <div><span className="why__icon"><Icon name="drive" /></span><div><b>Saved in your browser</b><p>Designs in local storage, background images in IndexedDB.</p></div></div>
+                <div><span className="why__icon"><Icon name="download" /></span><div><b>One-click JSON backup</b><p>Export every card and deck as one file and restore it anywhere.</p></div></div>
+                <div><span className="why__icon"><Icon name="cloud-off" /></span><div><b>No upload to export</b><p>PNG, PDF and ZIP files are made on your device and saved straight to it.</p></div></div>
+              </div>
+            </div>
+            <div className="pipe surface">
+              <span className="eyebrow">How an export happens</span>
+              <ol>
+                <li><span>1</span><div><b>You write in the studio</b><small>Template, text, palette, photo</small></div></li>
+                <li><span>2</span><div><b>Your browser lays out the card</b><small>Type sizes and readable scrims, computed locally</small></div></li>
+                <li><span>3</span><div><b>The file is saved to your device</b><small>PNG 1080², PDF for LinkedIn, or a ZIP of slides</small></div></li>
+              </ol>
+              <div className="pipe__ok"><Icon name="shield" /> Zero server hops for your designs</div>
+            </div>
           </div>
+        </section>
 
-          <span style={{ font: "500 12px/1 'Space Grotesk'", color: 'color-mix(in srgb, var(--bar) 65%, transparent)' }}>
-            Free to start · Instant export · No credit card required
-          </span>
-        </div>
-      </section>
-
-      {/* ==================== 9. SITE FOOTER ==================== */}
-      <footer style={{ position: 'relative', zIndex: 1, borderTop: '1px solid var(--ink)', background: 'var(--bar)' }}>
-        <div style={{ maxWidth: 1240, margin: '0 auto', padding: '28px 22px', display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <CardstockLogo size={24} wordSize={16} color="var(--ink)" />
-            <span style={{ font: "600 12px/1 'Space Grotesk'", color: 'var(--muted)', letterSpacing: '.04em' }}>
-              © 2026 Cardstock — In-Browser Card &amp; Carousel Studio · A product of{' '}
-              <a href="https://www.xahabcse.me/" target="_blank" rel="noopener noreferrer" className="lp-underline" style={{ color: 'var(--muted)' }}>xahabcse.me</a>
-              <span style={{ marginLeft: 8, opacity: 0.75 }}>v{versionData.version}</span>
-            </span>
+        {/* FAQ */}
+        <section className="sec">
+          <div className="faq">
+            <div>
+              <span className="eyebrow">FAQ</span>
+              <h2 className="h2">Questions, <em>answered.</em></h2>
+              <p className="lede" style={{ marginTop: 16 }}>Something else? Open an issue on <a className="link" href="https://github.com/xahabcse/contentpro" target="_blank" rel="noopener noreferrer">GitHub</a>.</p>
+            </div>
+            <div className="faq__list">
+              {FAQS.map((faq, idx) => (
+                <div key={faq.q} className="faq__item surface">
+                  <button type="button" className="faq__q" aria-expanded={openFaq === idx} onClick={() => setOpenFaq(openFaq === idx ? null : idx)}>
+                    <span>{faq.q}</span>
+                    <Icon name="plus" />
+                  </button>
+                  {openFaq === idx && <p className="faq__a">{faq.a}</p>}
+                </div>
+              ))}
+            </div>
           </div>
+        </section>
 
-          <div style={{ display: 'flex', gap: 22 }}>
-            <a href="#playground" className="lp-underline" style={footLink}>Playground</a>
-            <a href="#carousel-deck" className="lp-underline" style={footLink}>Carousels</a>
-            <a href="#templates" className="lp-underline" style={footLink}>Templates</a>
-            <Link to="/about" className="lp-underline" style={footLink}>About</Link>
-            <a href="https://github.com/xahabcse/contentpro" target="_blank" rel="noopener noreferrer" className="lp-underline" style={footLink}>GitHub</a>
-            <Link to="/signup" className="lp-underline" style={footLink}>Sign up</Link>
+        {/* Closing call to action */}
+        <section className="band">
+          <div>
+            <span className="eyebrow">Stop fighting design tools</span>
+            <h2 className="h2">Publish your next post in <em>three minutes.</em></h2>
+            <p>Free to start · Instant export · No credit card</p>
+            <div style={{ display: 'flex', gap: 10, marginTop: 28 }}>
+              <Link to={cta.to} className="btn btn--amber btn--lg">{cta.label} <Icon name="arrow-right" /></Link>
+            </div>
           </div>
-        </div>
-      </footer>
+          <div className="band__fan" aria-hidden="true">
+            <SlidePreview template="birthday" palette="paper" lazy />
+            <SlidePreview template="stat" palette="cobalt" lazy />
+            <SlidePreview template="quote" palette="forest" lazy />
+          </div>
+        </section>
+
+        <PublicFooter />
+      </main>
+
+      <PhoneCta />
     </div>
   );
 }
-
-// Shared button & link styles
-const ctaBtn: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: 999,
-  background: 'var(--ink)',
-  color: 'var(--brand)',
-  font: "800 14px/1 'Space Grotesk'",
-  letterSpacing: '0.01em',
-  textDecoration: 'none',
-  border: '1px solid var(--ink)',
-  cursor: 'pointer',
-  transition: 'transform 0.15s ease, filter 0.15s ease',
-};
-
-const ghostBtn: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: 999,
-  background: 'transparent',
-  color: 'var(--ink)',
-  font: "800 14px/1 'Space Grotesk'",
-  textDecoration: 'none',
-  border: '1px solid var(--line-2)',
-  cursor: 'pointer',
-  transition: 'all 0.15s ease',
-};
-
-const darkArrow: CSSProperties = {
-  width: 40,
-  height: 40,
-  borderRadius: '50%',
-  border: '1px solid rgba(243,238,225,0.28)',
-  background: 'transparent',
-  color: 'var(--bar)',
-  cursor: 'pointer',
-  font: '20px/1 Archivo',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  transition: 'background 0.15s ease, border-color 0.15s ease',
-};
-
-const navPill: CSSProperties = {
-  ...ctaBtn,
-  height: 40,
-  padding: '0 18px',
-};
-
-const navTextLink: CSSProperties = {
-  alignItems: 'center',
-  height: 40,
-  padding: '0 6px',
-  font: "700 13.5px/1 'Space Grotesk'",
-  color: 'var(--ink)',
-  textDecoration: 'none',
-};
-
-const footLink: CSSProperties = {
-  font: "600 12px/1 'Space Grotesk'",
-  color: 'var(--muted-2)',
-  textDecoration: 'none',
-  paddingBottom: 2,
-};

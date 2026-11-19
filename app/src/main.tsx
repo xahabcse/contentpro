@@ -5,6 +5,10 @@ import App from './App';
 import ToastProvider from './components/ui/ToastProvider';
 import { AuthProvider } from './lib/auth';
 import './styles/tokens.css';
+import './styles/studio.css';
+import { applyInitialSky } from './lib/sky';
+
+applyInitialSky();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
