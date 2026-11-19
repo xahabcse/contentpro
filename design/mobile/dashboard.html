@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en" data-view="mobile">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard · Cardstock · mobile</title>
+  <link rel="icon" href="../_shared/favicon.svg" type="image/svg+xml">
+  <script src="../_shared/ui.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../_shared/tokens.css">
+  <link rel="stylesheet" href="../_shared/base.css">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true"></div>
+
+  <div class="app">
+    <nav class="irail glass-strong" aria-label="Cardstock dashboard">
+      <span class="logo__mark" aria-hidden="true"></span>
+      <a href="dashboard.html" aria-current="page"><i data-i="grid"></i>Designs</a>
+      <a href="editor.html"><i data-i="plus"></i>New</a>
+      <a href="profile.html"><i data-i="user"></i>Profile</a>
+      <a href="about.html"><i data-i="info"></i>About</a>
+      <a href="landing.html"><i data-i="home"></i>Home</a>
+      <span class="avatar" title="Md. Sahabuddin Hossain">MS</span>
+    </nav>
+
+    <div>
+    <header class="appbar glass-strong">
+      <a class="logo" href="dashboard.html"><span class="logo__mark"></span>Cardstock</a>
+      
+      <div class="appbar__end">
+        <a class="btn btn--glass btn--icon" href="#" aria-label="Search"><i data-i="search"></i></a>
+        <span class="avatar">MS</span>
+      </div>
+    </header>
+
+    <nav class="drawer glass-strong" id="menu" aria-label="More" hidden>
+      <div class="drawer__head">
+        <a class="logo" href="dashboard.html"><span class="logo__mark"></span>Cardstock</a>
+        <button class="btn btn--glass btn--icon" type="button" data-toggle="#menu" aria-label="Close"><i data-i="x"></i></button>
+      </div>
+      <a class="rail__link" href="dashboard.html" aria-current="page"><i data-i="grid"></i> Dashboard</a>
+      <a class="rail__link" href="profile.html"><i data-i="user"></i> Profile &amp; Company</a>
+      <a class="rail__link" href="about.html"><i data-i="info"></i> About</a>
+      <a class="rail__link" href="landing.html"><i data-i="home"></i> Home</a>
+      <a class="rail__link" href="#"><i data-i="download"></i> Back up designs</a>
+      <a class="rail__link" href="#"><i data-i="upload"></i> Restore from a file</a>
+      <div class="drawer__foot">
+        <div class="skyswitch glass" role="group" aria-label="Sky" style="justify-self:start">
+          <button type="button" data-sky-set="day" aria-label="Day"><i data-i="sun"></i></button>
+          <button type="button" data-sky-set="night" aria-label="Night"><i data-i="moon"></i></button>
+        </div>
+        <div class="rail__me"><span class="avatar">MS</span><div><b>Md. Sahabuddin Hossain</b><span>sujoncep@gmail.com</span></div><a class="btn btn--glass" href="login.html"><i data-i="logout"></i> Log out</a></div>
+      </div>
+    </nav>
+
+    <main class="main">
+      <header class="page-head rise">
+        <div>
+          <span class="eyebrow">Wednesday, 19 November</span>
+          <h1 class="display">Good morning, <em>Sahabuddin.</em></h1>
+          <p class="lede">Pick up where you left off, or start something new.</p>
+        </div>
+        <div class="page-head__tools">
+          <div class="skyswitch glass" role="group" aria-label="Sky">
+            <button type="button" data-sky-set="day" aria-label="Day"><i data-i="sun"></i></button>
+            <button type="button" data-sky-set="night" aria-label="Night"><i data-i="moon"></i></button>
+          </div>
+          <button class="btn btn--glass" type="button" title="Restore designs from a backup file"><i data-i="upload"></i> Restore</button>
+          <button class="btn btn--glass" type="button" title="Download a JSON backup of all designs"><i data-i="download"></i> Backup</button>
+        </div>
+      </header>
+
+      <section class="create rise rise-2">
+        <a class="new glass sheen" href="editor.html">
+          <div>
+            <span class="new__icon"><i data-i="square"></i></span>
+            <h2>New card</h2>
+            <p>Single square post · 1080 × 1080</p>
+            <span class="new__go">Start a card <i data-i="arrow-right"></i></span>
+          </div>
+          <div class="new__art" aria-hidden="true"><div class="cp" data-card="quote" data-pal="forest"></div></div>
+        </a>
+        <a class="new glass sheen" href="editor.html">
+          <div>
+            <span class="new__icon"><i data-i="layers"></i></span>
+            <h2>New carousel</h2>
+            <p>Multi-slide swipe deck · up to 15</p>
+            <span class="new__go">Start a deck <i data-i="arrow-right"></i></span>
+          </div>
+          <div class="new__art new__art--deck" aria-hidden="true">
+            <div class="cp" data-card="stat" data-pal="cobalt" data-ratio="45"></div>
+            <div class="cp" data-card="cover" data-pal="cobalt" data-ratio="45"></div>
+            <div class="cp" data-card="tips" data-pal="cobalt" data-ratio="45"></div>
+          </div>
+        </a>
+        <aside class="sig surface">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="eyebrow">Your signature</span>
+            <a class="btn btn--sm btn--quiet" href="profile.html">Edit <i data-i="chevron-right"></i></a>
+          </div>
+          <div class="sig__who"><span class="avatar avatar--lg" style="width:52px;height:52px;font-size:var(--fs-md)">MS</span><div><b>Md. Sahabuddin Hossain</b><span>Software Engineer</span></div></div>
+          <div class="sig__rows">
+            <div>Handle <b>@xahabcse</b></div>
+            <div>Company <b>OnnoRokom Projukti</b></div>
+            <div>Logo <b><span class="badge badge--ok"><i data-i="check"></i> Added</span></b></div>
+          </div>
+        </aside>
+      </section>
+
+      <div class="block-head">
+        <h2>Start from a template</h2>
+        <a class="btn btn--quiet" href="editor.html">Browse all 100 <i data-i="arrow-right"></i></a>
+      </div>
+      <div class="starter">
+        <a href="editor.html"><div class="cp" data-card="wish" data-pal="paper"></div>Birthday Wish</a>
+        <a href="editor.html"><div class="cp" data-card="invite" data-pal="navy"></div>Event Invite</a>
+        <a href="editor.html"><div class="cp" data-card="congrats" data-pal="wine"></div>Congratulations</a>
+        <a href="editor.html"><div class="cp" data-card="hiring" data-pal="charcoal"></div>Hiring / Job</a>
+        <a href="editor.html"><div class="cp" data-card="compare" data-pal="slate"></div>Before / After</a>
+        <a href="editor.html"><div class="cp" data-card="question" data-pal="sand"></div>Bold Question</a>
+      </div>
+
+      <div class="block-head">
+        <h2>Saved designs <span class="badge">8</span></h2>
+        <div class="block-head__tools">
+          <div class="seg" data-group>
+            <button type="button" aria-pressed="true">All</button>
+            <button type="button" aria-pressed="false">Cards</button>
+            <button type="button" aria-pressed="false">Carousels</button>
+          </div>
+          <div class="input-wrap" style="width:220px"><i data-i="search"></i><input class="input" style="min-height:38px" placeholder="Search designs" aria-label="Search designs"></div>
+          <select class="select" style="width:160px;min-height:38px" aria-label="Sort"><option>Last edited</option><option>Name</option><option>Created</option></select>
+        </div>
+      </div>
+      <div class="saved-grid" data-saved></div>
+
+      <div class="store-note glass">
+        <i data-i="drive"></i>
+        <span><b>Designs live in this browser only.</b> Clearing site data removes them, so download a backup now and then.</span>
+        <button class="btn btn--sm btn--primary" type="button"><i data-i="download"></i> Download backup</button>
+      </div>
+    </main>
+    </div>
+  </div>
+
+  <nav class="tabbar glass-strong" aria-label="App">
+    <a href="dashboard.html" aria-current="page"><i data-i="grid"></i>Designs</a>
+    <a href="editor.html"><i data-i="sparkle"></i>Templates</a>
+    <a class="tabbar__new" href="editor.html" aria-label="New design"><span><i data-i="plus"></i></span></a>
+    <a href="profile.html"><i data-i="user"></i>Profile</a>
+    <button type="button" data-toggle="#menu"><i data-i="menu"></i>More</button>
+  </nav>
+</body>
+</html>

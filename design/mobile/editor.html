@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en" data-view="mobile">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor · Cardstock · mobile</title>
+  <link rel="icon" href="../_shared/favicon.svg" type="image/svg+xml">
+  <script src="../_shared/ui.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../_shared/tokens.css">
+  <link rel="stylesheet" href="../_shared/base.css">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true"></div>
+
+  <div class="med">
+    <header class="med__bar glass-strong">
+      <a class="btn btn--quiet btn--icon" href="dashboard.html" aria-label="Back to dashboard"><i data-i="arrow-left"></i></a>
+      <input value="How we scaled our edge API" aria-label="Design title" placeholder="Untitled design">
+      <span class="dot dot--ok" title="Saved in this browser"></span>
+      <div class="skyswitch glass" role="group" aria-label="Editor theme">
+        <button type="button" data-sky-set="day" aria-label="Switch to light"><i data-i="sun"></i></button>
+        <button type="button" data-sky-set="night" aria-label="Switch to dark"><i data-i="moon"></i></button>
+      </div>
+    </header>
+
+    <nav class="med__steps glass" role="tablist" aria-label="Steps">
+      <button class="is-done" type="button" role="tab" aria-selected="false" aria-controls="s1"><b>1</b>Template</button>
+      <button type="button" role="tab" aria-selected="true" aria-controls="s2"><b>2</b>Write</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="s3"><b>3</b>Preview</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="s4"><b>4</b>Export</button>
+    </nav>
+
+    <!-- Step 1: template -->
+    <section class="med__panel" id="s1" role="tabpanel" hidden>
+      <div class="input-wrap"><i data-i="search"></i><input class="input" placeholder="Search 100 templates…" aria-label="Search templates"></div>
+      <div class="filters__chips" data-group style="display:flex;gap:8px">
+        <button class="chip" type="button" aria-pressed="true">All</button>
+        <button class="chip" type="button" aria-pressed="false">Hooks</button>
+        <button class="chip" type="button" aria-pressed="false">Learning</button>
+        <button class="chip" type="button" aria-pressed="false">Data</button>
+        <button class="chip" type="button" aria-pressed="false">Business</button>
+        <button class="chip" type="button" aria-pressed="false">Career</button>
+      </div>
+      <div class="mini-grid" data-group data-mini="12"></div>
+    </section>
+
+    <!-- Step 2: write -->
+    <section class="med__panel" id="s2" role="tabpanel">
+      <div class="med__preview">
+        <div class="cp" data-card="tips" data-pal="navy" data-ratio="45" data-page="3 / 5"></div>
+      </div>
+
+      <div class="med__slides" aria-label="Slides">
+        <button class="strip__slide" type="button"><div class="cp" data-card="cover" data-pal="navy" data-ratio="45"></div><span>1</span></button>
+        <button class="strip__slide" type="button"><div class="cp" data-card="stat" data-pal="navy" data-ratio="45"></div><span>2</span></button>
+        <button class="strip__slide is-on" type="button"><div class="cp" data-card="tips" data-pal="navy" data-ratio="45"></div><span>3</span></button>
+        <button class="strip__slide" type="button"><div class="cp" data-card="framework" data-pal="navy" data-ratio="45"></div><span>4</span></button>
+        <button class="strip__slide" type="button"><div class="cp" data-card="tldr" data-pal="navy" data-ratio="45"></div><span>5</span></button>
+        <button class="strip__add" type="button" aria-label="Add slide"><i data-i="plus"></i>Add</button>
+      </div>
+      <div class="slide-acts" aria-label="Reorder or delete the current slide">
+        <button class="btn btn--sm btn--glass" type="button" aria-label="Move slide earlier"><i data-i="chevron-left"></i> Earlier</button>
+        <button class="btn btn--sm btn--glass" type="button" aria-label="Move slide later">Later <i data-i="chevron-right"></i></button>
+        <button class="btn btn--sm btn--glass btn--icon" type="button" aria-label="Make a copy"><i data-i="copy"></i></button>
+        <button class="btn btn--sm btn--glass btn--icon" type="button" aria-label="Delete current slide" style="color:var(--danger)"><i data-i="trash"></i></button>
+      </div>
+
+      <div class="sheet glass-strong">
+        <span class="sheet__grab" aria-hidden="true"></span>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="eyebrow">Slide 3 · Numbered tips</span>
+          <button class="link" type="button" style="font-size:var(--fs-xs)">Clear example</button>
+        </div>
+        <div class="field"><label for="hd">Heading</label><textarea class="textarea is-focus" id="hd" rows="2" style="min-height:72px">5 habits of engineers who ship</textarea></div>
+        <div class="field"><div class="field__label"><label for="b">Items</label><small>One per line</small></div><textarea class="textarea" id="b" rows="3">Write the test before the fix
+Small pull requests, daily
+Read the logs, not the guess</textarea></div>
+        <div class="field"><label for="f">Footer</label><input class="input" id="f" value="SWIPE →"></div>
+
+        <details class="fold">
+          <summary><i data-i="palette"></i> Palette <small>Navy · all slides</small> <i data-i="chevron-down"></i></summary>
+          <div>
+            <div class="pal-row" data-group>
+              <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-ink-bg);--sw-accent:var(--pal-ink-accent)" aria-label="Ink"></button>
+              <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-paper-bg);--sw-accent:var(--pal-paper-accent)" aria-label="Paper"></button>
+              <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-slate-bg);--sw-accent:var(--pal-slate-accent)" aria-label="Slate"></button>
+              <button class="swatch" type="button" aria-pressed="true" style="background:var(--pal-navy-bg);--sw-accent:var(--pal-navy-accent)" aria-label="Navy"></button>
+              <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-forest-bg);--sw-accent:var(--pal-forest-accent)" aria-label="Forest"></button>
+              <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-wine-bg);--sw-accent:var(--pal-wine-accent)" aria-label="Wine"></button>
+              <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-sand-bg);--sw-accent:var(--pal-sand-accent)" aria-label="Sand"></button>
+              <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-charcoal-bg);--sw-accent:var(--pal-charcoal-accent)" aria-label="Charcoal"></button>
+              <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-cobalt-bg);--sw-accent:var(--pal-cobalt-accent)" aria-label="Cobalt"></button>
+              <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-plum-bg);--sw-accent:var(--pal-plum-accent)" aria-label="Plum"></button>
+            </div>
+            <div class="toggle-row"><span>Apply to all slides</span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Apply to all slides"></button></div>
+          </div>
+        </details>
+        <details class="fold">
+          <summary><i data-i="user"></i> Author <small>From your profile</small> <i data-i="chevron-down"></i></summary>
+          <div>
+            <div class="field"><label for="an">Name</label><input class="input" id="an" value="Md. Sahabuddin Hossain"></div>
+            <div class="field"><label for="ah">Handle</label><div class="prefix"><span>@</span><input class="input" id="ah" value="xahabcse"></div></div>
+          </div>
+        </details>
+        <details class="fold">
+          <summary><i data-i="image"></i> Background <small>None</small> <i data-i="chevron-down"></i></summary>
+          <div><div class="drop"><i data-i="image"></i><b>Choose a photo</b><span>JPG or PNG up to 8 MB</span></div></div>
+        </details>
+        <details class="fold">
+          <summary><i data-i="text-size"></i> Text size <small>110 · 100 · 90%</small> <i data-i="chevron-down"></i></summary>
+          <div>
+            <div class="size-row"><span>Heading</span><div class="range"><span style="width:62%"></span></div><b>110%</b></div>
+            <div class="size-row"><span>Body</span><div class="range"><span style="width:50%"></span></div><b>100%</b></div>
+            <div class="size-row"><span>Footer</span><div class="range"><span style="width:44%"></span></div><b>90%</b></div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- Step 3: preview -->
+    <section class="med__panel" id="s3" role="tabpanel" hidden>
+      <div class="med__preview med__preview--big"><div class="cp" data-card="tips" data-pal="navy" data-ratio="45" data-page="3 / 5"></div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <button class="btn btn--glass btn--icon" type="button" aria-label="Previous slide"><i data-i="chevron-left"></i></button>
+        <div class="pager"><i></i><i></i><i class="is-on"></i><i></i><i></i></div>
+        <button class="btn btn--glass btn--icon" type="button" aria-label="Next slide"><i data-i="chevron-right"></i></button>
+      </div>
+      <p class="hint" style="text-align:center">Swipe to check every slide before you export.</p>
+    </section>
+
+    <!-- Step 4: export -->
+    <section class="med__panel" id="s4" role="tabpanel" hidden>
+      <div class="exp" data-group>
+        <button class="surface is-on" type="button" aria-pressed="true"><span><i data-i="file"></i></span><span><b>PDF for LinkedIn</b><small>One swipeable document · 5 pages</small></span><i data-i="check"></i></button>
+        <button class="surface" type="button" aria-pressed="false"><span><i data-i="zip"></i></span><span><b>PNG slides ZIP</b><small>For Facebook · images in order</small></span></button>
+        <button class="surface" type="button" aria-pressed="false"><span><i data-i="image"></i></span><span><b>This slide as PNG</b><small>1080 × 1350 · slide 3</small></span></button>
+      </div>
+      <div class="toast glass"><i data-i="check"></i> Made on your device. Nothing is uploaded.</div>
+    </section>
+
+    <div class="med__act glass-strong">
+      <button class="btn btn--glass" type="button"><i data-i="arrow-left"></i> Template</button>
+      <button class="btn btn--primary" type="button">Next: Preview <i data-i="arrow-right"></i></button>
+    </div>
+  </div>
+</body>
+</html>

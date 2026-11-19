@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" data-view="desktop">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Check your email · Cardstock · desktop</title>
+  <link rel="icon" href="../_shared/favicon.svg" type="image/svg+xml">
+  <script src="../_shared/ui.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../_shared/tokens.css">
+  <link rel="stylesheet" href="../_shared/base.css">
+  <link rel="stylesheet" href="desktop.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true"></div>
+
+  <div class="auth">
+    <aside class="auth__art glass">
+      <a class="logo" href="landing.html"><span class="logo__mark"></span>Cardstock</a>
+      <div class="auth__fan" aria-hidden="true">
+        <div class="cp" data-card="announce" data-pal="paper"></div>
+        <div class="cp" data-card="cover" data-pal="ink"></div>
+        <div class="cp" data-card="hiring" data-pal="charcoal"></div>
+      </div>
+      <div class="auth__quote surface">
+        <span class="eyebrow"><i data-i="shield"></i> Your account, your device</span>
+        <p style="font-size:var(--fs-xl)">Your login lives on our server. Your designs never do.</p>
+      </div>
+    </aside>
+
+    <section class="auth__side">
+      <div class="auth__switch">
+        <div class="skyswitch glass" role="group" aria-label="Sky">
+          <button type="button" data-sky-set="day" aria-label="Day"><i data-i="sun"></i></button>
+          <button type="button" data-sky-set="night" aria-label="Night"><i data-i="moon"></i></button>
+        </div>
+        <a class="btn btn--glass" href="login.html"><i data-i="arrow-left"></i> Back to login</a>
+      </div>
+
+      <div class="auth__form rise">
+        <span class="auth__badge"><i data-i="mail"></i></span>
+        <div>
+          <span class="eyebrow eyebrow--accent">One more step</span>
+          <h1 class="display" style="margin-top:12px">Check your <em>email.</em></h1>
+        </div>
+        <p class="lede">We sent a confirmation link to <b style="color:var(--ink)">sujoncep@gmail.com</b>. Open it on this device to start designing.</p>
+
+        <ol class="code-row" style="grid-template-columns:1fr">
+          <li class="surface" style="display:flex;gap:12px;align-items:center"><span class="badge badge--ok"><i data-i="check"></i> Done</span><b>Account created</b></li>
+          <li class="surface" style="display:flex;gap:12px;align-items:center"><span class="badge badge--accent">Now</span><b>Confirm your email</b></li>
+          <li class="surface" style="display:flex;gap:12px;align-items:center;opacity:.7"><span class="badge">Next</span><b>Add your name and photo</b></li>
+        </ol>
+
+        <div style="display:flex;gap:10px">
+          <a class="btn btn--primary btn--lg" href="https://mail.google.com" style="flex:1"><i data-i="external"></i> Open Gmail</a>
+          <button class="btn btn--glass btn--lg" type="button" disabled>Resend in 0:42</button>
+        </div>
+        <p class="auth__alt">Wrong address? <a class="link" href="login.html">Log out</a> and sign up again.</p>
+      </div>
+
+      <p class="auth__legal">© 2026 Cardstock · <a class="link" href="https://www.xahabcse.me/">xahabcse.me</a></p>
+    </section>
+  </div>
+</body>
+</html>

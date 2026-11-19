@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Studio Glass — Cardstock mockups</title>
+  <link rel="icon" href="_shared/favicon.svg" type="image/svg+xml">
+  <script src="_shared/ui.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="_shared/tokens.css">
+  <link rel="stylesheet" href="_shared/base.css">
+  <style>
+    /* Gallery only. Tokens only. */
+    .g {
+      width: min(1360px, 100% - 32px);
+      margin: 0 auto;
+      padding: 24px 0 64px;
+      display: grid;
+      gap: 24px;
+    }
+
+    .g-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 24px 28px;
+      border-radius: var(--r-xl);
+    }
+
+    .g-head h1 {
+      font-size: var(--fs-4xl);
+      margin-top: 10px;
+    }
+
+    .g-head p {
+      margin-top: 6px;
+      color: var(--ink-2);
+    }
+
+    .g-intro {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .g-intro > div {
+      padding: 18px 20px;
+      border-radius: var(--r-lg);
+      color: var(--ink-2);
+      font-size: var(--fs-sm);
+      line-height: 1.6;
+    }
+
+    .g-intro b {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+      font-size: var(--fs-md);
+    }
+
+    .g-compare {
+      padding: 20px;
+      border-radius: var(--r-xl);
+      display: grid;
+      gap: 16px;
+    }
+
+    .g-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .frames {
+      display: grid;
+      grid-template-columns: 605px 284px 176px;
+      gap: 18px;
+      justify-content: center;
+      align-items: start;
+      overflow-x: auto;
+    }
+
+    .frame {
+      display: grid;
+      gap: 8px;
+    }
+
+    .frame span {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: var(--fs-2xs);
+      color: var(--ink-3);
+    }
+
+    .frame div {
+      overflow: hidden;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      box-shadow: var(--glass-shadow);
+      background: var(--sky-0);
+    }
+
+    .frame iframe {
+      display: block;
+      border: 0;
+      transform-origin: 0 0;
+    }
+
+    .f-d div { width: 605px; height: 378px; }
+    .f-d iframe { width: 1440px; height: 900px; transform: scale(0.42); }
+    .f-t div { width: 284px; height: 378px; }
+    .f-t iframe { width: 834px; height: 1112px; transform: scale(0.34); }
+    .f-m div { width: 176px; height: 378px; }
+    .f-m iframe { width: 390px; height: 844px; transform: scale(0.448); }
+
+    .pages {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 12px;
+    }
+
+    .pages article {
+      padding: 16px 18px;
+      border-radius: var(--r-lg);
+      display: grid;
+      gap: 10px;
+    }
+
+    .pages h3 {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: var(--fs-md);
+      font-weight: 600;
+    }
+
+    .pages h3 code {
+      font-family: var(--font-mono);
+      font-size: var(--fs-2xs);
+      font-weight: 400;
+      color: var(--ink-3);
+    }
+
+    .pages p {
+      font-size: var(--fs-sm);
+      color: var(--ink-3);
+    }
+
+    .pages nav {
+      display: flex;
+      gap: 6px;
+    }
+
+    .pages nav a {
+      flex: 1;
+    }
+
+    h2.sec {
+      font-size: var(--fs-2xl);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    @media (max-width: 1100px) {
+      .g-intro { grid-template-columns: 1fr 1fr; }
+      .frames { grid-template-columns: 284px 176px; }
+      .f-d { display: none !important; }
+    }
+
+    @media (max-width: 560px) {
+      .g-intro { grid-template-columns: 1fr; }
+      .frames { grid-template-columns: 176px; }
+      .f-t { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sky" aria-hidden="true"></div>
+
+  <main class="g">
+    <header class="g-head glass">
+      <div>
+        <a class="logo" href="index.html"><span class="logo__mark"></span>Cardstock</a>
+        <h1 class="display">Studio <em>Glass</em> · mockups</h1>
+        <p>11 pages × desktop, tablet and mobile — 33 screens. Static HTML, not app code.</p>
+      </div>
+      <div class="skyswitch glass" role="group" aria-label="Sky">
+        <button type="button" data-sky-set="day" aria-label="Day"><i data-i="sun"></i></button>
+        <button type="button" data-sky-set="night" aria-label="Night"><i data-i="moon"></i></button>
+      </div>
+    </header>
+
+    <section class="g-intro">
+      <div class="surface"><b>Same family as NewsPortal</b>A fixed sky behind the page, glass only on chrome (bars, rails, panels, sheets), nearly opaque surfaces for content.</div>
+      <div class="surface"><b>Two skies</b>Day (warm paper and sage) and night (the studio after hours). Picked by the Dhaka clock; switch with the buttons.</div>
+      <div class="surface"><b>Type</b>Instrument Sans for UI and headings, Instrument Serif italic for accents, JetBrains Mono for labels, Archivo inside the cards.</div>
+      <div class="surface"><b>Amber stays the brand</b>One accent in both skies. Card palettes (Ink, Paper, Navy…) are the app’s own and never follow the sky.</div>
+    </section>
+
+    <section class="g-compare glass">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <h2 class="sec">Three views side by side</h2>
+        <div class="g-bar" id="pick" data-group>
+          <button class="chip" type="button" aria-pressed="true" data-page="landing">Landing</button>
+          <button class="chip" type="button" aria-pressed="false" data-page="dashboard">Dashboard</button>
+          <button class="chip" type="button" aria-pressed="false" data-page="editor">Editor</button>
+          <button class="chip" type="button" aria-pressed="false" data-page="profile">Profile</button>
+          <button class="chip" type="button" aria-pressed="false" data-page="login">Log in</button>
+          <button class="chip" type="button" aria-pressed="false" data-page="about">About</button>
+          <button class="chip" type="button" aria-pressed="false" data-page="404">404</button>
+        </div>
+      </div>
+      <div class="frames">
+        <a class="frame f-d" href="desktop/landing.html" target="_blank"><span>desktop <b>1440</b></span><div><iframe src="desktop/landing.html" title="Desktop" tabindex="-1" loading="lazy"></iframe></div></a>
+        <a class="frame f-t" href="tablet/landing.html" target="_blank"><span>tablet <b>834</b></span><div><iframe src="tablet/landing.html" title="Tablet" tabindex="-1" loading="lazy"></iframe></div></a>
+        <a class="frame f-m" href="mobile/landing.html" target="_blank"><span>mobile <b>390</b></span><div><iframe src="mobile/landing.html" title="Mobile" tabindex="-1" loading="lazy"></iframe></div></a>
+      </div>
+    </section>
+
+    <h2 class="sec">All pages</h2>
+    <section class="pages">
+      <article class="surface"><h3>Landing <code>/</code></h3><p>Hero with live studio, carousel deck, why, 12 of 100 templates, privacy, FAQ.</p><nav><a class="btn btn--sm btn--glass" href="desktop/landing.html"><i data-i="monitor"></i> Desktop</a><a class="btn btn--sm btn--glass" href="tablet/landing.html"><i data-i="tablet"></i> Tablet</a><a class="btn btn--sm btn--glass" href="mobile/landing.html"><i data-i="phone"></i> Mobile</a></nav></article>
+      <article class="surface"><h3>About <code>/about</code></h3><p>Manifesto, philosophy, the stack, creator, local setup.</p><nav><a class="btn btn--sm btn--glass" href="desktop/about.html"><i data-i="monitor"></i> Desktop</a><a class="btn btn--sm btn--glass" href="tablet/about.html"><i data-i="tablet"></i> Tablet</a><a class="btn btn--sm btn--glass" href="mobile/about.html"><i data-i="phone"></i> Mobile</a></nav></article>
+      <article class="surface"><h3>Log in <code>/login</code></h3><p>Split screen on desktop, one glass card on tablet and phone. Turnstile kept.</p><nav><a class="btn btn--sm btn--glass" href="desktop/login.html"><i data-i="monitor"></i> Desktop</a><a class="btn btn--sm btn--glass" href="tablet/login.html"><i data-i="tablet"></i> Tablet</a><a class="btn btn--sm btn--glass" href="mobile/login.html"><i data-i="phone"></i> Mobile</a></nav></article>
+      <article class="surface"><h3>Sign up <code>/signup</code></h3><p>Email, password with strength meter, Turnstile.</p><nav><a class="btn btn--sm btn--glass" href="desktop/signup.html"><i data-i="monitor"></i> Desktop</a><a class="btn btn--sm btn--glass" href="tablet/signup.html"><i data-i="tablet"></i> Tablet</a><a class="btn btn--sm btn--glass" href="mobile/signup.html"><i data-i="phone"></i> Mobile</a></nav></article>
+      <article class="surface"><h3>Verify email <code>/verify-email</code></h3><p>Check your email, three-step progress, resend timer.</p><nav><a class="btn btn--sm btn--glass" href="desktop/verify-email.html"><i data-i="monitor"></i> Desktop</a><a class="btn btn--sm btn--glass" href="tablet/verify-email.html"><i data-i="tablet"></i> Tablet</a><a class="btn btn--sm btn--glass" href="mobile/verify-email.html"><i data-i="phone"></i> Mobile</a></nav></article>
+      <article class="surface"><h3>Forgot password <code>/forgot-password</code></h3><p>Email + Turnstile, the "if an account exists" notice.</p><nav><a class="btn btn--sm btn--glass" href="desktop/forgot-password.html"><i data-i="monitor"></i> Desktop</a><a class="btn btn--sm btn--glass" href="tablet/forgot-password.html"><i data-i="tablet"></i> Tablet</a><a class="btn btn--sm btn--glass" href="mobile/forgot-password.html"><i data-i="phone"></i> Mobile</a></nav></article>
+      <article class="surface"><h3>Reset password <code>/reset-password</code></h3><p>New password, strength meter, link expiry.</p><nav><a class="btn btn--sm btn--glass" href="desktop/reset-password.html"><i data-i="monitor"></i> Desktop</a><a class="btn btn--sm btn--glass" href="tablet/reset-password.html"><i data-i="tablet"></i> Tablet</a><a class="btn btn--sm btn--glass" href="mobile/reset-password.html"><i data-i="phone"></i> Mobile</a></nav></article>
+      <article class="surface"><h3>Dashboard <code>/dashboard</code> <i data-i="lock"></i></h3><p>Greeting, new card / carousel, signature, starters, saved designs, backup.</p><nav><a class="btn btn--sm btn--glass" href="desktop/dashboard.html"><i data-i="monitor"></i> Desktop</a><a class="btn btn--sm btn--glass" href="tablet/dashboard.html"><i data-i="tablet"></i> Tablet</a><a class="btn btn--sm btn--glass" href="mobile/dashboard.html"><i data-i="phone"></i> Mobile</a></nav></article>
+      <article class="surface"><h3>Profile &amp; Company <code>/settings/profile</code> <i data-i="lock"></i></h3><p>Personal, company, social, live signature preview.</p><nav><a class="btn btn--sm btn--glass" href="desktop/profile.html"><i data-i="monitor"></i> Desktop</a><a class="btn btn--sm btn--glass" href="tablet/profile.html"><i data-i="tablet"></i> Tablet</a><a class="btn btn--sm btn--glass" href="mobile/profile.html"><i data-i="phone"></i> Mobile</a></nav></article>
+      <article class="surface"><h3>Editor <code>/designs/:id</code> <i data-i="lock"></i></h3><p>Desktop 3 panels · tablet 2 panels + template drawer · phone 4 steps.</p><nav><a class="btn btn--sm btn--glass" href="desktop/editor.html"><i data-i="monitor"></i> Desktop</a><a class="btn btn--sm btn--glass" href="tablet/editor.html"><i data-i="tablet"></i> Tablet</a><a class="btn btn--sm btn--glass" href="mobile/editor.html"><i data-i="phone"></i> Mobile</a></nav></article>
+      <article class="surface"><h3>Not found <code>/*</code></h3><p>"This card is blank" with useful links.</p><nav><a class="btn btn--sm btn--glass" href="desktop/404.html"><i data-i="monitor"></i> Desktop</a><a class="btn btn--sm btn--glass" href="tablet/404.html"><i data-i="tablet"></i> Tablet</a><a class="btn btn--sm btn--glass" href="mobile/404.html"><i data-i="phone"></i> Mobile</a></nav></article>
+    </section>
+  </main>
+
+  <script>
+    // Gallery: show one page in the three frames, in the gallery's sky.
+    function showPage(page) {
+      var sky = document.documentElement.dataset.sky;
+      document.querySelectorAll('.frame').forEach(function (frame) {
+        var view = frame.classList.contains('f-d') ? 'desktop' : frame.classList.contains('f-t') ? 'tablet' : 'mobile';
+        var url = view + '/' + page + '.html?sky=' + sky;
+        frame.href = url;
+        frame.querySelector('iframe').src = url;
+      });
+    }
+
+    showPage('landing');
+
+    document.getElementById('pick').addEventListener('click', function (event) {
+      var button = event.target.closest('[data-page]');
+      if (!button) {
+        return;
+      }
+      showPage(button.dataset.page);
+    });
+  </script>
+</body>
+</html>

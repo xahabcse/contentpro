@@ -1,0 +1,191 @@
+/*
+ * Cardstock "Studio Glass" — design tokens.
+ *
+ * Same family as NewsPortal's Monsoon Glass: a fixed sky behind the page, glass only on chrome
+ * (bars, rails, panels, sheets), nearly opaque surfaces for content. Two skies:
+ *   day   — warm paper and sage, dark ink on pale glass (default 07–18 Dhaka time)
+ *   night — the studio after hours, light ink on smoked glass
+ * The amber brand (#F2B705) is the one accent in both. Exported cards keep their own palettes
+ * (--pal-*), which never change with the sky.
+ *
+ * Tokens only. No selectors other than :root and [data-sky].
+ */
+
+:root {
+  /* ---- Type ------------------------------------------------------------ */
+  --font-ui: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --font-card: "Archivo", "Instrument Sans", system-ui, sans-serif;
+
+  --fs-2xs: 0.6875rem;   /* 11 */
+  --fs-xs: 0.75rem;      /* 12 */
+  --fs-sm: 0.8125rem;    /* 13 */
+  --fs-md: 0.9375rem;    /* 15 */
+  --fs-lg: 1.0625rem;    /* 17 */
+  --fs-xl: 1.25rem;      /* 20 */
+  --fs-2xl: 1.5rem;      /* 24 */
+  --fs-3xl: 2rem;        /* 32 */
+  --fs-4xl: 2.75rem;     /* 44 */
+  --fs-5xl: 3.75rem;     /* 60 */
+  --fs-6xl: 4.75rem;     /* 76 */
+
+  --lh-tight: 1.04;
+  --lh-snug: 1.3;
+  --lh-body: 1.6;
+
+  --tracking-display: -0.035em;
+  --tracking-head: -0.02em;
+  --tracking-eyebrow: 0.14em;
+
+  /* ---- Space, shape ---------------------------------------------------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+  --sp-20: 80px;
+  --sp-24: 96px;
+
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  --tap: 44px;
+
+  /* ---- Glass ----------------------------------------------------------- */
+  --blur-sm: 10px;
+  --blur-md: 18px;
+  --blur-lg: 30px;
+  --saturate: 160%;
+
+  /* ---- Motion ---------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-1: 140ms;
+  --dur-2: 240ms;
+  --dur-3: 560ms;
+
+  /* ---- Brand (same in both skies) -------------------------------------- */
+  --brand: #f2b705;
+  --brand-ink: #1b160e;
+  --ok: #1f9d63;
+  --danger: #e1402b;
+
+  /* ---- Card palettes (src/lib/palettes.ts) — never follow the sky ------ */
+  --pal-ink-bg: #14110b;      --pal-ink-text: #f5f1e4;      --pal-ink-accent: #f2b441;
+  --pal-paper-bg: #f4efe4;    --pal-paper-text: #1a1712;    --pal-paper-accent: #b4531f;
+  --pal-slate-bg: #24303a;    --pal-slate-text: #e9eef2;    --pal-slate-accent: #8fc0d4;
+  --pal-navy-bg: #16233f;     --pal-navy-text: #edf0f5;     --pal-navy-accent: #d6a84c;
+  --pal-forest-bg: #1b3a2e;   --pal-forest-text: #eaf0e4;   --pal-forest-accent: #8fc98c;
+  --pal-wine-bg: #3b1e27;     --pal-wine-text: #f4e6e8;     --pal-wine-accent: #e39aa6;
+  --pal-sand-bg: #e7dcc7;     --pal-sand-text: #2a2117;     --pal-sand-accent: #a8481f;
+  --pal-charcoal-bg: #1c1c1e; --pal-charcoal-text: #fafafa; --pal-charcoal-accent: #b7b7bc;
+  --pal-cobalt-bg: #21386e;   --pal-cobalt-text: #eef1f8;   --pal-cobalt-accent: #ebc258;
+  --pal-plum-bg: #2e1f3f;     --pal-plum-text: #efe6f5;     --pal-plum-accent: #c79be0;
+
+  color-scheme: light;
+}
+
+/* ---- Day: the default sky ------------------------------------------------ */
+:root,
+[data-sky="day"] {
+  color-scheme: light;
+  --sky-0: #f3f1ea;
+  --sky-1: #e6eee8;
+  --sky-2: #f5e6bf;
+  --blob-a: rgba(242, 183, 5, 0.30);
+  --blob-b: rgba(116, 188, 166, 0.42);
+  --blob-c: rgba(150, 176, 255, 0.26);
+  --dot: rgba(21, 32, 30, 0.07);
+
+  --ink: #15201e;
+  --ink-2: rgba(21, 32, 30, 0.74);
+  --ink-3: rgba(21, 32, 30, 0.62);
+  --ink-inverse: #f8f6ef;
+
+  --glass: rgba(255, 255, 255, 0.52);
+  --glass-strong: rgba(255, 255, 255, 0.72);
+  --glass-solid: rgba(251, 250, 246, 0.97);
+  --glass-line: rgba(255, 255, 255, 0.78);
+  --glass-highlight: rgba(255, 255, 255, 0.92);
+  --glass-shadow: 0 1px 1px rgba(30, 48, 44, 0.05), 0 22px 50px -24px rgba(30, 48, 44, 0.30);
+
+  --surface: rgba(255, 255, 255, 0.86);
+  --surface-hover: rgba(255, 255, 255, 0.96);
+  --surface-line: rgba(21, 32, 30, 0.09);
+  --surface-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 16px 34px -24px rgba(30, 48, 44, 0.38);
+
+  --input: rgba(255, 255, 255, 0.82);
+  --input-line: rgba(21, 32, 30, 0.14);
+  --line: rgba(21, 32, 30, 0.10);
+
+  --btn-bg: #15201e;
+  --btn-ink: #f6c430;
+  --btn-hover: #24332f;
+
+  --accent: #f2b705;
+  --accent-text: #845900;          /* amber as small text on pale glass: 5.2:1 */
+  --accent-soft: rgba(242, 183, 5, 0.16);
+  --accent-line: rgba(196, 146, 0, 0.42);
+  --highlight: rgba(242, 183, 5, 0.55);
+
+  --focus: #b07c00;
+  --scrim: rgba(18, 26, 24, 0.34);
+  --stage: rgba(21, 32, 30, 0.035);
+}
+
+/* ---- Night: the studio after hours --------------------------------------- */
+[data-sky="night"] {
+  color-scheme: dark;
+  --sky-0: #090f0e;
+  --sky-1: #0e1b18;
+  --sky-2: #1a2a20;
+  --blob-a: rgba(242, 183, 5, 0.20);
+  --blob-b: rgba(28, 168, 138, 0.30);
+  --blob-c: rgba(92, 104, 236, 0.22);
+  --dot: rgba(255, 255, 255, 0.05);
+
+  --ink: #eef3ef;
+  --ink-2: rgba(232, 240, 236, 0.74);
+  --ink-3: rgba(222, 234, 229, 0.54);
+  --ink-inverse: #0b1210;
+
+  --glass: rgba(18, 31, 29, 0.46);
+  --glass-strong: rgba(14, 25, 23, 0.70);
+  --glass-solid: rgba(12, 20, 19, 0.96);
+  --glass-line: rgba(255, 255, 255, 0.10);
+  --glass-highlight: rgba(255, 255, 255, 0.09);
+  --glass-shadow: 0 1px 1px rgba(0, 0, 0, 0.3), 0 22px 52px -20px rgba(0, 0, 0, 0.62);
+
+  --surface: rgba(15, 26, 24, 0.84);
+  --surface-hover: rgba(20, 34, 31, 0.9);
+  --surface-line: rgba(255, 255, 255, 0.08);
+  --surface-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 16px 36px -22px rgba(0, 0, 0, 0.75);
+
+  --input: rgba(255, 255, 255, 0.05);
+  --input-line: rgba(255, 255, 255, 0.13);
+  --line: rgba(255, 255, 255, 0.09);
+
+  --btn-bg: #f2b705;
+  --btn-ink: #1b160e;
+  --btn-hover: #ffc824;
+
+  --accent: #f5c13a;
+  --accent-text: #f5c13a;
+  --accent-soft: rgba(245, 193, 58, 0.13);
+  --accent-line: rgba(245, 193, 58, 0.40);
+  --highlight: rgba(242, 183, 5, 0.32);
+
+  --focus: #ffd666;
+  --scrim: rgba(2, 6, 5, 0.62);
+  --stage: rgba(255, 255, 255, 0.025);
+}

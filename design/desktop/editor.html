@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en" data-view="desktop">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor · Cardstock · desktop</title>
+  <link rel="icon" href="../_shared/favicon.svg" type="image/svg+xml">
+  <script src="../_shared/ui.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../_shared/tokens.css">
+  <link rel="stylesheet" href="../_shared/base.css">
+  <link rel="stylesheet" href="desktop.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true"></div>
+
+  <div class="ed">
+    <!-- Top bar -->
+    <header class="ed__bar glass-strong">
+      <a class="btn btn--quiet btn--icon" href="dashboard.html" aria-label="Back to dashboard"><i data-i="arrow-left"></i></a>
+      <span class="logo__mark" aria-hidden="true"></span>
+      <div class="ed__title">
+        <input value="How we scaled our edge API" aria-label="Design title" placeholder="Untitled design">
+        <span class="badge"><i data-i="layers"></i> Carousel · 5 slides</span>
+        <span class="ed__status"><span class="dot dot--ok"></span>Saved in this browser · just now</span>
+      </div>
+      <div class="ed__bar-end">
+        <div class="skyswitch glass" role="group" aria-label="Editor theme">
+          <button type="button" data-sky-set="day" aria-label="Switch to light"><i data-i="sun"></i></button>
+          <button type="button" data-sky-set="night" aria-label="Switch to dark"><i data-i="moon"></i></button>
+        </div>
+        <button class="btn btn--glass" type="button"><i data-i="eye"></i> Preview</button>
+        <button class="btn btn--primary" type="button" data-toggle="#export" aria-expanded="true"><i data-i="download"></i> Export <i data-i="chevron-down"></i></button>
+      </div>
+
+      <div class="menu glass-strong" id="export" role="menu" aria-label="Export carousel">
+        <button class="menu__item is-on" type="button" role="menuitem"><span><i data-i="file"></i></span><span><b>PDF for LinkedIn</b><small>One swipeable document · 5 pages</small></span><span class="kbd">⌘E</span></button>
+        <button class="menu__item" type="button" role="menuitem"><span><i data-i="zip"></i></span><span><b>PNG slides ZIP for Facebook</b><small>Separate images in slide order</small></span></button>
+        <button class="menu__item" type="button" role="menuitem"><span><i data-i="image"></i></span><span><b>This slide as PNG</b><small>1080 × 1350 · slide 3</small></span></button>
+      </div>
+    </header>
+
+    <div class="ed__body">
+      <!-- Templates -->
+      <aside class="panel glass-strong" aria-label="Templates">
+        <div class="panel__head">
+          <div class="panel__title"><h2>Templates</h2><span class="meta">100</span></div>
+          <div class="input-wrap"><i data-i="search"></i><input class="input" style="min-height:40px;font-size:var(--fs-sm)" placeholder="Search 100 templates…" aria-label="Search templates"></div>
+          <div class="panel__chips" data-group aria-label="Template category">
+            <button class="chip" type="button" aria-pressed="true">All</button>
+            <button class="chip" type="button" aria-pressed="false">Hooks</button>
+            <button class="chip" type="button" aria-pressed="false">Learning</button>
+            <button class="chip" type="button" aria-pressed="false">Data</button>
+            <button class="chip" type="button" aria-pressed="false">Business</button>
+            <button class="chip" type="button" aria-pressed="false">Career</button>
+          </div>
+        </div>
+        <div class="panel__scroll">
+          <div class="mini-grid" data-group data-mini="16"></div>
+        </div>
+      </aside>
+
+      <!-- Stage -->
+      <section class="stage" aria-label="Canvas">
+        <div class="stage__top">
+          <div class="seg" data-group>
+            <button type="button" aria-pressed="false"><i data-i="square"></i>1:1</button>
+            <button type="button" aria-pressed="true"><i data-i="layers"></i>4:5</button>
+          </div>
+          <span class="meta mono">Slide 3 of 5 · 1080 × 1350</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn--sm btn--glass btn--icon" type="button" aria-label="Zoom out"><i data-i="minus"></i></button>
+            <span class="btn btn--sm btn--glass mono" style="pointer-events:none">82%</span>
+            <button class="btn btn--sm btn--glass btn--icon" type="button" aria-label="Zoom in"><i data-i="plus"></i></button>
+          </div>
+        </div>
+
+        <div class="stage__canvas">
+          <div class="stage__frame">
+            <div class="cp" data-card="tips" data-pal="navy" data-ratio="45" data-page="3 / 5"></div>
+            <button class="stage__arrow stage__arrow--l btn btn--glass btn--icon" type="button" aria-label="Previous slide"><i data-i="chevron-left"></i></button>
+            <div class="stage__tools glass" aria-label="Reorder or delete the current slide">
+              <button class="btn btn--sm btn--quiet btn--icon" type="button" aria-label="Move slide earlier"><i data-i="chevron-up"></i></button>
+              <button class="btn btn--sm btn--quiet btn--icon" type="button" aria-label="Move slide later"><i data-i="chevron-down"></i></button>
+              <button class="btn btn--sm btn--quiet btn--icon" type="button" aria-label="Make a copy"><i data-i="copy"></i></button>
+              <button class="btn btn--sm btn--quiet btn--icon" type="button" aria-label="Delete current slide" style="color:var(--danger)"><i data-i="trash"></i></button>
+            </div>
+            <button class="stage__arrow stage__arrow--r btn btn--glass btn--icon" type="button" aria-label="Next slide"><i data-i="chevron-right"></i></button>
+          </div>
+        </div>
+
+        <div class="strip" aria-label="Slides">
+          <button class="strip__slide" type="button"><div class="cp" data-card="cover" data-pal="navy" data-ratio="45"></div><span>1</span></button>
+          <button class="strip__slide" type="button"><div class="cp" data-card="stat" data-pal="navy" data-ratio="45"></div><span>2</span></button>
+          <button class="strip__slide is-on" type="button"><div class="cp" data-card="tips" data-pal="navy" data-ratio="45"></div><span>3</span></button>
+          <button class="strip__slide" type="button"><div class="cp" data-card="framework" data-pal="navy" data-ratio="45"></div><span>4</span></button>
+          <button class="strip__slide" type="button"><div class="cp" data-card="tldr" data-pal="navy" data-ratio="45"></div><span>5</span></button>
+          <button class="strip__add" type="button" aria-label="Add slide"><i data-i="plus"></i>Add</button>
+          <span class="strip__count mono">5 / 15</span>
+        </div>
+      </section>
+
+      <!-- Inspector -->
+      <aside class="panel glass-strong insp" aria-label="Editor panels">
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" aria-selected="true" aria-controls="p-content"><i data-i="type"></i>Content</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="p-theme"><i data-i="palette"></i>Theme</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="p-author"><i data-i="user"></i>Author</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="p-image"><i data-i="image"></i>Image</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="p-text"><i data-i="text-size"></i>Text</button>
+        </div>
+
+        <div class="panel__scroll">
+          <div class="insp__body" id="p-content" role="tabpanel">
+            <div class="insp__sec">
+              <h3>Slide 3 · Numbered tips <button class="link" type="button" style="font-family:var(--font-ui);letter-spacing:0;text-transform:none;font-size:var(--fs-xs)">Clear example</button></h3>
+              <div class="field"><label for="e">Eyebrow</label><input class="input" id="e" value="Save this"></div>
+              <div class="field"><label for="hd">Heading</label><textarea class="textarea is-focus" id="hd" rows="2" style="min-height:72px">5 habits of engineers who ship</textarea><span class="hint">Wrap a word in *stars* to colour it with the accent.</span></div>
+              <div class="field"><div class="field__label"><label for="b">Items</label><small>One item per line</small></div><textarea class="textarea" id="b" rows="4">Write the test before the fix
+Small pull requests, daily
+Read the logs, not the guess</textarea></div>
+              <div class="field"><label for="f">Footer</label><input class="input" id="f" value="SWIPE →"></div>
+            </div>
+            <div class="insp__sec">
+              <h3>Palette <span>Navy</span></h3>
+              <div class="pal-grid" data-group>
+                <button type="button" aria-pressed="false"><span class="swatch" style="background:var(--pal-ink-bg);--sw-accent:var(--pal-ink-accent)"></span>Ink</button>
+                <button type="button" aria-pressed="false"><span class="swatch" style="background:var(--pal-paper-bg);--sw-accent:var(--pal-paper-accent)"></span>Paper</button>
+                <button type="button" aria-pressed="false"><span class="swatch" style="background:var(--pal-slate-bg);--sw-accent:var(--pal-slate-accent)"></span>Slate</button>
+                <button type="button" aria-pressed="true"><span class="swatch" aria-pressed="true" style="background:var(--pal-navy-bg);--sw-accent:var(--pal-navy-accent)"></span>Navy</button>
+                <button type="button" aria-pressed="false"><span class="swatch" style="background:var(--pal-forest-bg);--sw-accent:var(--pal-forest-accent)"></span>Forest</button>
+              </div>
+              <div class="toggle-row"><span>Apply to all slides</span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Apply to all slides"></button></div>
+            </div>
+          </div>
+
+          <div class="insp__body" id="p-theme" role="tabpanel" hidden>
+            <div class="insp__sec">
+              <h3>Palette <span>10</span></h3>
+              <div class="pal-grid" data-group>
+                <button type="button"><span class="swatch" style="background:var(--pal-ink-bg);--sw-accent:var(--pal-ink-accent)"></span>Ink</button>
+                <button type="button"><span class="swatch" style="background:var(--pal-paper-bg);--sw-accent:var(--pal-paper-accent)"></span>Paper</button>
+                <button type="button"><span class="swatch" style="background:var(--pal-slate-bg);--sw-accent:var(--pal-slate-accent)"></span>Slate</button>
+                <button type="button"><span class="swatch" aria-pressed="true" style="background:var(--pal-navy-bg);--sw-accent:var(--pal-navy-accent)"></span>Navy</button>
+                <button type="button"><span class="swatch" style="background:var(--pal-forest-bg);--sw-accent:var(--pal-forest-accent)"></span>Forest</button>
+                <button type="button"><span class="swatch" style="background:var(--pal-wine-bg);--sw-accent:var(--pal-wine-accent)"></span>Wine</button>
+                <button type="button"><span class="swatch" style="background:var(--pal-sand-bg);--sw-accent:var(--pal-sand-accent)"></span>Sand</button>
+                <button type="button"><span class="swatch" style="background:var(--pal-charcoal-bg);--sw-accent:var(--pal-charcoal-accent)"></span>Charcoal</button>
+                <button type="button"><span class="swatch" style="background:var(--pal-cobalt-bg);--sw-accent:var(--pal-cobalt-accent)"></span>Cobalt</button>
+                <button type="button"><span class="swatch" style="background:var(--pal-plum-bg);--sw-accent:var(--pal-plum-accent)"></span>Plum</button>
+              </div>
+            </div>
+            <div class="insp__sec">
+              <h3>Custom colours <button class="link" type="button" style="font-family:var(--font-ui);letter-spacing:0;text-transform:none;font-size:var(--fs-xs)">Reset ↺</button></h3>
+              <div class="color-row">
+                <label>Background<span><i style="background:#16233F"></i>16233F</span></label>
+                <label>Text<span><i style="background:#EDF0F5"></i>EDF0F5</span></label>
+                <label>Accent<span><i style="background:#D6A84C"></i>D6A84C</span></label>
+              </div>
+              <div class="toggle-row"><span>Apply to all slides</span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Apply to all slides"></button></div>
+            </div>
+          </div>
+
+          <div class="insp__body" id="p-author" role="tabpanel" hidden>
+            <div class="override"><i data-i="info"></i><span>Signed from your profile. Edit here to override just this design.</span></div>
+            <div class="insp__sec">
+              <div class="upload"><span class="avatar avatar--lg" style="width:56px;height:56px">MS</span><div class="upload__acts"><div><button class="btn btn--sm btn--glass" type="button"><i data-i="upload"></i> Override photo</button><button class="btn btn--sm btn--quiet" type="button">Use profile</button></div></div></div>
+              <div class="field"><label for="an">Name</label><input class="input" id="an" value="Md. Sahabuddin Hossain" placeholder="Your name"></div>
+              <div class="field"><label for="ah">Handle</label><div class="prefix"><span>@</span><input class="input" id="ah" value="xahabcse" placeholder="yourhandle"></div></div>
+            </div>
+          </div>
+
+          <div class="insp__body" id="p-image" role="tabpanel" hidden>
+            <div class="drop"><i data-i="image"></i><b>Drop a background image</b><span>or <button class="link" type="button">upload one</button> · JPG or PNG up to 8 MB</span></div>
+            <p class="hint">A dark scrim is added automatically so text stays readable.</p>
+          </div>
+
+          <div class="insp__body" id="p-text" role="tabpanel" hidden>
+            <div class="insp__sec">
+              <h3>Text size <button class="link" type="button" style="font-family:var(--font-ui);letter-spacing:0;text-transform:none;font-size:var(--fs-xs)">Reset all ↺</button></h3>
+              <div class="size-row"><span>Heading</span><div class="range"><span style="width:62%"></span></div><b>110%</b></div>
+              <div class="size-row"><span>Body</span><div class="range"><span style="width:50%"></span></div><b>100%</b></div>
+              <div class="size-row"><span>Footer</span><div class="range"><span style="width:44%"></span></div><b>90%</b></div>
+              <p class="hint">Heading, body and footer scale independently.</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</body>
+</html>

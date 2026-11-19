@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en" data-view="mobile">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cardstock — LinkedIn cards &amp; carousels · mobile</title>
+  <link rel="icon" href="../_shared/favicon.svg" type="image/svg+xml">
+  <script src="../_shared/ui.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../_shared/tokens.css">
+  <link rel="stylesheet" href="../_shared/base.css">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body class="has-mcta">
+  <div class="sky" aria-hidden="true"></div>
+
+  <header class="top glass">
+    <a class="logo" href="landing.html"><span class="logo__mark"></span>Cardstock</a>
+    <nav class="top__nav" aria-label="Main">
+      <a href="#templates">Templates</a>
+      <a href="#carousels">Carousels</a>
+      <a href="#privacy">Privacy</a>
+      <a href="about.html">About</a>
+    </nav>
+    <div class="top__end">
+      <button class="btn btn--glass btn--icon top__menu" type="button" data-toggle="#menu" aria-label="Menu"><i data-i="menu"></i></button>
+    <div class="skyswitch glass" role="group" aria-label="Sky">
+        <button type="button" data-sky-set="day" aria-label="Day"><i data-i="sun"></i></button>
+        <button type="button" data-sky-set="night" aria-label="Night"><i data-i="moon"></i></button>
+      </div>
+      <a class="btn btn--quiet" href="login.html">Log in</a>
+      <a class="btn btn--primary" href="signup.html">Start free <i data-i="arrow-right"></i></a>
+    </div>
+  </header>
+
+  <nav class="drawer glass-strong" id="menu" aria-label="Menu" hidden>
+    <div class="drawer__head">
+      <a class="logo" href="landing.html"><span class="logo__mark"></span>Cardstock</a>
+      <button class="btn btn--glass btn--icon" type="button" data-toggle="#menu" aria-label="Close menu"><i data-i="x"></i></button>
+    </div>
+    <a class="rail__link" href="landing.html#templates"><i data-i="grid"></i> Templates</a>
+    <a class="rail__link" href="landing.html#carousels"><i data-i="layers"></i> Carousels</a>
+    <a class="rail__link" href="landing.html#privacy"><i data-i="shield"></i> Privacy</a>
+    <a class="rail__link" href="about.html"><i data-i="info"></i> About</a>
+    <a class="rail__link" href="https://github.com/xahabcse/contentpro"><i data-i="github"></i> GitHub</a>
+    <div class="drawer__foot">
+      <div class="skyswitch glass" role="group" aria-label="Sky" style="justify-self:start">
+        <button type="button" data-sky-set="day" aria-label="Day"><i data-i="sun"></i></button>
+        <button type="button" data-sky-set="night" aria-label="Night"><i data-i="moon"></i></button>
+      </div>
+      <a class="btn btn--glass btn--block btn--lg" href="login.html">Log in</a>
+      <a class="btn btn--primary btn--block btn--lg" href="signup.html">Start designing free <i data-i="arrow-right"></i></a>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="rise">
+        <span class="pill glass"><span class="dot dot--ok"></span><b>Free</b> · Runs in your browser · No watermark</span>
+        <h1 class="display">Cards for <em>every day.</em><br>Carousels worth a&nbsp;swipe.</h1>
+        <p class="lede">Birthday wishes, event invites, work updates and how-to guides for LinkedIn and Facebook. Pick a template, write your message, export a PNG card, a PDF carousel or a pack of PNG slides.</p>
+        <div class="hero__cta">
+          <a class="btn btn--primary btn--lg" href="signup.html">Start designing free <i data-i="arrow-right"></i></a>
+          <a class="btn btn--glass btn--lg" href="dashboard.html"><i data-i="eye"></i> Try the demo</a>
+        </div>
+        <div class="hero__trust">
+          <span><i data-i="check"></i> Drafts stay on your device</span>
+          <span><i data-i="check"></i> 1080 × 1080 PNG export</span>
+          <span><i data-i="check"></i> Profile footer added for you</span>
+        </div>
+      </div>
+
+      <div class="studio glass-strong rise rise-2" aria-label="Live studio sandbox">
+        <div class="studio__head">
+          <span class="eyebrow"><span class="dot dot--ok"></span>Live studio</span>
+          <div class="seg" data-group>
+            <button type="button" aria-pressed="true"><i data-i="square"></i>1:1 Card</button>
+            <button type="button" aria-pressed="false"><i data-i="layers"></i>4:5 Slide</button>
+          </div>
+        </div>
+        <div class="studio__chips" data-group>
+          <button class="chip" type="button" aria-pressed="true">Cover hook</button>
+          <button class="chip" type="button" aria-pressed="false">Big stat</button>
+          <button class="chip" type="button" aria-pressed="false">Quote</button>
+          <button class="chip" type="button" aria-pressed="false">Numbered tips</button>
+          <button class="chip" type="button" aria-pressed="false">Framework</button>
+          <button class="chip" type="button" aria-pressed="false">Before / After</button>
+        </div>
+        <div class="studio__stage">
+          <div class="cp" data-card="cover" data-pal="ink"></div>
+          <span class="float float--a glass"><i data-i="image"></i><span>PNG ready<small>1080 × 1080</small></span></span>
+          <span class="float float--b glass"><i data-i="file"></i><span>PDF carousel<small>7 slides · 2.1 MB</small></span></span>
+        </div>
+        <div class="studio__edit">
+          <input class="input is-focus" value="How we scaled our edge API to 50M requests a day" aria-label="Heading">
+          <div class="swatches" data-group aria-label="Palette">
+            <button class="swatch" type="button" aria-pressed="true" style="background:var(--pal-ink-bg);--sw-accent:var(--pal-ink-accent)" aria-label="Ink"></button>
+            <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-paper-bg);--sw-accent:var(--pal-paper-accent)" aria-label="Paper"></button>
+            <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-navy-bg);--sw-accent:var(--pal-navy-accent)" aria-label="Navy"></button>
+            <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-forest-bg);--sw-accent:var(--pal-forest-accent)" aria-label="Forest"></button>
+            <button class="swatch" type="button" aria-pressed="false" style="background:var(--pal-wine-bg);--sw-accent:var(--pal-wine-accent)" aria-label="Wine"></button>
+          </div>
+        </div>
+        <div class="studio__foot">
+          <span><i data-i="bolt"></i> Rendered live in your browser</span>
+          <a href="editor.html">Open in full studio <i data-i="arrow-right"></i></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats glass rise rise-3" aria-label="At a glance">
+      <div><b>100</b><span>templates for real messages</span></div>
+      <div><b>10</b><span>tuned colour palettes</span></div>
+      <div><b>15</b><span>slides per carousel</span></div>
+      <div><b>0</b><span>watermarks, ever</span></div>
+    </section>
+
+    <!-- Carousels -->
+    <section class="sec" id="carousels">
+      <div class="deck">
+        <div>
+          <span class="eyebrow eyebrow--accent">Carousel studio</span>
+          <h2 class="h2">Decks people actually <em>swipe through.</em></h2>
+          <p class="lede">A carousel is five to fifteen slides that tell one story. Cardstock gives each slide a job, so the deck keeps moving.</p>
+          <ol class="steps">
+            <li class="step"><b>01</b><span><strong>Hook cover</strong><small>One line that earns the first swipe</small></span></li>
+            <li class="step"><b>02</b><span><strong>Big stat</strong><small>A number that makes it real</small></span></li>
+            <li class="step is-on"><b>03</b><span><strong>Numbered tips</strong><small>The value, in steps people can save</small></span><i data-i="chevron-right"></i></li>
+            <li class="step"><b>04</b><span><strong>Framework</strong><small>The model to remember</small></span></li>
+            <li class="step"><b>05</b><span><strong>Call to action</strong><small>What to do next</small></span></li>
+          </ol>
+          <div class="deck__cta">
+            <a class="btn btn--primary btn--lg" href="signup.html">Create a carousel <i data-i="arrow-right"></i></a>
+            <button class="btn btn--glass btn--lg" type="button"><i data-i="linkedin"></i> Preview in feed</button>
+          </div>
+        </div>
+        <div class="deck__view glass-strong">
+          <div class="deck__stage">
+            <div class="cp" data-card="cover" data-pal="navy" data-ratio="45" data-page="1/5"></div>
+            <div class="cp" data-card="stat" data-pal="navy" data-ratio="45" data-page="2/5"></div>
+            <div class="cp" data-card="tips" data-pal="navy" data-ratio="45" data-page="3/5"></div>
+            <div class="cp" data-card="framework" data-pal="navy" data-ratio="45" data-page="4/5"></div>
+            <div class="cp" data-card="tldr" data-pal="navy" data-ratio="45" data-page="5/5"></div>
+          </div>
+          <div class="deck__nav">
+            <button class="btn btn--glass btn--icon" type="button" aria-label="Previous slide"><i data-i="chevron-left"></i></button>
+            <div class="pager" aria-label="Slide 3 of 5"><i></i><i></i><i class="is-on"></i><i></i><i></i></div>
+            <button class="btn btn--glass btn--icon" type="button" aria-label="Next slide"><i data-i="chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Why -->
+    <section class="sec">
+      <div class="sec__head">
+        <div>
+          <span class="eyebrow">The problem</span>
+          <h2 class="h2">Most LinkedIn graphics take 45 minutes and <em>still</em> look rushed.</h2>
+        </div>
+        <p class="lede">Fixed layouts that are already right beat a blank canvas you have to fix.</p>
+      </div>
+      <div class="why">
+        <article class="surface is-bad">
+          <span class="why__icon"><i data-i="phone"></i></span>
+          <h3>Phone-notes screenshots</h3>
+          <ul>
+            <li><i data-i="x"></i> Cropped, blurry and hard to read</li>
+            <li><i data-i="x"></i> No hierarchy, so nothing stands out</li>
+            <li><i data-i="x"></i> Looks the same as every other post</li>
+          </ul>
+        </article>
+        <article class="surface is-bad">
+          <span class="why__icon"><i data-i="layout"></i></span>
+          <h3>Free-form canvas tools</h3>
+          <ul>
+            <li><i data-i="x"></i> Endless choices, inconsistent results</li>
+            <li><i data-i="x"></i> Fonts and spacing drift between posts</li>
+            <li><i data-i="x"></i> Upgrades to remove a watermark</li>
+          </ul>
+        </article>
+        <article class="glass-strong is-good">
+          <span class="why__icon"><i data-i="sparkle"></i></span>
+          <h3>The Cardstock standard</h3>
+          <ul>
+            <li><i data-i="check"></i> Type, spacing and contrast already tuned</li>
+            <li><i data-i="check"></i> Your name, role and photo on every slide</li>
+            <li><i data-i="check"></i> Ready to post in about three minutes</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- Templates -->
+    <section class="sec" id="templates">
+      <div class="sec__head">
+        <div>
+          <span class="eyebrow">Template library</span>
+          <h2 class="h2">A template for every <em>message.</em></h2>
+        </div>
+        <p class="lede">Each one is built for a single job: a wish, an invite, a launch, a lesson. Use it as a card or as a carousel slide.</p>
+      </div>
+      <div class="filters">
+        <div class="filters__chips" data-group>
+          <button class="chip" type="button" aria-pressed="true">All <span class="chip__n">100</span></button>
+          <button class="chip" type="button" aria-pressed="false">Everyday &amp; Social</button>
+          <button class="chip" type="button" aria-pressed="false">Career &amp; Community</button>
+          <button class="chip" type="button" aria-pressed="false">Business &amp; Events</button>
+          <button class="chip" type="button" aria-pressed="false">Hooks &amp; Stories</button>
+          <button class="chip" type="button" aria-pressed="false">Learning &amp; Guides</button>
+          <button class="chip" type="button" aria-pressed="false">Data &amp; Comparisons</button>
+          <button class="chip" type="button" aria-pressed="false">Flexible &amp; More</button>
+        </div>
+      </div>
+      <div class="filters">
+        <div class="seg" data-group>
+          <button type="button" aria-pressed="true"><i data-i="square"></i>Card</button>
+          <button type="button" aria-pressed="false"><i data-i="layers"></i>Carousel slide</button>
+        </div>
+        <div class="filters__tools">
+          <div class="input-wrap"><i data-i="search"></i><input class="input" placeholder="Search 100 templates…" aria-label="Search templates"><span class="input-wrap__end kbd">/</span></div>
+        </div>
+      </div>
+      <div class="tpl-grid" data-catalog="12"></div>
+      <div class="more">
+        <span>Showing 12 of 100</span>
+        <button class="btn btn--glass" type="button">Show 24 more <i data-i="chevron-down"></i></button>
+      </div>
+    </section>
+
+    <!-- Privacy -->
+    <section class="sec" id="privacy">
+      <div class="privacy glass">
+        <div>
+          <span class="eyebrow eyebrow--accent">Private by design</span>
+          <h2 class="h2">Your drafts never leave <em>this device.</em></h2>
+          <p class="lede">Your account only holds your login and the details that sign your cards. The designs themselves stay in your browser.</p>
+          <div class="points">
+            <div><span class="why__icon"><i data-i="drive"></i></span><div><b>Saved in your browser</b><p>Text in local storage, background images in IndexedDB.</p></div></div>
+            <div><span class="why__icon"><i data-i="download"></i></span><div><b>One-click JSON backup</b><p>Export every card and deck as one file and restore it on any device.</p></div></div>
+            <div><span class="why__icon"><i data-i="cloud-off"></i></span><div><b>No upload to export</b><p>PNG, PDF and ZIP files are made on your device and saved straight to it.</p></div></div>
+          </div>
+        </div>
+        <div class="pipe surface">
+          <span class="eyebrow">How an export happens</span>
+          <ol>
+            <li><span>1</span><div><b>You write in the studio</b><small>Template, text, palette, photo</small></div></li>
+            <li><span>2</span><div><b>Your browser lays out the card</b><small>Type scale and readable scrims, computed locally</small></div></li>
+            <li><span>3</span><div><b>The file is saved to your device</b><small>PNG 1080², PDF for LinkedIn, or a ZIP of slides</small></div></li>
+          </ol>
+          <div class="pipe__ok"><i data-i="shield"></i> Zero server hops for your designs</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="sec">
+      <div class="faq">
+        <div>
+          <span class="eyebrow">FAQ</span>
+          <h2 class="h2">Questions, <em>answered.</em></h2>
+          <p class="lede" style="margin-top:16px">Something else? Open an issue on <a class="link" href="https://github.com/xahabcse/contentpro">GitHub</a>.</p>
+        </div>
+        <div class="faq__list">
+          <details class="surface" open>
+            <summary>How do I export for LinkedIn or Facebook? <i data-i="plus"></i></summary>
+            <p>A single card exports as a 1080 × 1080 PNG. For a carousel, choose a multi-page PDF to post as a LinkedIn document, or a ZIP of 1080 × 1350 PNG slides to upload in order on Facebook.</p>
+          </details>
+          <details class="surface"><summary>Why fixed templates instead of a free-form canvas? <i data-i="plus"></i></summary><p>Because the layout is already right, you only write. It is faster and every post looks consistent.</p></details>
+          <details class="surface"><summary>Are my designs saved on your server? <i data-i="plus"></i></summary><p>No. They live in this browser. Use the JSON backup to move them.</p></details>
+          <details class="surface"><summary>Can I add my own photo, logo and brand colours? <i data-i="plus"></i></summary><p>Yes. Set them once in Profile &amp; Company, or override per design.</p></details>
+          <details class="surface"><summary>Is there a watermark on exports? <i data-i="plus"></i></summary><p>Never.</p></details>
+          <details class="surface"><summary>Can I try it without an account? <i data-i="plus"></i></summary><p>Yes, the demo opens the full studio with sample designs.</p></details>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="band">
+      <div>
+        <span class="eyebrow">Stop fighting design tools</span>
+        <h2 class="h2">Publish your next post in <em>three minutes.</em></h2>
+        <p>Free to start · Instant export · No credit card</p>
+        <div style="display:flex;gap:10px;margin-top:28px">
+          <a class="btn btn--amber btn--lg" href="signup.html">Start designing free <i data-i="arrow-right"></i></a>
+        </div>
+      </div>
+      <div class="band__fan" aria-hidden="true">
+        <div class="cp" data-card="wish" data-pal="paper"></div>
+        <div class="cp" data-card="stat" data-pal="cobalt"></div>
+        <div class="cp" data-card="quote" data-pal="forest"></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <a class="logo" href="landing.html"><span class="logo__mark"></span>Cardstock</a>
+      <span>© 2026 · A product of <a class="link" href="https://www.xahabcse.me/">xahabcse.me</a> · <span class="mono">v1.9</span></span>
+      <nav>
+        <a href="#templates">Templates</a>
+        <a href="#carousels">Carousels</a>
+        <a href="about.html">About</a>
+        <a href="https://github.com/xahabcse/contentpro">GitHub</a>
+        <a href="signup.html">Sign up</a>
+      </nav>
+    </footer>
+  </main>
+
+  <div class="mcta glass-strong">
+    <a class="btn btn--glass" href="dashboard.html"><i data-i="eye"></i> Demo</a>
+    <a class="btn btn--primary" href="signup.html">Start designing free <i data-i="arrow-right"></i></a>
+  </div>
+</body>
+</html>

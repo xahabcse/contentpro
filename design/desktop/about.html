@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en" data-view="desktop">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About · Cardstock · desktop</title>
+  <link rel="icon" href="../_shared/favicon.svg" type="image/svg+xml">
+  <script src="../_shared/ui.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../_shared/tokens.css">
+  <link rel="stylesheet" href="../_shared/base.css">
+  <link rel="stylesheet" href="desktop.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true"></div>
+
+  <header class="top glass">
+    <a class="logo" href="landing.html"><span class="logo__mark"></span>Cardstock</a>
+    <nav class="top__nav" aria-label="Main">
+      <a href="landing.html#templates">Templates</a>
+      <a href="landing.html#carousels">Carousels</a>
+      <a href="landing.html#privacy">Privacy</a>
+      <a href="about.html" aria-current="page">About</a>
+    </nav>
+    <div class="top__end">
+      <div class="skyswitch glass" role="group" aria-label="Sky">
+        <button type="button" data-sky-set="day" aria-label="Day"><i data-i="sun"></i></button>
+        <button type="button" data-sky-set="night" aria-label="Night"><i data-i="moon"></i></button>
+      </div>
+      <a class="btn btn--quiet" href="login.html">Log in</a>
+      <a class="btn btn--primary" href="signup.html">Start free <i data-i="arrow-right"></i></a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="about-hero rise">
+      <span class="eyebrow eyebrow--accent">✦ The Cardstock manifesto · est. 2026</span>
+      <h1 class="display">The tyranny of the <em>blank canvas.</em></h1>
+      <p class="lede">A free-form design tool hands you a thousand choices and asks you to get all of them right before lunch. Most people should not have to. Cardstock makes the choices once, carefully, so you can spend your three minutes on the words.</p>
+    </section>
+
+    <div class="about-grid">
+      <article class="prose-card glass rise rise-2">
+        <span class="eyebrow">The core problem</span>
+        <h2 class="h2">Good posts die in rushed screenshots.</h2>
+        <p>People share real wins, launches and lessons as phone-notes screenshots or hurried canvases. The thinking is good; the presentation makes it easy to scroll past. A card should carry the message, not compete with it.</p>
+        <p>So every template is built for a single job, with type sizes, spacing and contrast tuned for a phone held at arm's length in a busy feed.</p>
+      </article>
+      <aside class="prose-card surface rise rise-3" style="padding:28px">
+        <div class="fan" style="height:320px" aria-hidden="true">
+          <div class="cp" data-card="quote" data-pal="paper" style="left:0;top:28px;transform:rotate(-6deg)"></div>
+          <div class="cp" data-card="tldr" data-pal="ink" style="right:0;top:0;transform:rotate(5deg);z-index:2"></div>
+        </div>
+      </aside>
+    </div>
+
+    <section class="sec" style="padding-top:72px">
+      <span class="eyebrow">Our philosophy</span>
+      <h2 class="h2" style="font-size:var(--fs-4xl);margin-top:14px">Three rules we do not break.</h2>
+      <div class="principles">
+        <article class="surface"><b>1</b><h3>Design built into code</h3><p>Layouts are components, not pixels. Your text flows into a structure that already works at 1080 px.</p></article>
+        <article class="surface"><b>2</b><h3>Your drafts are yours</h3><p>Designs stay in your browser. The server only knows who you are and how to sign your cards.</p></article>
+        <article class="surface"><b>3</b><h3>No watermark, ever</h3><p>The export is the product. It will never be held back for an upgrade.</p></article>
+      </div>
+    </section>
+
+    <section class="sec" style="padding-top:72px">
+      <div class="about-grid" style="margin-top:0">
+        <article class="prose-card glass">
+          <span class="eyebrow">Honest about the stack</span>
+          <h2 class="h2">Small, fast and boring on purpose.</h2>
+          <div class="stack">
+            <span>React 19 <small>studio</small></span><span>Vite <small>build</small></span><span>Hono <small>API</small></span><span>Cloudflare Workers</span><span>D1 <small>accounts</small></span><span>R2 <small>photos</small></span><span>html2canvas <small>PNG</small></span><span>jsPDF <small>PDF</small></span><span>JSZip <small>ZIP</small></span><span>Turnstile <small>bots</small></span>
+          </div>
+          <span class="eyebrow" style="margin-top:12px">Contributions &amp; local setup</span>
+          <pre class="terminal"><small># clone and run the studio</small>
+<span>$</span> git clone https://github.com/xahabcse/contentpro
+<span>$</span> cd contentpro/app &amp;&amp; npm install
+<span>$</span> npm run dev   <small># http://localhost:5173</small></pre>
+        </article>
+        <aside class="prose-card surface">
+          <span class="eyebrow">Creator</span>
+          <div class="creator"><span class="avatar avatar--lg">MS</span><div><b>Md. Sahabuddin Hossain</b><span>Creator &amp; Software Engineer · Dhaka</span></div></div>
+          <p style="font-size:var(--fs-md)">Designs, builds and maintains Cardstock, part of the xahabcse.me family of projects.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a class="btn btn--glass" href="https://github.com/xahabcse"><i data-i="github"></i> @xahabcse</a>
+            <a class="btn btn--glass" href="https://www.xahabcse.me/"><i data-i="external"></i> xahabcse.me</a>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="band">
+      <div>
+        <span class="eyebrow">The Cardstock standard</span>
+        <h2 class="h2">Write the words. <em>We did the rest.</em></h2>
+        <div style="display:flex;gap:10px;margin-top:28px">
+          <a class="btn btn--amber btn--lg" href="signup.html">Start designing free <i data-i="arrow-right"></i></a>
+        </div>
+      </div>
+      <div class="band__fan" aria-hidden="true">
+        <div class="cp" data-card="hiring" data-pal="charcoal"></div>
+        <div class="cp" data-card="congrats" data-pal="wine"></div>
+        <div class="cp" data-card="invite" data-pal="navy"></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <a class="logo" href="landing.html"><span class="logo__mark"></span>Cardstock</a>
+      <span>© 2026 · A product of <a class="link" href="https://www.xahabcse.me/">xahabcse.me</a> · <span class="mono">v1.9</span></span>
+      <nav>
+        <a href="landing.html#templates">Templates</a>
+        <a href="landing.html#carousels">Carousels</a>
+        <a href="about.html">About</a>
+        <a href="https://github.com/xahabcse/contentpro">GitHub</a>
+        <a href="signup.html">Sign up</a>
+      </nav>
+    </footer>
+  </main>
+</body>
+</html>

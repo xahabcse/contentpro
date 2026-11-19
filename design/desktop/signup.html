@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en" data-view="desktop">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign up · Cardstock · desktop</title>
+  <link rel="icon" href="../_shared/favicon.svg" type="image/svg+xml">
+  <script src="../_shared/ui.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../_shared/tokens.css">
+  <link rel="stylesheet" href="../_shared/base.css">
+  <link rel="stylesheet" href="desktop.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true"></div>
+
+  <div class="auth">
+    <aside class="auth__art glass">
+      <a class="logo" href="landing.html"><span class="logo__mark"></span>Cardstock</a>
+      <div class="auth__fan" aria-hidden="true">
+        <div class="cp" data-card="invite" data-pal="navy"></div>
+        <div class="cp" data-card="congrats" data-pal="wine"></div>
+        <div class="cp" data-card="tips" data-pal="plum"></div>
+      </div>
+      <div class="auth__quote surface">
+        <span class="eyebrow">What you get, free</span>
+        <div class="code-row">
+          <div class="surface"><b>100</b>templates</div>
+          <div class="surface"><b>15</b>slides per deck</div>
+          <div class="surface"><b>0</b>watermarks</div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="auth__side">
+      <div class="auth__switch">
+        <div class="skyswitch glass" role="group" aria-label="Sky">
+          <button type="button" data-sky-set="day" aria-label="Day"><i data-i="sun"></i></button>
+          <button type="button" data-sky-set="night" aria-label="Night"><i data-i="moon"></i></button>
+        </div>
+        <span>Have an account?</span>
+        <a class="btn btn--glass" href="login.html">Log in</a>
+      </div>
+
+      <form class="auth__form rise" action="verify-email.html">
+        <div>
+          <span class="eyebrow eyebrow--accent">Create your account</span>
+          <h1 class="display" style="margin-top:12px">Design it <em>yourself.</em></h1>
+        </div>
+        <p class="lede">LinkedIn cards and carousels in minutes. Your account keeps your name and photo; your designs stay on your device.</p>
+
+        <div class="field">
+          <label for="email">Email</label>
+          <div class="input-wrap"><i data-i="mail"></i><input class="input" id="email" type="email" value="sujoncep@gmail.com" autocomplete="email"></div>
+        </div>
+        <div class="field">
+          <label for="pw">Password</label>
+          <div class="input-wrap"><i data-i="lock"></i><input class="input is-focus" id="pw" type="password" value="xxxxxxxxxxxx" autocomplete="new-password"><button class="input-wrap__end btn btn--sm btn--quiet btn--icon" type="button" aria-label="Show password"><i data-i="eye"></i></button></div>
+          <div class="meter" aria-hidden="true"><i class="is-on"></i><i class="is-on"></i><i class="is-on"></i><i></i></div>
+          <span class="hint hint--ok">Good · at least 8 characters</span>
+        </div>
+
+        <div class="turnstile"><span class="turnstile__box"><i data-i="check"></i></span>Success!<span class="turnstile__brand">CLOUDFLARE<br>Privacy · Terms</span></div>
+
+        <a class="btn btn--primary btn--lg btn--block" href="verify-email.html">Create account <i data-i="arrow-right"></i></a>
+        <p class="auth__legal">We send one email to confirm your address. No newsletters.</p>
+      </form>
+
+      <p class="auth__legal">© 2026 Cardstock · <a class="link" href="https://www.xahabcse.me/">xahabcse.me</a></p>
+    </section>
+  </div>
+</body>
+</html>

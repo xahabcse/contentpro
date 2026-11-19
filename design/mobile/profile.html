@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en" data-view="mobile">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Profile &amp; Company · Cardstock · mobile</title>
+  <link rel="icon" href="../_shared/favicon.svg" type="image/svg+xml">
+  <script src="../_shared/ui.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../_shared/tokens.css">
+  <link rel="stylesheet" href="../_shared/base.css">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true"></div>
+
+  <div class="app">
+    <nav class="irail glass-strong" aria-label="Cardstock dashboard">
+      <span class="logo__mark" aria-hidden="true"></span>
+      <a href="dashboard.html"><i data-i="grid"></i>Designs</a>
+      <a href="editor.html"><i data-i="plus"></i>New</a>
+      <a href="profile.html" aria-current="page"><i data-i="user"></i>Profile</a>
+      <a href="about.html"><i data-i="info"></i>About</a>
+      <a href="landing.html"><i data-i="home"></i>Home</a>
+      <span class="avatar" title="Md. Sahabuddin Hossain">MS</span>
+    </nav>
+
+    <div>
+    <header class="appbar glass-strong">
+      <a class="logo" href="dashboard.html"><span class="logo__mark"></span>Cardstock</a>
+      
+      <div class="appbar__end">
+        <a class="btn btn--glass btn--icon" href="#" aria-label="Search"><i data-i="search"></i></a>
+        <span class="avatar">MS</span>
+      </div>
+    </header>
+
+    <nav class="drawer glass-strong" id="menu" aria-label="More" hidden>
+      <div class="drawer__head">
+        <a class="logo" href="dashboard.html"><span class="logo__mark"></span>Cardstock</a>
+        <button class="btn btn--glass btn--icon" type="button" data-toggle="#menu" aria-label="Close"><i data-i="x"></i></button>
+      </div>
+      <a class="rail__link" href="dashboard.html"><i data-i="grid"></i> Dashboard</a>
+      <a class="rail__link" href="profile.html" aria-current="page"><i data-i="user"></i> Profile &amp; Company</a>
+      <a class="rail__link" href="about.html"><i data-i="info"></i> About</a>
+      <a class="rail__link" href="landing.html"><i data-i="home"></i> Home</a>
+      <a class="rail__link" href="#"><i data-i="download"></i> Back up designs</a>
+      <a class="rail__link" href="#"><i data-i="upload"></i> Restore from a file</a>
+      <div class="drawer__foot">
+        <div class="skyswitch glass" role="group" aria-label="Sky" style="justify-self:start">
+          <button type="button" data-sky-set="day" aria-label="Day"><i data-i="sun"></i></button>
+          <button type="button" data-sky-set="night" aria-label="Night"><i data-i="moon"></i></button>
+        </div>
+        <div class="rail__me"><span class="avatar">MS</span><div><b>Md. Sahabuddin Hossain</b><span>sujoncep@gmail.com</span></div><a class="btn btn--glass" href="login.html"><i data-i="logout"></i> Log out</a></div>
+      </div>
+    </nav>
+
+    <main class="main">
+      <header class="page-head rise">
+        <div>
+          <span class="eyebrow"><a href="dashboard.html">Dashboard</a> / Account</span>
+          <h1 class="display">Profile &amp; <em>Company</em></h1>
+          <p class="lede">Every design is signed with these details. Set them once; override them in any single design.</p>
+        </div>
+        <div class="page-head__tools">
+          <div class="skyswitch glass" role="group" aria-label="Sky">
+            <button type="button" data-sky-set="day" aria-label="Day"><i data-i="sun"></i></button>
+            <button type="button" data-sky-set="night" aria-label="Night"><i data-i="moon"></i></button>
+          </div>
+        </div>
+      </header>
+
+      <div class="profile">
+        <div>
+          <section class="form-card surface rise rise-2">
+            <div class="form-card__head"><span class="new__icon" style="width:40px;height:40px"><i data-i="user"></i></span><div><h2>Personal</h2><p>Shown at the foot of every slide.</p></div></div>
+            <div class="upload">
+              <span class="avatar avatar--lg">MS</span>
+              <div class="upload__acts">
+                <b style="font-size:var(--fs-sm)">Profile photo</b>
+                <div><button class="btn btn--sm btn--glass" type="button"><i data-i="upload"></i> Upload new</button><button class="btn btn--sm btn--quiet" type="button">Remove</button></div>
+                <span class="hint">Square JPG or PNG, up to 8 MB. Cropped to a circle.</span>
+              </div>
+            </div>
+            <div class="form-2">
+              <div class="field"><label for="n">Name</label><input class="input" id="n" value="Md. Sahabuddin Hossain"></div>
+              <div class="field"><label for="d">Designation</label><input class="input is-focus" id="d" value="Software Engineer"></div>
+            </div>
+          </section>
+
+          <section class="form-card surface rise rise-3">
+            <div class="form-card__head"><span class="new__icon" style="width:40px;height:40px"><i data-i="building"></i></span><div><h2>Company</h2><p>Optional. Adds a logo next to your name.</p></div></div>
+            <div class="upload">
+              <span class="upload__logo"><i data-i="image"></i></span>
+              <div class="upload__acts">
+                <b style="font-size:var(--fs-sm)">Company logo</b>
+                <div><button class="btn btn--sm btn--glass" type="button"><i data-i="upload"></i> Upload logo</button></div>
+                <span class="hint">PNG with a transparent background looks best.</span>
+              </div>
+            </div>
+            <div class="field"><label for="c">Company name</label><input class="input" id="c" placeholder="e.g. OnnoRokom Projukti Limited" value="OnnoRokom Projukti Limited"></div>
+          </section>
+
+          <section class="form-card surface rise rise-4">
+            <div class="form-card__head"><span class="new__icon" style="width:40px;height:40px"><i data-i="at"></i></span><div><h2>Social</h2><p>So people can find you after they swipe.</p></div></div>
+            <div class="field">
+              <div class="field__label"><label for="h">Handle</label><small>Shown as @handle</small></div>
+              <div class="prefix"><span>@</span><input class="input" id="h" value="xahabcse"></div>
+            </div>
+          </section>
+
+          <div class="savebar glass-strong">
+            <span class="dot"></span><span>You have unsaved changes</span>
+            <button class="btn btn--quiet" type="button">Discard</button>
+            <button class="btn btn--primary" type="button"><i data-i="check"></i> Save changes</button>
+          </div>
+        </div>
+
+        <aside class="preview-card glass-strong">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="eyebrow"><span class="dot dot--ok"></span>Live preview</span>
+            <div class="seg" data-group><button type="button" aria-pressed="true">Card</button><button type="button" aria-pressed="false">Slide</button></div>
+          </div>
+          <div class="preview-card__stage"><div class="cp" data-card="cover" data-pal="ink" data-h="Your name and role sign <em>every slide</em>"></div></div>
+          <div class="toggle-row"><span>Show company logo</span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Show company logo"></button></div>
+          <div class="toggle-row"><span>Show handle</span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Show handle"></button></div>
+          <p class="hint">Changes apply to new designs and to designs that have no override.</p>
+        </aside>
+      </div>
+    </main>
+    </div>
+  </div>
+
+  <nav class="tabbar glass-strong" aria-label="App">
+    <a href="dashboard.html"><i data-i="grid"></i>Designs</a>
+    <a href="editor.html"><i data-i="sparkle"></i>Templates</a>
+    <a class="tabbar__new" href="editor.html" aria-label="New design"><span><i data-i="plus"></i></span></a>
+    <a href="profile.html" aria-current="page"><i data-i="user"></i>Profile</a>
+    <button type="button" data-toggle="#menu"><i data-i="menu"></i>More</button>
+  </nav>
+</body>
+</html>
