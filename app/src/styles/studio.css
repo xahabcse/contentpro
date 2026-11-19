@@ -2195,6 +2195,7 @@ h3 {
 }
 
 .new__icon {
+  flex: none;
   width: 44px;
   height: 44px;
   border-radius: 13px;
@@ -4265,13 +4266,66 @@ h3 {
   }
 }
 
+/* Phone usability: iOS Safari zooms into any field under 16px, and fingers need 44px. */
+@media (max-width: 743px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='color']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  .med__filmstrip button,
+  .med__sheet button[aria-label^='Decrease'],
+  .med__sheet button[aria-label^='Increase'] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .skyswitch button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .seg button {
+    height: 40px;
+  }
+
+  .studio__chips .chip {
+    height: 38px;
+  }
+
+  .med__sheet button {
+    min-height: 40px;
+  }
+
+  .auth__switch {
+    gap: 8px;
+  }
+
+  .auth__switch .btn {
+    min-width: 0;
+    padding: 0 12px;
+    font-size: var(--fs-xs);
+  }
+
+  .preview-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .preview-card__stage {
+    grid-row: auto;
+    width: min(100%, 260px);
+    justify-self: center;
+  }
+}
+
 @media (max-width: 374px) {
   .hero h1 {
     font-size: 2.25rem;
   }
 
-  .auth__switch .btn {
-    padding: 0 12px;
+  .auth__switch .skyswitch {
+    display: none;
   }
 }
 
