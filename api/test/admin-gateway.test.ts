@@ -125,6 +125,96 @@ describe('AdminGateway', () => {
   });
 });
 
+describe('Cleanup', () => {
+  type Images = { removed: string[]; fail: boolean };
+
+  function cleanupEnv(images: Images) {
+    const bucket = {
+      delete: async (keys: string | string[]) => {
+        if (images.fail) throw new Error('R2 down');
+        images.removed.push(...(Array.isArray(keys) ? keys : [keys]));
+      },
+    };
+    return { ...env(), PROFILE_IMAGES: bucket };
+  }
+
+  async function asAdmin(e: ReturnType<typeof cleanupEnv>, method: string, path: string, body?: unknown) {
+    const headers: Record<string, string> = { 'X-Admin-Actor': 'owner@example.com' };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    return createGatewayApp().request(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }, e, ctx);
+  }
+
+  it('keeps a deleted account with status 404: off the admin list, unable to sign in, and listed in Cleanup', async () => {
+    const e = cleanupEnv({ removed: [], fail: false });
+    const { findUserById, findUserByEmail } = await import('../src/lib/db.ts');
+
+    assert.equal((await asAdmin(e, 'DELETE', '/api/admin/users/member')).status, 200);
+
+    const users = (await (await asAdmin(e, 'GET', '/api/admin/users')).json()) as { users: { id: string }[] };
+    assert.equal(users.users.some((user) => user.id === 'member'), false);
+    assert.equal(await findUserById(e.DB, 'member'), null);
+    assert.equal(await findUserByEmail(e.DB, 'member@example.com'), null);
+    assert.deepEqual(await (await asAdmin(e, 'GET', '/api/admin/cleanup/summary')).json(), { kinds: { user: 1 }, groups: { people: 1 } });
+    const items = (await (await asAdmin(e, 'GET', '/api/admin/cleanup/items?group=people')).json()) as { items: { kind: string; id: string; detail: string }[]; total: number };
+    assert.equal(items.total, 1);
+    assert.deepEqual([items.items[0].kind, items.items[0].id, items.items[0].detail], ['user', 'member', 'Account · member@example.com']);
+  });
+
+  it('restores an account, whose old sessions stay ended', async () => {
+    const e = cleanupEnv({ removed: [], fail: false });
+    const { findUserById } = await import('../src/lib/db.ts');
+    await asAdmin(e, 'DELETE', '/api/admin/users/member');
+
+    assert.equal((await asAdmin(e, 'POST', '/api/admin/cleanup/user/member/restore')).status, 200);
+    const back = await findUserById(e.DB, 'member');
+    assert.equal(back?.email, 'member@example.com');
+    assert.equal(back?.sessionVersion, 1);
+    assert.equal((await asAdmin(e, 'POST', '/api/admin/cleanup/user/member/restore')).status, 404);
+  });
+
+  it('deletes an account for good with its profile images, and keeps it when R2 refuses', async () => {
+    const images = { removed: [] as string[], fail: true };
+    const e = cleanupEnv(images);
+    await asAdmin(e, 'DELETE', '/api/admin/users/member');
+
+    const refused = (await (await asAdmin(e, 'POST', '/api/admin/cleanup/purge', { group: 'people' })).json()) as { removed: { user: number }; kept: string[] };
+    assert.deepEqual(refused.removed, { user: 0 });
+    assert.equal(refused.kept.length, 1);
+
+    images.fail = false;
+    const done = (await (await asAdmin(e, 'POST', '/api/admin/cleanup/user/member/purge')).json()) as { removed: { user: number }; kept: string[] };
+    assert.deepEqual(done, { removed: { user: 1 }, kept: [] });
+    assert.equal(images.removed.length, 2);
+    assert.ok(images.removed.every((key) => key.includes('member')));
+    assert.deepEqual(await (await asAdmin(e, 'GET', '/api/admin/cleanup/summary')).json(), { kinds: { user: 0 }, groups: { people: 0 } });
+  });
+
+  it('still refuses to delete an admin account', async () => {
+    const e = cleanupEnv({ removed: [], fail: false });
+
+    assert.equal((await asAdmin(e, 'DELETE', '/api/admin/users/owner')).status, 400);
+  });
+
+  it('counts security-log rows past 7, 14 and 30 days and clears only the older ones', async () => {
+    const e = cleanupEnv({ removed: [], fail: false });
+    const day = 24 * 60 * 60 * 1000;
+    for (const days of [40, 20, 10, 1]) {
+      await e.DB.prepare("INSERT INTO auth_events (ts, type) VALUES (?, 'login')").bind(Date.now() - days * day).run();
+    }
+
+    const before = (await (await asAdmin(e, 'GET', '/api/admin/cleanup/logs')).json()) as { logs: { auth: { olderThan: Record<string, number> } } };
+    assert.deepEqual(before.logs.auth.olderThan, { 7: 3, 14: 2, 30: 1 });
+    assert.equal((await asAdmin(e, 'POST', '/api/admin/cleanup/logs/auth/purge', { days: 9 })).status, 400);
+    assert.deepEqual(await (await asAdmin(e, 'POST', '/api/admin/cleanup/logs/auth/purge', { days: 14 })).json(), { removed: 2, more: false });
+  });
+
+  it('is not on the public app', async () => {
+    const res = await createPublicApp().request('/api/admin/cleanup/summary', { headers: { 'X-Admin-Actor': 'owner@example.com' } }, env(), ctx);
+
+    assert.equal(res.status, 404);
+  });
+});
+
 describe('public app', () => {
   it('has no /api/admin: the admin is reachable only through the gateway', async () => {
     const app = createPublicApp();

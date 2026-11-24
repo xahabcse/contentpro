@@ -58,7 +58,7 @@ export type UserUpdateInput = Partial<Omit<UserDocument, "_id" | "profile">>;
 
 // ---------------------------------------------------------------------------
 // `auth_events` table. Best-effort audit trail of auth-flow events
-// (signup/login/reset/verify), surfaced read-only through the admin API.
+// (signup/login/reset/verify), shown in the admin; Cleanup clears old rows.
 // ---------------------------------------------------------------------------
 
 export type AuthEventType =
@@ -68,7 +68,9 @@ export type AuthEventType =
   | "reset_request"
   | "reset_complete"
   | "email_verified"
-  | "admin_delete_user";
+  | "admin_delete_user"
+  | "admin_restore_user"
+  | "admin_purge_user";
 
 export interface AuthEventDocument {
   /** autoincrement rowid; never surfaced through the API */

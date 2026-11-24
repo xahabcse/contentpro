@@ -113,7 +113,7 @@ function isUniqueConstraintError(err: unknown): boolean {
 
 export async function findUserByEmail(db: D1Database, email: string): Promise<UserRecord | null> {
   const row = await db
-    .prepare(`SELECT ${USER_COLUMNS} FROM users WHERE email = ?`)
+    .prepare(`SELECT ${USER_COLUMNS} FROM users WHERE email = ? AND status <> 404`)
     .bind(email.toLowerCase())
     .first<UserRow>();
   return row ? toUserRecord(row) : null;
@@ -121,7 +121,7 @@ export async function findUserByEmail(db: D1Database, email: string): Promise<Us
 
 export async function findUserById(db: D1Database, id: string): Promise<UserRecord | null> {
   const row = await db
-    .prepare(`SELECT ${USER_COLUMNS} FROM users WHERE id = ?`)
+    .prepare(`SELECT ${USER_COLUMNS} FROM users WHERE id = ? AND status <> 404`)
     .bind(id)
     .first<UserRow>();
   return row ? toUserRecord(row) : null;
@@ -304,7 +304,7 @@ export async function getAdminOverview(db: D1Database, nowMs = Date.now()): Prom
       COUNT(CASE WHEN email_verified = 1 THEN 1 END) AS verifiedUsers,
       COUNT(CASE WHEN created_at >= ? THEN 1 END) AS newUsers24h,
       COUNT(CASE WHEN created_at >= ? THEN 1 END) AS newUsers7d
-      FROM users`).bind(since24h, since7d).first<Pick<AdminOverview,
+      FROM users WHERE status <> 404`).bind(since24h, since7d).first<Pick<AdminOverview,
       "totalUsers" | "verifiedUsers" | "newUsers24h" | "newUsers7d">>(),
     db.prepare(`SELECT
       COUNT(CASE WHEN type = 'login' THEN 1 END) AS successfulLogins7d,
@@ -326,18 +326,95 @@ export async function getAdminOverview(db: D1Database, nowMs = Date.now()): Prom
 
 export async function listAllUsers(db: D1Database): Promise<UserRecord[]> {
   const { results } = await db
-    .prepare(`SELECT ${USER_COLUMNS} FROM users ORDER BY created_at DESC`)
+    .prepare(`SELECT ${USER_COLUMNS} FROM users WHERE status <> 404 ORDER BY created_at DESC`)
     .all<UserRow>();
   return results.map(toUserRecord);
 }
 
-export async function deleteUserById(db: D1Database, id: string): Promise<boolean> {
-  const result = await db.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
+// ---------------------------------------------------------------------------
+// Cleanup. An admin delete keeps the account with status 404 (learning's convention: Active 1, Inactive -1,
+// Deleted 404); every lookup above skips it, so it cannot sign in. Cleanup restores it or deletes it for good.
+// ---------------------------------------------------------------------------
+
+export interface DeletedUserRow {
+  id: string;
+  email: string;
+  name: string | null;
+  deletedAt: number;
+}
+
+/** Status 404, and both version counters move on so no session cookie or emailed link of it works again. */
+export async function softDeleteUser(db: D1Database, id: string, nowMs = Date.now()): Promise<boolean> {
+  const result = await db
+    .prepare(`UPDATE users SET status = 404, session_version = session_version + 1, token_version = token_version + 1,
+      updated_at = ? WHERE id = ? AND status <> 404`)
+    .bind(nowMs, id)
+    .run();
   return result.meta.changes === 1;
 }
 
+export async function countDeletedUsers(db: D1Database): Promise<number> {
+  const row = await db.prepare("SELECT COUNT(*) AS n FROM users WHERE status = 404").first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+export async function listDeletedUsers(db: D1Database, page: number, limit: number): Promise<DeletedUserRow[]> {
+  const { results } = await db
+    .prepare(`SELECT id, email, profile_name AS name, updated_at AS deletedAt FROM users WHERE status = 404
+      ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`)
+    .bind(limit, (page - 1) * limit)
+    .all<DeletedUserRow>();
+  return results;
+}
+
+export async function restoreDeletedUser(db: D1Database, id: string, nowMs = Date.now()): Promise<boolean> {
+  const result = await db.prepare("UPDATE users SET status = 1, updated_at = ? WHERE id = ? AND status = 404").bind(nowMs, id).run();
+  return result.meta.changes === 1;
+}
+
+export async function findDeletedUsers(db: D1Database, id: string | null): Promise<{ id: string; email: string }[]> {
+  const { results } = await (id === null
+    ? db.prepare("SELECT id, email FROM users WHERE status = 404")
+    : db.prepare("SELECT id, email FROM users WHERE status = 404 AND id = ?").bind(id)
+  ).all<{ id: string; email: string }>();
+  return results;
+}
+
+export async function purgeDeletedUser(db: D1Database, id: string): Promise<boolean> {
+  const result = await db.prepare("DELETE FROM users WHERE id = ? AND status = 404").bind(id).run();
+  return result.meta.changes === 1;
+}
+
+export interface AuthLogSummary {
+  total: number;
+  oldest: number | null;
+  older7: number;
+  older14: number;
+  older30: number;
+}
+
+export async function authLogSummary(db: D1Database, nowMs = Date.now()): Promise<AuthLogSummary> {
+  const day = 24 * 60 * 60 * 1000;
+  const row = await db
+    .prepare(`SELECT COUNT(*) AS total, MIN(ts) AS oldest,
+      COALESCE(SUM(ts < ?), 0) AS older7, COALESCE(SUM(ts < ?), 0) AS older14, COALESCE(SUM(ts < ?), 0) AS older30
+      FROM auth_events`)
+    .bind(nowMs - 7 * day, nowMs - 14 * day, nowMs - 30 * day)
+    .first<AuthLogSummary>();
+  return { total: row?.total ?? 0, oldest: row?.oldest ?? null, older7: row?.older7 ?? 0, older14: row?.older14 ?? 0, older30: row?.older30 ?? 0 };
+}
+
+/** One chunk of security-log rows older than the cut-off; the caller loops within its D1 write budget. */
+export async function purgeAuthEventsBefore(db: D1Database, cutoffMs: number, chunk: number): Promise<number> {
+  const result = await db
+    .prepare("DELETE FROM auth_events WHERE id IN (SELECT id FROM auth_events WHERE ts < ? ORDER BY ts LIMIT ?)")
+    .bind(cutoffMs, chunk)
+    .run();
+  return result.meta.changes ?? 0;
+}
+
 // ---------------------------------------------------------------------------
-// auth_events (best-effort audit trail; read-only via the admin API)
+// auth_events (best-effort audit trail; the admin reads it, and Cleanup clears rows past 7, 14 or 30 days)
 // ---------------------------------------------------------------------------
 
 export async function insertAuthEvent(db: D1Database, event: NewAuthEventInput): Promise<void> {

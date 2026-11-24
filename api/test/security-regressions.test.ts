@@ -109,12 +109,12 @@ describe('admin overview counts', () => {
   it('counts all matching rows, including events beyond the 200-row log preview', async () => {
     const sqlite = new DatabaseSync(':memory:');
     openDatabases.push(sqlite);
-    sqlite.exec(`CREATE TABLE users (id TEXT PRIMARY KEY, email_verified INTEGER NOT NULL, created_at INTEGER NOT NULL);
+    sqlite.exec(`CREATE TABLE users (id TEXT PRIMARY KEY, email_verified INTEGER NOT NULL, created_at INTEGER NOT NULL, status INTEGER NOT NULL DEFAULT 1);
       CREATE TABLE auth_events (ts INTEGER NOT NULL, type TEXT NOT NULL, ip TEXT);`);
     const now = Date.UTC(2026, 10, 11, 12);
     const day = 24 * 60 * 60 * 1000;
     const sevenDays = 7 * day;
-    const insertUser = sqlite.prepare('INSERT INTO users VALUES (?, ?, ?)');
+    const insertUser = sqlite.prepare('INSERT INTO users (id, email_verified, created_at) VALUES (?, ?, ?)');
     insertUser.run('u1', 1, now - 60 * 60 * 1000);
     insertUser.run('u2', 0, now - 3 * day);
     insertUser.run('u3', 1, now - 8 * day);
@@ -168,7 +168,9 @@ describe('admin overview counts', () => {
     const { default: adminRoute } = await import('../src/routes/admin.ts');
     const sqlite = new DatabaseSync(':memory:');
     openDatabases.push(sqlite);
-    sqlite.exec(readFileSync(new URL('../migrations/0001_init.sql', import.meta.url), 'utf8'));
+    for (const migration of ['0001_init.sql', '0002_status_column.sql']) {
+      sqlite.exec(readFileSync(new URL(`../migrations/${migration}`, import.meta.url), 'utf8'));
+    }
     const now = Date.now();
     const insert = sqlite.prepare(`INSERT INTO users
       (id, email, password_hash, password_salt, password_iterations, email_verified,

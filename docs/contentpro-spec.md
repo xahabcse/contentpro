@@ -37,7 +37,7 @@ See §5.7 for the consolidated Workers secrets inventory.
 
 ## 3. Data Model
 
-**Cloudflare D1** (SQLite), database `contentpro-db`. Two tables, defined in `api/migrations/0001_init.sql` and applied via `wrangler d1 migrations apply`: `users` and `auth_events`. All monetary/limits/config values below are fixed v1 constants, not admin-configurable.
+**Cloudflare D1** (SQLite), database `contentpro-db`. Two tables, defined in `api/migrations/0001_init.sql` (plus `0002_status_column.sql`, which adds `users.status`) and applied via `wrangler d1 migrations apply`: `users` and `auth_events`. All monetary/limits/config values below are fixed v1 constants, not admin-configurable.
 
 ### 3.1 `users` table
 
@@ -53,6 +53,7 @@ See §5.7 for the consolidated Workers secrets inventory.
 | `sessionVersion` | `session_version` | INTEGER | required | default `0`; incremented only on a successful password reset, to revoke live session cookies. Deliberately a separate counter from `tokenVersion` (which the *unauthenticated* forgot-password/resend-verification routes also bump) — otherwise merely knowing a victim's email address would let anyone force-log-out that account. |
 | `createdAt` | `created_at` | INTEGER (epoch ms) | required | |
 | `updatedAt` | `updated_at` | INTEGER (epoch ms) | required | |
+| — | `status` | INTEGER | required | default `1` (Active). An admin delete sets `404` (Deleted) and bumps both versions, so the account is signed out, cannot sign in, and is off every list; admin.xahabcse.me → Cardstock → System → Cleanup restores it (`1`) or deletes it for good with its R2 images. Every user lookup filters `status <> 404`. Same values as the portfolio and NewsPortal: `1`, `-1`, `404` |
 | `profile.name` | `profile_name` | TEXT | optional (required before design creation — enforced server-side, see §4.1) | personal display name |
 | `profile.designation` | `profile_designation` | TEXT | optional (required before design creation — enforced server-side, see §4.1) | e.g. "Software Engineer at OnnoRokom Projukti Limited" |
 | `profile.photoUrl` | `profile_photo_url` | TEXT | optional | Tracks whether a profile photo has been uploaded; the API always exposes this to clients as the fixed relative path `/api/profile/photo` (or `null`) via `toProfileResponse()` — the actual image bytes live in the private R2 `PROFILE_IMAGES` bucket at the deterministic key `profiles/photo/<userId>`, never in D1 (§5.6) |
@@ -64,14 +65,14 @@ See §5.7 for the consolidated Workers secrets inventory.
 Notes:
 
 - `profile.*` fields are **flattened into `profile_*` columns** on the same row rather than a separate table — profile data is strictly 1:1 with the account, and the hot auth-check path (which runs on every authenticated request) needs it available without a join.
-- Data access is via plain functions in `api/src/lib/db.ts` (`findUserByEmail`, `findUserById`, `insertUser`, `updateUser`, `listAllUsers`, `deleteUserById`) using D1's prepared-statement API directly — there is no connection-pooling wrapper of any kind, since D1 (unlike a TCP-connection database) doesn't need one (see §4.2).
+- Data access is via plain functions in `api/src/lib/db.ts` (`findUserByEmail`, `findUserById`, `insertUser`, `updateUser`, `listAllUsers`, `softDeleteUser`, plus the Cleanup functions) using D1's prepared-statement API directly — there is no connection-pooling wrapper of any kind, since D1 (unlike a TCP-connection database) doesn't need one (see §4.2).
 - The social-icon set itself is **not stored as user-configurable data** — it is a fixed constant of exactly 4 icons (Facebook, WhatsApp, Gmail, LinkedIn) rendered identically for every user, per decision 16. Only `profile.handle` (the one shared text) is user data.
 - No roles/tiers/plans fields exist in v1 — every account has identical capabilities and identical limits (§7).
 - Rate-limit counters for resend/reset (§5.3/§5.4) live in Workers KV, **not** on this table (see §2).
 
 ### `auth_events` table
 
-A best-effort audit trail of auth-flow events (`signup`, `login`, `login_failed`, `reset_request`, `reset_complete`, `email_verified`, `admin_delete_user`), surfaced read-only through the admin API. Written off the response path (`waitUntil`), never blocking auth, via `insertAuthEvent`/`listAuthEvents` in `api/src/lib/db.ts`.
+A best-effort audit trail of auth-flow events (`signup`, `login`, `login_failed`, `reset_request`, `reset_complete`, `email_verified`, `admin_delete_user`, `admin_restore_user`, `admin_purge_user`), shown in the admin. Nothing clears it on its own; Cleanup deletes rows older than 7, 14 or 30 days. Written off the response path (`waitUntil`), never blocking auth, via `insertAuthEvent`/`listAuthEvents` in `api/src/lib/db.ts`.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -184,8 +185,8 @@ Every route below (and every Designs route) is gated by shared auth middleware t
 
 Unlike a TCP-connection database (e.g. a Mongo-style driver), **D1 needs no warm-connection wrapper** — it's queried per-request through the Workers-native `env.DB` binding, so there is nothing here equivalent to a "keep the connection warm" Durable Object for the database itself.
 
-- **Data access** lives in plain functions in `api/src/lib/db.ts` — `findUserByEmail`, `findUserById`, `insertUser`, `updateUser`, `listAllUsers`, `deleteUserById`, `insertAuthEvent`, `listAuthEvents` — built directly on D1's prepared-statement API (`env.DB.prepare(...).bind(...).run()/.first()/.all()`). Route handlers call these functions rather than touching `env.DB` directly, so query shape stays centralized even without a connection-lifecycle concern to manage.
-- **Schema/migrations** live in `api/migrations/*.sql` (currently `0001_init.sql`, defining `users` and `auth_events` — see §3), applied with `wrangler d1 migrations create` / `wrangler d1 migrations apply`. `api/seed.sql` is a **local-only** demo-account fixture, applied only via `wrangler d1 execute contentpro-db --local --file=./seed.sql` — never through `migrations apply`, and never against the remote database.
+- **Data access** lives in plain functions in `api/src/lib/db.ts` — `findUserByEmail`, `findUserById`, `insertUser`, `updateUser`, `listAllUsers`, `softDeleteUser`, the Cleanup functions, `insertAuthEvent`, `listAuthEvents` — built directly on D1's prepared-statement API (`env.DB.prepare(...).bind(...).run()/.first()/.all()`). Route handlers call these functions rather than touching `env.DB` directly, so query shape stays centralized even without a connection-lifecycle concern to manage.
+- **Schema/migrations** live in `api/migrations/*.sql` (`0001_init.sql` defines `users` and `auth_events`, `0002_status_column.sql` adds `users.status` — see §3), applied with `wrangler d1 migrations create` / `wrangler d1 migrations apply`. `api/seed.sql` is a **local-only** demo-account fixture, applied only via `wrangler d1 execute contentpro-db --local --file=./seed.sql` — never through `migrations apply`, and never against the remote database.
 
 There is still exactly one Durable Object in this project, but it does a much narrower job than a database-connection wrapper:
 

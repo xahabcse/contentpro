@@ -86,7 +86,7 @@ api/
 │       ├── password.ts        # PBKDF2-HMAC-SHA256 hash + verify via crypto.subtle (importKey + deriveBits)
 │       ├── jwt.ts              # thin wrappers around hono/jwt for session / email-verification / reset tokens
 │       ├── db.ts               # plain functions wrapping D1 prepared statements — findUserByEmail,
-│       │                       # findUserById, insertUser, updateUser, listAllUsers, deleteUserById,
+│       │                       # findUserById, insertUser, updateUser, listAllUsers, softDeleteUser,
 │       │                       # insertAuthEvent, listAuthEvents (see below)
 │       ├── resend.ts           # email send helper (Idempotency-Key header; needs RESEND_API_KEY + RESEND_FROM_EMAIL)
 │       ├── turnstile.ts        # siteverify() against Cloudflare's Turnstile endpoint
@@ -177,7 +177,7 @@ export async function insertUser(db: D1Database, user: NewUserInput): Promise<st
   return id;
 }
 
-// ...findUserById, updateUser, listAllUsers, deleteUserById, insertAuthEvent, listAuthEvents
+// ...findUserById, updateUser, listAllUsers, softDeleteUser, insertAuthEvent, listAuthEvents
 // — same pattern: a thin function wrapping one prepared statement, translating
 // between snake_case D1 columns and the camelCase UserRecord/AuthEventRecord
 // shapes in schema.ts. This translation happens ONLY in lib/db.ts.
