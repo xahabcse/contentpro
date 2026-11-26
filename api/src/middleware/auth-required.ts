@@ -24,10 +24,11 @@ export const SESSION_COOKIE_NAME = "session";
  *      tokenVersion still governs email-verification / password-reset links
  *      (spec 5.3/5.4); session revocation is a separate counter.
  *
- * `emailVerified` is still taken from the JWT claim frozen at login (spec 5.3),
- * not the fresh DB read -- a user who verifies mid-session must log in again to
- * get a JWT carrying `emailVerified: true`. Pair with `emailVerifiedRequired`
- * to actually gate on verification.
+ * `emailVerified` comes from that same DB read, not the JWT claim frozen at
+ * login. /api/auth/me already reports the DB value, so a session started before
+ * verification was let into the app and then got 403 from every profile call
+ * until the user logged in again. Pair with `emailVerifiedRequired` to actually
+ * gate on verification.
  */
 export const authRequired = createMiddleware<AppEnv>(async (c, next) => {
   // The private AdminGateway has already resolved the admin and set userId/emailVerified.
@@ -53,6 +54,6 @@ export const authRequired = createMiddleware<AppEnv>(async (c, next) => {
   }
 
   c.set("userId", payload.sub);
-  c.set("emailVerified", payload.emailVerified);
+  c.set("emailVerified", user.emailVerified === true);
   await next();
 });

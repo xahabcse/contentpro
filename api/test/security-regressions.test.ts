@@ -200,11 +200,64 @@ describe('admin overview counts', () => {
     }, env as never);
     assert.equal((await request()).status, 401);
     assert.equal((await request(await signSessionToken('member', true, 0, secret))).status, 403);
-    assert.equal((await request(await signSessionToken('admin', false, 0, secret))).status, 403);
+    // Verification is read from the database, not the claim frozen in the JWT at login.
+    sqlite.prepare('UPDATE users SET email_verified = 0 WHERE id = ?').run('admin');
+    assert.equal((await request(await signSessionToken('admin', true, 0, secret))).status, 403);
+    sqlite.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run('admin');
+    assert.equal((await request(await signSessionToken('admin', false, 0, secret))).status, 200);
     const response = await request(await signSessionToken('admin', true, 0, secret));
     assert.equal(response.status, 200);
     const data = await response.json() as { overview: { totalUsers: number; verifiedUsers: number } };
     assert.deepEqual({ totalUsers: data.overview.totalUsers, verifiedUsers: data.overview.verifiedUsers },
       { totalUsers: 2, verifiedUsers: 2 });
+  });
+});
+
+describe('email verification on profile routes', () => {
+  it('lets a session started before verification use the profile once the account is verified', async () => {
+    registerHooks({
+      resolve(specifier, context, nextResolve) {
+        if (specifier.startsWith('.') && !extname(specifier)) {
+          return nextResolve(`${specifier}.ts`, context);
+        }
+        return nextResolve(specifier, context);
+      },
+    });
+    const { default: profileRoute } = await import('../src/routes/profile.ts');
+    const sqlite = new DatabaseSync(':memory:');
+    openDatabases.push(sqlite);
+    for (const migration of ['0001_init.sql', '0002_status_column.sql']) {
+      sqlite.exec(readFileSync(new URL(`../migrations/${migration}`, import.meta.url), 'utf8'));
+    }
+    const now = Date.now();
+    sqlite.prepare(`INSERT INTO users
+      (id, email, password_hash, password_salt, password_iterations, email_verified,
+       token_version, session_version, created_at, updated_at)
+      VALUES ('user-1', 'user@example.com', 'hash', 'salt', 100000, 0, 0, 0, ?, ?)`).run(now, now);
+    const d1 = {
+      prepare(sql: string) {
+        const statement = sqlite.prepare(sql);
+        return {
+          bind(...values: (string | number | null)[]) {
+            return {
+              async first() {
+                const row = statement.get(...values);
+                return row ? { ...row } : null;
+              },
+            };
+          },
+        };
+      },
+    } as unknown as D1Database;
+    const secret = 'profile-test-secret-long-enough';
+    // The JWT was signed at login, before the email link was clicked.
+    const token = await signSessionToken('user-1', false, 0, secret);
+    const getProfile = () => profileRoute.request('/', { headers: { Cookie: `session=${token}` } }, { DB: d1, JWT_SECRET: secret } as never);
+
+    assert.equal((await getProfile()).status, 403);
+    sqlite.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run('user-1');
+    const response = await getProfile();
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { photoUrl: null, companyLogoUrl: null });
   });
 });
