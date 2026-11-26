@@ -98,8 +98,8 @@ async function download(page, button, label) {
       check(metadata.width === 1080 && metadata.height === 1350, `Carousel slide dimensions: ${metadata.width}×${metadata.height}`);
     }
 
-    // The admin moved to admin.xahabcse.me (it reaches /api/admin only through the private
-    // AdminGateway). The old /admin address must say plainly that nothing is there.
+    // Any unknown address (the old /admin included; the admin lives at admin.xahabcse.me)
+    // must say plainly that nothing is there.
     await page.goto(`${origin}/admin`, { waitUntil: 'networkidle' });
     check((await page.locator('body').innerText()).includes('Page not found'), 'Old /admin address should show the not-found page');
     await page.screenshot({ path: path.join(output, 'old-admin-mobile.png') });

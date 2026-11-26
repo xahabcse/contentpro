@@ -1,5 +1,5 @@
 // Every `{ error: "CODE" }` the Worker can return, mapped to something a
-// person can act on. Sources: api/src/routes/{auth,profile,admin}.ts,
+// person can act on. Sources: api/src/routes/{auth,profile}.ts,
 // api/src/middleware/*.ts, api/src/index.ts.
 //
 // Two response shapes exist and both land in `body.error`:
@@ -22,7 +22,6 @@ const MESSAGES: Record<string, string> = {
   EMAIL_NOT_VERIFIED: 'Verify your email address first — check your inbox for the link.',
   FORBIDDEN: "You don't have permission to do that.",
   NOT_FOUND: "We couldn't find what you were looking for.",
-  CANNOT_DELETE_ADMIN: 'That account is an admin and cannot be deleted.',
   INVALID_OR_EXPIRED_TOKEN: 'This link is invalid or has expired. Please request a new one.',
   FILE_TOO_LARGE: 'That image is too large. Please choose a file under 5 MB.',
   FILE_REQUIRED: 'Please choose an image to upload.',

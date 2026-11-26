@@ -3,9 +3,8 @@ import { PublicFooter, PublicHeader } from '@/components/layout/PublicChrome';
 import SlidePreview from '@/components/editor/SlidePreview';
 import Icon from '@/components/ui/Icon';
 
-// Shown for /admin, which used to be the Cardstock admin. That admin moved to
-// admin.xahabcse.me (one admin for the portfolio, NewsPortal and Cardstock), so
-// the old URL says plainly that nothing is here instead of quietly redirecting.
+// The 404 for any address the app doesn't know (App.tsx's catch-all route):
+// it says plainly that nothing is here instead of quietly redirecting.
 export default function NotFoundPage() {
   return (
     <div className="page">
