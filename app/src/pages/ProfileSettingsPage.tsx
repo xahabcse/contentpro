@@ -19,6 +19,20 @@ interface ProfileData {
 
 const EMPTY: ProfileData = { name: '', designation: '', companyName: '', handle: '', photoUrl: null, companyLogoUrl: null };
 
+// GET /api/profile leaves out every field whose column is still NULL, so an
+// account that has never saved its profile gets `{ photoUrl: null, companyLogoUrl: null }`.
+// Fill the gaps here: the form calls string methods on these fields.
+function toProfileData(p: Partial<ProfileData> | null | undefined): ProfileData {
+  return {
+    name: p?.name ?? '',
+    designation: p?.designation ?? '',
+    companyName: p?.companyName ?? '',
+    handle: p?.handle ?? '',
+    photoUrl: p?.photoUrl ?? null,
+    companyLogoUrl: p?.companyLogoUrl ?? null,
+  };
+}
+
 function initials(name: string): string {
   const parts = name.replace(/^md\.?\s+/i, '').trim().split(/\s+/).filter(Boolean);
 
@@ -36,7 +50,7 @@ export default function ProfileSettingsPage() {
   useEffect(() => {
     fetch('/api/profile', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : EMPTY))
-      .then((p: ProfileData) => { setProfile(p); setSaved(p); })
+      .then((raw: Partial<ProfileData>) => { const p = toProfileData(raw); setProfile(p); setSaved(p); })
       .catch(() => {});
   }, []);
 
