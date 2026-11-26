@@ -48,10 +48,24 @@ export default function ProfileSettingsPage() {
   const [format, setFormat] = useState<'card' | 'carousel'>('card');
 
   useEffect(() => {
-    fetch('/api/profile', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : EMPTY))
-      .then((raw: Partial<ProfileData>) => { const p = toProfileData(raw); setProfile(p); setSaved(p); })
-      .catch(() => {});
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/profile', { credentials: 'include' });
+        if (cancelled) return;
+        if (!res.ok) {
+          // A blank form here looks like "no profile yet" and invites overwriting it.
+          toast.error(await readApiError(res, "We couldn't load your profile. Reload the page to try again."));
+          return;
+        }
+        const p = toProfileData((await res.json()) as Partial<ProfileData>);
+        if (!cancelled) { setProfile(p); setSaved(p); }
+      } catch {
+        if (!cancelled) toast.error(NETWORK_ERROR_MESSAGE);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dirty = profile.name !== saved.name || profile.designation !== saved.designation

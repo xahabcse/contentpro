@@ -114,5 +114,7 @@ export function downloadBlob(blob: Blob, filename: string) {
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  // Revoking right after click() can cancel the download in iOS Safari
+  // ("WebKitBlobResource error 1"); give the browser time to read the blob.
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }

@@ -4,7 +4,7 @@ import SlidePreview from '@/components/editor/SlidePreview';
 import Icon from '@/components/ui/Icon';
 import { resolveColors } from '@/lib/palettes';
 import { SHOWCASE_GROUPS, SHOWCASE_ITEMS } from '@/lib/showcase';
-import type { TemplateId } from '@/lib/design-types';
+import type { FooterData, TemplateId } from '@/lib/design-types';
 
 const PAGE_SIZE = 12;
 
@@ -13,11 +13,13 @@ interface TemplateGalleryProps {
   linkFor: (id: TemplateId, format: 'card' | 'carousel') => string;
   // Words for the tile's call to action ("Use", "Open").
   action?: string;
+  // Signature on every preview. Left out on public pages, which show the demo one.
+  footer?: FooterData;
 }
 
 // The 100-template gallery: category chips, card/slide preview switch, search,
 // and 12 tiles at a time with "show more". Used on the landing page and in the app.
-export default function TemplateGallery({ linkFor, action = 'Use' }: TemplateGalleryProps) {
+export default function TemplateGallery({ linkFor, action = 'Use', footer }: TemplateGalleryProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [search, setSearch] = useState('');
   const [format, setFormat] = useState<'card' | 'carousel'>('card');
@@ -53,7 +55,7 @@ export default function TemplateGallery({ linkFor, action = 'Use' }: TemplateGal
           const colors = resolveColors(item.palette, {});
           return (
             <Link key={item.id} className="tpl surface" to={linkFor(item.id, format)}>
-              <SlidePreview key={format} template={item.id} palette={item.palette} format={format} lazy />
+              <SlidePreview key={format} template={item.id} palette={item.palette} format={format} footer={footer} lazy />
               <div className="tpl__body">
                 <div className="tpl__row">
                   <h3 className="tpl__name">{item.name}</h3>

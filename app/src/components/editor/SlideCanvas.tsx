@@ -53,8 +53,9 @@ function txt(fields: Record<string, FieldValue>, k: string): string {
 }
 function list(fields: Record<string, FieldValue>, k: string): string[] {
   const v = fields[k];
-  if (Array.isArray(v)) return v;
-  return typeof v === 'string' && v ? [v] : [];
+  // Blank lines (a trailing Enter in a list box) would render as empty numbered rows.
+  if (Array.isArray(v)) return v.filter((item) => typeof item === 'string' && item.trim() !== '');
+  return typeof v === 'string' && v.trim() ? [v] : [];
 }
 
 // Deterministic shrink-to-fit: pick a font size (pre-u px) purely from the

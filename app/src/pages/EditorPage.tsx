@@ -284,8 +284,10 @@ export default function EditorPage() {
   // effective footer = per-design override, else profile, else placeholder
   const overrideAvatar = design?.authorOverride?.avatarImageId ? imgUrls[design.authorOverride.avatarImageId] : null;
   const footerData: FooterData = {
-    name: design?.authorOverride?.name ?? profile.name ?? '',
-    handle: design?.authorOverride?.handle ?? profile.handle ?? '',
+    // `||`, not `??`: an emptied override field ('') signs from the profile, as the
+    // Author panel says, instead of printing the "Your name" placeholder.
+    name: design?.authorOverride?.name || profile.name || '',
+    handle: design?.authorOverride?.handle || profile.handle || '',
     avatar: overrideAvatar ?? profile.photoUrl ?? null,
     designation: profile.designation ?? null,
     companyName: profile.companyName ?? null,
@@ -560,12 +562,12 @@ export default function EditorPage() {
         {usingProfileAuthor ? 'Signed from your profile. Edit here to override just this design.' : 'Overridden for this design.'}
       </div>
       <Labeled label="Name">
-        <input type="text" value={footerData.name} placeholder="Your name" onChange={(e) => setAuthorOverride('name', e.target.value)} style={inputStyle} />
+        <input type="text" value={design.authorOverride?.name ?? profile.name ?? ''} placeholder={profile.name || 'Your name'} onChange={(e) => setAuthorOverride('name', e.target.value)} style={inputStyle} />
       </Labeled>
       <Labeled label="Handle">
         <div style={{ display: 'flex', alignItems: 'center', background: 'var(--c-input)', border: '1px solid var(--c-line2)', borderRadius: 9, padding: '0 12px' }}>
           <span style={{ color: 'var(--c-dim)', font: "500 14px/1 var(--font-ui)" }}>@</span>
-          <input type="text" value={footerData.handle} placeholder="yourhandle" onChange={(e) => setAuthorOverride('handle', e.target.value.replace(/^@/, ''))} style={{ flex: 1, background: 'none', border: 'none', color: 'var(--c-text)', font: "500 14px/1 var(--font-ui)", padding: '10px 6px' }} />
+          <input type="text" value={design.authorOverride?.handle ?? profile.handle ?? ''} placeholder={profile.handle || 'yourhandle'} onChange={(e) => setAuthorOverride('handle', e.target.value.replace(/^@/, ''))} style={{ flex: 1, background: 'none', border: 'none', color: 'var(--c-text)', font: "500 14px/1 var(--font-ui)", padding: '10px 6px' }} />
         </div>
       </Labeled>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

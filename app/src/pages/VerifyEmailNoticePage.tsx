@@ -132,9 +132,15 @@ export default function VerifyEmailNoticePage() {
         again to continue — you'll be redirected to your dashboard once verified.
       </p>
 
-      <button className="btn btn-primary" onClick={resend} disabled={cooldown} style={{ marginBottom: 12 }}>
-        {cooldown ? 'Please wait before resending' : 'Resend verification email'}
-      </button>
+      {/* No session and no address from signup (e.g. the page opened directly): there is
+          nothing to resend to, so send them to log in instead of posting email: ''. */}
+      {email ? (
+        <button className="btn btn-primary" onClick={resend} disabled={cooldown} style={{ marginBottom: 12 }}>
+          {cooldown ? 'Please wait before resending' : 'Resend verification email'}
+        </button>
+      ) : (
+        <Link className="btn btn-primary" to="/login" style={{ marginBottom: 12 }}>Log in to resend the email</Link>
+      )}
       <button className="btn btn-outline" onClick={handleLogout}>Log out</button>
     </AuthShell>
   );

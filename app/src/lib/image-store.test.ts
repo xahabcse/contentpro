@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { deleteImage, getImageBlob, getImageUrl, putImage, releaseImageUrls } from './image-store';
+import { dataUrlToBlob, deleteImage, getImageBlob, getImageUrl, putImage, releaseImageUrls } from './image-store';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -47,5 +47,26 @@ describe('account-scoped IndexedDB images', () => {
     expect(await getImageUrl('other', 'img_0')).toBe(otherUrl);
     releaseImageUrls('other');
     expect(revokeObjectURL).toHaveBeenCalledTimes(66);
+  });
+});
+
+describe('dataUrlToBlob (backup restore)', () => {
+  it('decodes a base64 image without fetch, which the production CSP blocks for data: URLs', async () => {
+    const fetchSpy = vi.fn(async () => { throw new TypeError('Failed to fetch'); });
+    vi.stubGlobal('fetch', fetchSpy);
+    // 1x1 transparent PNG
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+    const blob = await dataUrlToBlob('data:image/png;base64,' + png);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(blob.type).toBe('image/png');
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    expect(Array.from(bytes.slice(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    expect(bytes.length).toBe(atob(png).length);
+  });
+
+  it('rejects a value that is not a data URL', async () => {
+    await expect(dataUrlToBlob('https://example.test/a.png')).rejects.toThrow();
   });
 });

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import AboutPage from './pages/AboutPage';
 import SignupPage from './pages/SignupPage';
@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const ProfileSettingsPage = lazy(() => import('./pages/ProfileSettingsPage'));
@@ -16,9 +17,12 @@ const EditorPage = lazy(() => import('./pages/EditorPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 export default function App() {
+  const { pathname } = useLocation();
+
   return (
     <>
     <div className="sky" aria-hidden="true" />
+    <ErrorBoundary resetKey={pathname}>
     <Suspense fallback={<div role="status" style={{ padding: 32, textAlign: 'center' }}>Loading…</div>}>
       <Routes>
       <Route path="/" element={<LandingPage />} />
@@ -36,12 +40,11 @@ export default function App() {
         <Route path="/designs/:id" element={<EditorPage />} />
       </Route>
 
-      {/* The admin moved to admin.xahabcse.me; the old address is a plain 404. */}
-      <Route path="/admin/*" element={<NotFoundPage />} />
-
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Any address the app doesn't know -- a mistyped link, or the old /admin -- is a plain 404. */}
+      <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
+    </ErrorBoundary>
     </>
   );
 }

@@ -2050,7 +2050,9 @@ h3 {
   text-overflow: ellipsis;
 }
 
-.me span {
+/* Only the email line. A bare `.me span` also matched the .avatar span and
+   overrode its display: grid, which pushed the initials into the top-left corner. */
+.me > div span {
   display: block;
   font-size: var(--fs-xs);
   color: var(--ink-3);

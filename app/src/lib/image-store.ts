@@ -113,7 +113,16 @@ export function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+// Decoded by hand, not with fetch(dataUrl): the site's CSP (app/public/_headers)
+// limits connect-src to 'self', so the browser refuses to fetch a data: URL and
+// every backup with an image failed to restore in production.
 export async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
-  const res = await fetch(dataUrl);
-  return res.blob();
+  const match = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(dataUrl);
+  if (!match) throw new Error('Not a data URL');
+  const [, type, base64, payload] = match;
+  if (!base64) return new Blob([decodeURIComponent(payload)], { type });
+  const binary = atob(payload);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type });
 }

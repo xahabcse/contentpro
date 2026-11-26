@@ -9,6 +9,9 @@ export interface User {
     designation?: string;
     companyName?: string;
     handle?: string;
+    // The authenticated image routes (/api/profile/photo|logo), or null when none is uploaded.
+    photoUrl?: string | null;
+    companyLogoUrl?: string | null;
   };
 }
 

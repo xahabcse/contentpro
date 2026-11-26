@@ -204,7 +204,8 @@ export default function DashboardPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = 'contentpro-designs-backup.json'; a.click();
-      URL.revokeObjectURL(url);
+      // Same delay as lib/export.ts downloadBlob: an immediate revoke can cancel the download in iOS Safari.
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
       toast.success('Backup downloaded.');
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not build a backup.'); }
   }
